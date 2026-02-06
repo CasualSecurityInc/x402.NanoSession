@@ -8,6 +8,9 @@ This diagram shows the complete lifecycle of a resource request, from the initia
 
 ![Protocol Sequence Flow](img/sequence_flow.svg)
 
+**D2 Version (Offline/Native):**
+![Protocol Sequence Flow D2](img/sequence_flow_d2.svg)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -52,6 +55,9 @@ sequenceDiagram
 This flowchart visualizes how the Server deterministically maps a Session and Request to a specific Nano Address and Amount.
 
 ![Sharding & Tagging Logic](img/sharding_logic.svg)
+
+**D2 Version (Offline/Native):**
+![Sharding & Tagging Logic D2](img/sharding_logic_d2.svg)
 
 ```mermaid
 flowchart TD
@@ -101,6 +107,9 @@ flowchart TD
 This diagram details the decision-making process within the Client Agent (Purse).
 
 ![Client State Machine](img/purse_state.svg)
+
+**D2 Version (Offline/Native):**
+![Client State Machine D2](img/purse_state_d2.svg)
 
 ```mermaid
 stateDiagram-v2

@@ -1,14 +1,18 @@
 # Client (Purse) State Machine
 direction: right
 
-[*] -> Idle
+Start: {shape: circle; label: ""}
+End: {shape: circle; label: ""}
 
-Transaction Flow: {
+Start -> Idle
+
+"Transaction Flow": {
   Idle -> Requesting: User/Agent needs Resource
   Requesting -> PaymentRequired: Server returns 402
   
   PaymentRequired: {
-    [*] -> CheckBudget
+    Start: {shape: circle; label: ""}
+    Start -> CheckBudget
     CheckBudget -> Abort: Exceeds Daily Limit
     CheckBudget -> CalcAmount: Within Limit
     CalcAmount -> SignBlock: Amount = Price + Tag
@@ -17,11 +21,11 @@ Transaction Flow: {
   }
   
   Abort -> Failed: Budget Error
-  PaymentRequired.SaveReceipt -> Verifying: Retry Request + Hash
+  PaymentRequired.SaveReceipt -> Verifying: "Retry Request + Hash"
 }
 
 Verifying -> Success: 200 OK
-Verifying -> Failed: 402 (Invalid) / 409 (Replay)
+Verifying -> Failed: "402 (Invalid) / 409 (Replay)"
 
 Success -> Idle: Task Complete
-Failed -> [*]: Handle Error
+Failed -> End: Handle Error

@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    participant C as Client (Purse)
+    participant S as Server (Middleware)
+    participant N as Nano Network
+    participant B as Background Janitor
+
+    Note over C,S: 1. Initial Handshake
+    C->>S: GET /api/resource
+    S->>S: Derive Pool Address & Tag
+    S-->>C: 402 Payment Required
+    Note right of S: Returns JSON/Headers:<br/>- X-402-Address (Sharded)<br/>- X-402-Tag (e.g., 4291)<br/>- Price_Raw
+
+    Note over C,N: 2. Payment Phase
+    C->>C: Check Budget
+    C->>C: Amount = Price + Tag
+    C->>N: Broadcast Send Block
+    Note right of C: Stores Block_Hash as Receipt
+
+    Note over C,S: 3. Verification Phase (Async)
+    C->>S: GET /api/resource<br/>Header: X-402-Payment-Block: <Hash>
+    S->>N: Verify Block Confirmation (RPC/WebSocket)
+    N-->>S: Block Details (Confirmed)
+    
+    rect rgb(240, 248, 255)
+    Note right of S: Validation Logic
+    S->>S: Check Destination == Pool Address
+    S->>S: Check Amount >= Price
+    S->>S: Check Amount % Modulus == Tag
+    S->>S: Idempotency Check (Mark Hash Used)
+    end
+
+    S-->>C: 200 OK (Resource)
+
+    Note over B,N: 4. Lazy Settlement (Async/Cron)
+    B->>N: Sweep funds from Sharded Pool -> Cold Wallet

@@ -1,0 +1,7 @@
+# Temporary files
+.gemini/
+tmp/
+*.log
+
+# OS files
+.DS_Store

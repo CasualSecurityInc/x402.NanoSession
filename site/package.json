@@ -1,0 +1,14 @@
+{
+  "name": "x402-nanosession-docs",
+  "version": "1.0.0",
+  "description": "Documentation site for x402.NanoSession Protocol",
+  "scripts": {
+    "docs:dev": "node scripts/prepare-rev.js && vitepress dev .",
+    "docs:build": "node scripts/prepare-rev.js && vitepress build .",
+    "docs:preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.0-rc.31",
+    "vue": "^3.3.0"
+  }
+}

@@ -7,7 +7,7 @@
 
 ## Abstract
 
-x402.NanoSession (Rev 3) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes a **Deterministic Raw Tagging** mechanism to allow a single Nano address to process thousands of concurrent payments without requiring unique address generation per request. This base specification defines the core payment flow, async verification, and tagging logic using a single, static server address. 
+x402.NanoSession (Rev 3) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes a **Deterministic Raw Tagging** mechanism to allow a single Nano address to process thousands of concurrent payments without requiring unique address generation per request. This base specification defines the core payment flow, async verification, and tagging logic using a single, static server address.
 
 Advanced address management strategies (Sharded Pools, Stochastic Rotation) are defined in separate Extension documents.
 

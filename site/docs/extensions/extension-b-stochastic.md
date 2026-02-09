@@ -1,5 +1,5 @@
 
-[← Back to Protocol](/)
+[← Back to Protocol](/protocol)
 
 # x402.NanoSession Extension B: Stochastic Rotation (Moving Window)
 
@@ -11,7 +11,15 @@
 
 This extension defines the **Stochastic Rotation** mechanism for privacy-focused services. Unlike the static/periodic pools in Extension A, this model uses a dynamic "Moving Window" of addresses that retire based on usage, preventing passive traffic analysis and revenue enumeration.
 
-## 2. Core Concept: Usage-Based Rotation
+## 2. Motivation: Privacy via Obfuscation
+
+While **Extension A** solves the *throughput* problem via sharding, it leaves the service's total revenue transparent to any observer who can enumerate the 20-100 active pool addresses.
+
+*   **The Problem:** An observer can map the static pool and monitor the service's total income, customer growth, and peak hours.
+*   **The Solution:** By constantly rotating addresses based on usage (stochastic), the "map" becomes stale faster than an attacker can update it.
+*   **Inherited Benefit:** Since this model also utilizes multiple active addresses (Active Window $M$), it **inherits the high-throughput concurrency benefits** of Extension A.
+
+## 3. Core Concept: Usage-Based Rotation
 
 In standard pools, addresses rotate on a fixed schedule (e.g., weekly). An attacker can map these addresses once per week. In this extension, addresses rotate **stochastically** based on transaction volume.
 

@@ -1,5 +1,5 @@
 
-[← Back to Protocol](/)
+[← Back to Protocol](/protocol)
 
 # x402.NanoSession Extension A: Generational Sharded Pools
 
@@ -11,7 +11,15 @@
 
 This extension defines the **Sharded Pool** architecture for high-volume services. While the Base Specification uses a single address, services processing >1 TPS may encounter ledger contention when the "Janitor" attempts to pocket funds. Sharded Pools distribute this load across 20-100 addresses using deterministic mapping based on Session ID.
 
-## 2. Architecture
+## 2. Motivation: Single-Chain Concurrency
+
+The primary motivation for this extension is **Throughput**, not privacy.
+
+*   **Head-of-Line Blocking:** In Nano's Block Lattice, each account has its own blockchain. Blocks must be appended sequentially. To "pocket" a pending payment, the server must generate a Receive Block that references the previous block on that account.
+*   **The Bottleneck:** If a single address receives 1,000 payments/sec, the server must sign and publish 1,000 receive blocks *in order*. Network propagation and PoW generation (even with acceleration) create a hard physical limit on the confirmation rate of a single chain.
+*   **The Solution:** By distributing sessions across $N$ addresses (shards), the server can process $N$ receive chains in parallel, effectively multiplying the maximum settlement throughput by $N$.
+
+## 3. Architecture
 
 ### 2.1. The Server: Generational Sharded Pool
 The server maintains a pool of $N$ addresses. To ensure operational hygiene and mitigate long-term fingerprinting, the pool rotates periodically using Hierarchical Deterministic (HD) derivation.

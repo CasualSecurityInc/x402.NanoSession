@@ -17,18 +17,26 @@ fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
 
 // Filter and classify files
 const files = fs.readdirSync(SOURCE_DIR);
+let introFile = null;
 let protocolFile = null;
 const extensionFiles = [];
 
 files.forEach(file => {
   if (file.includes(SPEC_REV) && file.startsWith('x402_NanoSession_')) {
-    if (file.includes('Protocol')) {
+    if (file.includes('Intro')) {
+      introFile = file;
+    } else if (file.includes('Protocol')) {
       protocolFile = file;
     } else {
       extensionFiles.push(file);
     }
   }
 });
+
+if (!introFile) {
+  console.error(`ERROR: No Intro file found for revision ${SPEC_REV}!`);
+  process.exit(1);
+}
 
 if (!protocolFile) {
   console.error(`ERROR: No Protocol file found for revision ${SPEC_REV}!`);
@@ -68,7 +76,7 @@ extensionFiles.sort().forEach(file => {
   extensionLinks.push({ text: title, link: webPath });
 
   // Inject "Back to Protocol" link at the top
-  const backLink = `\n[← Back to Protocol](/)\n\n`;
+  const backLink = `\n[← Back to Protocol](/protocol)\n\n`;
   const newContent = backLink + content;
 
   fs.writeFileSync(targetPath, newContent);
@@ -88,7 +96,7 @@ Object.keys(fileMapping).forEach(sourceName => {
 });
 
 // Inject "Tree View" at the top
-let treeView = `\n### 📂 Specification Structure\n- **Protocol**: [${SPEC_REV} Protocol Definition](/)\n`;
+let treeView = `\n### 📂 Specification Structure\n- **Protocol**: [${SPEC_REV} Protocol Definition](/protocol)\n`;
 if (extensionLinks.length > 0) {
   treeView += `- **Extensions**:\n`;
   extensionLinks.forEach(ext => {
@@ -110,6 +118,10 @@ if (extensionLinks.length > 0) {
 // Prepend Tree View, Append See Also
 const finalProtocolContent = treeView + protocolContent + seeAlso;
 
-fs.writeFileSync(path.join(TARGET_DIR, 'index.md'), finalProtocolContent);
-console.log(`Processed Protocol: ${protocolFile} -> index.md`);
+fs.writeFileSync(path.join(TARGET_DIR, 'protocol.md'), finalProtocolContent);
+console.log(`Processed Protocol: ${protocolFile} -> protocol.md`);
 
+// Process Intro File - now the homepage
+const introContent = fs.readFileSync(path.join(SOURCE_DIR, introFile), 'utf8');
+fs.writeFileSync(path.join(TARGET_DIR, 'index.md'), introContent);
+console.log(`Processed Intro: ${introFile} -> index.md`);

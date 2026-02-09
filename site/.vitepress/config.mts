@@ -7,16 +7,23 @@ export default defineConfig({
     cleanUrls: true,
     themeConfig: {
         nav: [
-            { text: 'Protocol', link: '/' },
+            { text: 'Intro', link: '/' },
+            { text: 'Protocol', link: '/protocol' },
             { text: 'Extension A: Pools', link: '/extensions/extension-a-pools' },
             { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' }
         ],
 
         sidebar: [
             {
+                text: 'About',
+                items: [
+                    { text: 'Intro', link: '/' }
+                ]
+            },
+            {
                 text: 'Specification',
                 items: [
-                    { text: 'Protocol Definition', link: '/' },
+                    { text: 'Protocol Definition', link: '/protocol' },
                     { text: 'Extension A: Sharded Pools', link: '/extensions/extension-a-pools' },
                     { text: 'Extension B: Stochastic Rotation', link: '/extensions/extension-b-stochastic' }
                 ]

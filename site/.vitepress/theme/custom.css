@@ -1,0 +1,28 @@
+:root {
+  --vp-c-brand-1: #3b82f6; /* Serious Blue */
+  --vp-c-brand-2: #2563eb;
+  --vp-c-brand-3: #1d4ed8;
+  --vp-font-family-base: 'Inter', 'Roboto', sans-serif;
+}
+
+.vp-doc h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.vp-doc h2 {
+    border-bottom: 2px solid var(--vp-c-divider);
+    padding-bottom: 0.5rem;
+}
+
+/* Custom Alert Styles */
+.custom-block.tip {
+  border-color: var(--vp-c-brand-1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .vp-doc h1 {
+    font-size: 2rem;
+  }
+}

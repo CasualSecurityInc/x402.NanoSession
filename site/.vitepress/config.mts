@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
     title: "x402.NanoSession",
     description: "Protocol for High-Frequency M2M Nano Payments",
+    base: '/x402.NanoSession/',
     srcDir: './docs', // Point to the generated docs folder
     cleanUrls: true,
     themeConfig: {

@@ -11,7 +11,8 @@ export default defineConfig({
             { text: 'Intro', link: '/' },
             { text: 'Protocol', link: '/protocol' },
             { text: 'Extension A: Pools', link: '/extensions/extension-a-pools' },
-            { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' }
+            { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' },
+            { text: 'Glossary', link: '/appendix/glossary' }
         ],
 
         sidebar: [
@@ -27,6 +28,12 @@ export default defineConfig({
                     { text: 'Protocol Definition', link: '/protocol' },
                     { text: 'Extension A: Sharded Pools', link: '/extensions/extension-a-pools' },
                     { text: 'Extension B: Stochastic Rotation', link: '/extensions/extension-b-stochastic' }
+                ]
+            },
+            {
+                text: 'Appendix',
+                items: [
+                    { text: 'Glossary', link: '/appendix/glossary' }
                 ]
             }
         ],

@@ -25,6 +25,12 @@
     *   `SPEC_REV=rev3 npm run docs:build`
     *   `npm run docs:preview`
 
+3.  **Deploying the Site**:
+    *   Automatic via GitHub Actions on push to `main`.
+    *   Workflow: `.github/workflows/deploy.yml`
+    *   **Live URL**: https://csi.ninzin.net/x402.NanoSession/
+    *   Note: The CasualSecurityInc org has a custom domain (`csi.ninzin.net`), so `cbrunnkvist.github.io` URLs redirect there.
+
 ### ⚠️ Critical Context
 *   **Nano**: A feeless, instant cryptocurrency.
 *   **HTTP 402**: The status code used for payment required.

@@ -4,7 +4,7 @@ title: Intro
 
 # x402.NanoSession (Rev 3) — Intro
 
-x402.NanoSession brings HTTP 402 payments to Nano (XNO) with a single-address, high-concurrency design. It focuses on deterministic raw tagging and async verification to enable instant, feeless, per-request payments without smart contracts.
+x402.NanoSession defines a straightforward per-request HTTP 402 scheme for access to web resources and APIs. Payments are settled instantly and feelessly via Nano (XNO), avoiding smart‑contract overhead.
 
 | Feature | Original x402 spec (x402.org whitepaper) | x402.NanoSession Rev 3 |
 | --- | --- | --- |

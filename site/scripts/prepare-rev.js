@@ -5,6 +5,7 @@ const SPEC_REV = process.env.SPEC_REV || 'rev3';
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
 const TARGET_DIR = path.resolve(__dirname, '../docs');
 const EXTENSIONS_DIR = path.join(TARGET_DIR, 'extensions');
+const APPENDIX_DIR = path.join(TARGET_DIR, 'appendix');
 
 console.log(`Building documentation for revision: ${SPEC_REV}`);
 
@@ -14,11 +15,13 @@ if (fs.existsSync(TARGET_DIR)) {
 }
 fs.mkdirSync(TARGET_DIR, { recursive: true });
 fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
+fs.mkdirSync(APPENDIX_DIR, { recursive: true });
 
 // Filter and classify files
 const files = fs.readdirSync(SOURCE_DIR);
 let introFile = null;
 let protocolFile = null;
+let glossaryFile = null;
 const extensionFiles = [];
 
 files.forEach(file => {
@@ -27,6 +30,8 @@ files.forEach(file => {
       introFile = file;
     } else if (file.includes('Protocol')) {
       protocolFile = file;
+    } else if (file.includes('Glossary')) {
+      glossaryFile = file;
     } else {
       extensionFiles.push(file);
     }
@@ -125,3 +130,12 @@ console.log(`Processed Protocol: ${protocolFile} -> protocol.md`);
 const introContent = fs.readFileSync(path.join(SOURCE_DIR, introFile), 'utf8');
 fs.writeFileSync(path.join(TARGET_DIR, 'index.md'), introContent);
 console.log(`Processed Intro: ${introFile} -> index.md`);
+
+// Process Glossary File (if exists)
+if (glossaryFile) {
+  const glossaryContent = fs.readFileSync(path.join(SOURCE_DIR, glossaryFile), 'utf8');
+  fs.writeFileSync(path.join(APPENDIX_DIR, 'glossary.md'), glossaryContent);
+  console.log(`Processed Glossary: ${glossaryFile} -> appendix/glossary.md`);
+} else {
+  console.log(`Note: No Glossary file found for revision ${SPEC_REV}`);
+}

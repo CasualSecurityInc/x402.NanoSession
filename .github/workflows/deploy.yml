@@ -9,8 +9,12 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,17 +25,30 @@ jobs:
         with:
           node-version: '18.x'
           cache: 'npm'
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
 
       - name: Build site
+        working-directory: site
         env:
-          SPEC_REV: rev3
-        run: |
-          cd site
-          npm ci
-          SPEC_REV=${SPEC_REV} npm run docs:build
+          SPEC_REV: ${{ vars.SPEC_REV || 'rev3' }}
+        run: npm run docs:build
 
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          build_dir: site/.vitepress/dist
+          path: site/.vitepress/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

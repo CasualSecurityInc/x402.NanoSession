@@ -1,0 +1,16 @@
+- Created exercise: added /examples/client/package.json for nanosession example client.
+- File path: /Users/conny/Developer/CasualSecurityInc/x402.NanoSession/examples/client/package.json
+- Content summary:
+- {
+-   "name": "@nanosession/examples-client",
+-   "version": "0.1.0",
+-   "description": "Example NanoSession x402 payment client",
+-   "type": "module",
+-   "scripts": {"start": "tsx src/index.ts"},
+-   "dependencies": {
+-     "@nanosession/core": "workspace:*",
+-     "@nanosession/client": "workspace:*"
+-   },
+-   "devDependencies": {}
+- }
+- This aligns with the minimal viable example client approach and avoids heavy frameworks.

@@ -1,0 +1,25 @@
+{
+  "name": "@nanosession/client",
+  "version": "0.1.0",
+  "description": "PaymentHandler for NanoSession x402 client",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@nanosession/core": "*",
+    "@nanosession/rpc": "*",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {},
+  "peerDependencies": {}
+}

@@ -1,27 +1,29 @@
 /**
  * @nanosession/core
- * Core types and constants for NanoSession x402 integration
+ * Core types, constants, and mapping for NanoSession x402 integration
  */
 
-// Constants
-export const TAG_MODULUS = 10_000_000;
-export const SCHEME = 'nano-session';
-export const NETWORK = 'nano:mainnet';
-export const ASSET = 'XNO';
+// Re-export from constants
+export {
+  TAG_MODULUS,
+  SCHEME,
+  NETWORK,
+  ASSET,
+  VERSION,
+  DEFAULT_TIMEOUT_SECONDS
+} from './constants.js';
 
-// Version
-export const VERSION = '0.1.0';
+// Re-export from types
+export type {
+  NanoSessionHeaders,
+  NanoSessionExtra,
+  PaymentRequirements,
+  PaymentPayload
+} from './types.js';
 
-// Placeholder for future types
-export interface NanoSessionHeaders {
-  sessionId: string;
-  address: string;
-  priceRaw: string;
-  tag: number;
-  expires: string;
-}
-
-// Placeholder for future functions
-export function hello(): string {
-  return 'Hello from @nanosession/core!';
-}
+// Re-export from mapping
+export {
+  toX402Requirements,
+  fromX402Requirements,
+  toX402Payload
+} from './mapping.js';

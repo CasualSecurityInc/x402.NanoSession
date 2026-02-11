@@ -15,15 +15,23 @@ describe('NanoRpcClient', () => {
 
   test('getBlockInfo returns block data', async () => {
     const mockResponse = {
-      hash: 'ABC123',
-      type: 'state',
-      subtype: 'send',
       block_account: 'nano_account',
-      balance: '1000000000000000000000000000',
-      link: 'nano_destination',
       amount: '500000000000000000000000000',
+      balance: '1000000000000000000000000000',
+      height: '42',
       confirmed: 'true',
-      height: '42'
+      subtype: 'send',
+      contents: {
+        type: 'state',
+        account: 'nano_account',
+        previous: 'PREV123',
+        representative: 'nano_rep',
+        balance: '1000000000000000000000000000',
+        link: 'LINK456',
+        link_as_account: 'nano_destination',
+        signature: 'SIG789',
+        work: 'WORK000'
+      }
     };
 
     mockFetch.mockResolvedValueOnce({
@@ -38,8 +46,11 @@ describe('NanoRpcClient', () => {
     expect(result.type).toBe('state');
     expect(result.subtype).toBe('send');
     expect(result.amount).toBe('500000000000000000000000000');
-    expect(result.confirmed).toBe('true');
+    expect(result.confirmed).toBe(true);
     expect(result.height).toBe(42);
+    expect(result.link).toBe('LINK456');
+    expect(result.link_as_account).toBe('nano_destination');
+    expect(result.previous).toBe('PREV123');
   });
 
   test('failover tries next endpoint on failure', async () => {
@@ -47,7 +58,24 @@ describe('NanoRpcClient', () => {
       .mockRejectedValueOnce(new Error('First endpoint failed'))
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ hash: 'XYZ789', type: 'state' })
+        json: async () => ({
+          block_account: 'nano_account',
+          amount: '0',
+          balance: '0',
+          height: '1',
+          confirmed: 'true',
+          subtype: 'send',
+          contents: {
+            type: 'state',
+            account: 'nano_account',
+            previous: '0',
+            representative: 'nano_rep',
+            balance: '0',
+            link: '0',
+            signature: 'SIG',
+            work: 'WORK'
+          }
+        })
       });
 
     const client = new NanoRpcClient({

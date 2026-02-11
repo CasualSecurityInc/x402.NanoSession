@@ -15,7 +15,9 @@
     "build": "tsc",
     "test": "vitest --run"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@nanosession/core": "workspace:*"
+  },
   "devDependencies": {},
   "peerDependencies": {}
 }

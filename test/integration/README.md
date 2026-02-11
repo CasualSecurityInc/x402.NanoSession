@@ -1,6 +1,22 @@
 # Integration Tests
 
-These tests perform real transactions on the Nano mainnet. Use with caution.
+These tests perform real transactions on the Nano mainnet using HD wallet account derivation. Use with caution.
+
+## HD Account Derivation
+
+The integration test uses Nano's **seed+index derivation model** (not BIP32):
+
+```
+secretKey = blake2b(seed || uint32_be(index))
+publicKey = ed25519(secretKey)
+address   = nano_base32(publicKey)
+```
+
+From a single test seed, two accounts are derived:
+- **Account #0**: Client account (source of payments)
+- **Account #1**: Server account (receives payments)
+
+This ensures payments flow between different addresses (avoiding acct0→acct0 which is meaningless).
 
 ## Setup
 
@@ -9,39 +25,58 @@ These tests perform real transactions on the Nano mainnet. Use with caution.
    cp e2e.env.example e2e.env
    ```
 
-2. Edit `e2e.env` with your test wallet details:
+2. Edit `e2e.env` with your test wallet seed:
    ```bash
    NANO_TEST_SEED=your_64_char_hex_seed_here
    NANO_RPC_URL=https://rpc.nano.to
-   NANO_SERVER_ADDRESS=nano_your_receiving_address
    NANO_MAX_SPEND=1000000000000000000000000000  # 0.001 XNO in raw
    ```
 
-3. Ensure your test wallet has a small amount of XNO (0.01 XNO is plenty for testing).
+3. **Fund Account #0** (the derived client address):
+   ```bash
+   # Derive the client address to fund:
+   # Account #0 address will be shown when you run the test
+   ```
+
+4. Ensure Account #0 has balance (0.01 XNO is plenty for testing).
 
 ## Running Tests
 
 ```bash
-# Load environment and run integration tests
-source ./e2e.env && npm run test:integration
+# Run integration tests (loads e2e.env automatically)
+pnpm test:integration
 
-# Or let the test load e2e.env automatically
-npm run test:integration
+# Or run all tests including integration
+pnpm test
 ```
 
 ## Test Flow
 
-1. **Server Setup**: Starts a local HTTP server with a payment-protected endpoint
-2. **First Request**: Client requests resource without payment → receives 402
-3. **Payment Creation**: Client creates and broadcasts a Nano send block
-4. **Second Request**: Client retries with block hash → server verifies
-5. **Access Granted**: Server returns 200 with resource content
+1. **Setup Phase**:
+   - Derive Account #0 (client) and Account #1 (server) addresses from seed
+   - Log addresses (seed is never displayed)
+   - Sweep any existing funds from Account #1 → Account #0
 
-## Safety Limits
+2. **Test Execution**:
+   - Start local HTTP server with payment-protected endpoint
+   - Client requests resource without payment → receives HTTP 402
+   - Server returns PaymentRequirements with Account #1 as destination
+   - Client creates Nano send block from Account #0
+   - Broadcast block to mainnet via RPC
+   - Poll for confirmation
+   - Client retries request with block hash proof
+   - Server verifies on blockchain → grants access
 
-- Maximum spend per test: 0.001 XNO
-- Tests skip automatically if `NANO_TEST_SEED` is not set
-- Tests use small amounts suitable for mainnet testing
+3. **Cleanup Phase**:
+   - Sweep remaining funds from Account #1 → Account #0
+
+## Safety Features
+
+- **Seed never logged**: Only derived addresses are displayed
+- **Automatic sweep**: Funds are returned to Account #0 after test
+- **Balance checks**: Test validates sufficient balance before attempting payments
+- **Maximum spend**: Hard limit per test (default 0.001 XNO)
+- **Auto-skip**: Tests skip gracefully if `NANO_TEST_SEED` is not set
 
 ## Troubleshooting
 
@@ -50,17 +85,41 @@ npm run test:integration
 - Check that NANO_TEST_SEED is set to a valid 64-character hex string
 
 **"Insufficient balance" errors**
-- Your test wallet needs enough balance to cover the payment + minimum account balance
+- Account #0 (derived from seed with index 0) needs balance
+- The test logs the derived addresses on startup - fund Account #0
 - Minimum account balance on Nano is currently 0.0001 XNO
+
+**"Account not found" errors**
+- Newly derived accounts don't exist on-chain until they receive funds
+- Fund Account #0 first to open the account
 
 **RPC connection failures**
 - Try a different RPC endpoint
 - Ensure you have internet connectivity
 - Some public RPCs have rate limits
 
+## Implementation Details
+
+The integration test uses the `nanocurrency` npm package for proper HD derivation:
+
+```typescript
+import { deriveSecretKey, derivePublicKey, deriveAddress } from 'nanocurrency';
+
+// Derive Account #0 (client)
+const clientSecret = deriveSecretKey(seed, 0);
+const clientPublic = derivePublicKey(clientSecret);
+const clientAddress = deriveAddress(clientPublic, { useNanoPrefix: true });
+
+// Derive Account #1 (server)
+const serverSecret = deriveSecretKey(seed, 1);
+const serverPublic = derivePublicKey(serverSecret);
+const serverAddress = deriveAddress(serverPublic, { useNanoPrefix: true });
+```
+
 ## Notes
 
-- Integration tests are NOT run by default with `npm test`
-- They only run when explicitly invoked via `npm run test:integration`
+- Integration tests are NOT run by default with `pnpm test`
+- They only run when explicitly invoked via `pnpm test:integration`
 - Each test run spends real XNO (though very small amounts)
-- The receiving address should be one you control for testing
+- The test handles its own address derivation - you only need to provide the seed
+- Account #1 is automatically swept back to Account #0 after tests

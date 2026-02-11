@@ -27,3 +27,6 @@ export {
   fromX402Requirements,
   toX402Payload
 } from './mapping.js';
+
+export { StandardAccountPool } from './address-pool.js';
+export type { AddressPool } from './address-pool.js';

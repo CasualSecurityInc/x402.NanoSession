@@ -16,8 +16,8 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@nanosession/core": "*",
-    "@nanosession/rpc": "*"
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*"
   },
   "devDependencies": {},
   "peerDependencies": {}

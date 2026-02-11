@@ -62,11 +62,11 @@ Implement x402-compatible NanoSession protocol as standalone TypeScript packages
 - `docs/x402_NanoSession_rev3_Extension_x402_Compat.md` - x402 compatibility spec addition
 
 ### Definition of Done
-- [ ] `npm test` passes with >90% coverage on core/client/server packages
-- [ ] `npm run test:integration` completes mainnet payment verification
-- [ ] TypeScript compiles without errors: `npx tsc --noEmit`
-- [ ] Example server accepts payment and grants access
-- [ ] Example client detects 402, pays, and retries successfully
+- [x] `npm test` passes with >90% coverage on core/client/server packages
+- [x] `npm run test:integration` completes mainnet payment verification
+- [x] TypeScript compiles without errors: `npx tsc --noEmit`
+- [x] Example server accepts payment and grants access
+- [x] Example client detects 402, pays, and retries successfully
 
 ### Must Have
 - x402 PaymentRequirements ↔ NanoSession headers bidirectional mapping
@@ -173,7 +173,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 1. Project Setup + Test Infrastructure
+- [x] 1. Project Setup + Test Infrastructure
 
   **What to do**:
   - Initialize monorepo with npm workspaces
@@ -268,7 +268,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 2. Core Types + Schema Mapping
+- [x] 2. Core Types + Schema Mapping
 
   **What to do**:
   - Define NanoSession-specific types (NanoSessionRequirements, NanoSessionPayload, NanoSessionExtra)
@@ -364,7 +364,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 3. Nano RPC Client
+- [x] 3. Nano RPC Client
 
   **What to do**:
   - Create `NanoRpcClient` class with:
@@ -457,7 +457,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 4. Server Handler + Spent Set
+- [x] 4. Server Handler + Spent Set
 
   **What to do**:
   - Implement `SpentSetStorage` interface:
@@ -565,7 +565,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 5. Client Handler
+- [x] 5. Client Handler
 
   **What to do**:
   - Implement `NanoSessionPaymentHandler` matching x402's PaymentHandler pattern:
@@ -660,7 +660,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 6. Integration Tests (Mainnet)
+- [x] 6. Integration Tests (Mainnet)
 
   **What to do**:
   - Create integration test that performs real payment on mainnet:
@@ -759,7 +759,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 7. Example Applications
+- [x] 7. Example Applications
 
   **What to do**:
   - Create example server (`examples/server/`):
@@ -834,7 +834,7 @@ Critical Path: 1 → 2 → 4 → 6 → 7
 
 ---
 
-- [ ] 8. Documentation
+- [x] 8. Documentation
 
   **What to do**:
   - Create `docs/x402_NanoSession_rev3_Extension_x402_Compat.md`:
@@ -949,9 +949,9 @@ source ./e2e.env && cd examples/client && npx tsx src/index.ts
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present
-- [ ] All "Must NOT Have" absent
-- [ ] All unit tests pass
-- [ ] Integration test completes on mainnet
-- [ ] Example applications work end-to-end
-- [ ] x402 compatibility documented
+- [x] All "Must Have" present
+- [x] All "Must NOT Have" absent
+- [x] All unit tests pass
+- [x] Integration test completes on mainnet
+- [x] Example applications work end-to-end
+- [x] x402 compatibility documented

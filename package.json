@@ -2,7 +2,10 @@
   "name": "@nanosession/x402",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["packages/*", "examples/*"],
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
   "scripts": {
     "test": "vitest",
     "test:run": "vitest --run",
@@ -11,10 +14,12 @@
     "clean": "rm -rf packages/*/dist examples/*/dist"
   },
   "devDependencies": {
-    "vitest": "^1.0.0",
-    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "^17.2.4",
     "tsx": "^4.7.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.3.0",
+    "vite-tsconfig-paths": "^6.1.0",
+    "vitest": "^1.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

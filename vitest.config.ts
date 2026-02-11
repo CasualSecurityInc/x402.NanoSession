@@ -1,6 +1,15 @@
 import { defineConfig } from 'vitest/config';
+import { resolve } from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@nanosession/core': resolve(__dirname, './packages/core/src'),
+      '@nanosession/client': resolve(__dirname, './packages/client/src'),
+      '@nanosession/server': resolve(__dirname, './packages/server/src'),
+      '@nanosession/rpc': resolve(__dirname, './packages/rpc/src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -10,14 +19,6 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['packages/*/src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.d.ts', 'examples/**']
-    }
-  },
-  resolve: {
-    alias: {
-      '@nanosession/core': './packages/core/src',
-      '@nanosession/client': './packages/client/src',
-      '@nanosession/server': './packages/server/src',
-      '@nanosession/rpc': './packages/rpc/src'
     }
   }
 });

@@ -1,0 +1,14 @@
+{
+  "name": "@nanosession/examples-client",
+  "version": "0.1.0",
+  "description": "Example NanoSession x402 payment client",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@nanosession/core": "*",
+    "@nanosession/client": "*"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,13 @@
+Docs markdown files discovered in docs/ (repo: x402.NanoSession)
+- x402_NanoSession_rev3_Glossary.md
+- x402_NanoSession_rev3_Intro.md
+- x402_NanoSession_rev3_Protocol.md
+- AGENTS.md
+- x402_NanoSession_rev3_Extension_B_Stochastic.md
+- x402_NanoSession_rev3_Extension_A_Pools.md
+- proposal_review.md
+- rev3_planning.md
+- x402_NanoSession_Protocol_rev2.md
+- architecture_diagrams.md
+- x402_NanoSession_Protocol_rev1.md
+- x402_NanoSession_Protocol.md

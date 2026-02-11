@@ -1,0 +1,1 @@
+- None reported. Change is a straightforward ignore rule update.

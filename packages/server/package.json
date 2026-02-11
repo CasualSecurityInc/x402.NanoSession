@@ -1,0 +1,24 @@
+{
+  "name": "@nanosession/server",
+  "version": "0.1.0",
+  "description": "FacilitatorHandler and spent set for NanoSession x402 server",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@nanosession/core": "*",
+    "@nanosession/rpc": "*"
+  },
+  "devDependencies": {},
+  "peerDependencies": {}
+}

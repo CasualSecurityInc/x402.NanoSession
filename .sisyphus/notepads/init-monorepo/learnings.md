@@ -1,0 +1,6 @@
+- Created root package.json for x402 monorepo.
+- Defined workspaces: ["packages/*", "examples/*"].
+- Added npm scripts: test, test:run, test:integration, build, clean.
+- Declared devDependencies: vitest, typescript, tsx, @types/node with versions.
+- Enforced engines: node >=18.0.0.
+- Plan to extend with more monorepo tooling (lint, prettier) later.

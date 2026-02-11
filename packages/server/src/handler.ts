@@ -161,14 +161,15 @@ export class NanoSessionFacilitatorHandler {
         };
       }
 
-      // Verify tag matches (derived from block hash)
-      const blockHashBigInt = BigInt('0x' + payload.blockHash);
-      const expectedTag = Number(blockHashBigInt % BigInt(requirements.extra.tagModulus));
-      
-      if (expectedTag !== requirements.extra.tag) {
+      // Verify tag matches (derived from amount - encoded in least significant digits)
+      // Tag = amount % TAG_MODULUS (10,000,000 for 7 digits)
+      const amountBigInt = BigInt(blockInfo.amount);
+      const actualTag = Number(amountBigInt % BigInt(requirements.extra.tagModulus));
+
+      if (actualTag !== requirements.extra.tag) {
         return {
           isValid: false,
-          error: `Tag mismatch: expected ${requirements.extra.tag}, got ${expectedTag}`
+          error: `Tag mismatch: expected ${requirements.extra.tag}, got ${actualTag} (from amount ${blockInfo.amount})`
         };
       }
 

@@ -1,0 +1,196 @@
+=== NanoSession RPC Debug ===
+
+Step 1: Getting recent block hash from test account...
+Account info response: {
+  "frontier": "19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6",
+  "open_block": "EA8B6AC43807F992B45032FCB9C7AD4F8E9EA6A9E364EC5DD510474438B0691B",
+  "representative_block": "19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6",
+  "balance": "91779000000000000000000000000",
+  "modified_timestamp": "1770802697",
+  "block_count": "93",
+  "account_version": "2",
+  "confirmation_height": "93",
+  "confirmation_height_frontier": "19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6",
+  "representative": "nano_1iuz18n4g4wfp9gf7p1s8qkygxw7wx9qfjq6a9aq68uyrdnningdcjontgar",
+  "requestsLimit": "10000",
+  "requestsRemaining": "9477",
+  "requestLimitReset": "Thu Feb 12 2026 09:08:13 GMT+0000 (Coordinated Universal Time)"
+}
+✓ Using block hash: 19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6
+
+Step 2: Calling raw RPC block_info...
+Raw RPC Response:
+{
+  "block_account": "nano_13arha9xh79u6n4i8i5jpthhmoy638m9daw1jzkj9pycupdemorjremb9zye",
+  "amount": "1000000000000000000000000",
+  "balance": "91779000000000000000000000000",
+  "height": "93",
+  "local_timestamp": "1770802697",
+  "successor": "0000000000000000000000000000000000000000000000000000000000000000",
+  "confirmed": "true",
+  "contents": {
+    "type": "state",
+    "account": "nano_13arha9xh79u6n4i8i5jpthhmoy638m9daw1jzkj9pycupdemorjremb9zye",
+    "previous": "9AD89D2655EEF2366717DCE06F38DC5FB368470737C0BCC55D6C39B2DB28912D",
+    "representative": "nano_1iuz18n4g4wfp9gf7p1s8qkygxw7wx9qfjq6a9aq68uyrdnningdcjontgar",
+    "balance": "91779000000000000000000000000",
+    "link": "A7E5802FFFFDA920B67DCD2D7516434582A7B83F67655939330A3EEE77C9FC4F",
+    "link_as_account": "nano_3bz7i1qzzzfb64u9umbfgnd68je4nyw5ysu7d6wm84jyxsuwmz4hkhuzhgcb",
+    "signature": "2A6BF4A1BBD6F7B50C470F55928B7CC2804C408F4750B8036F6914C1E0F8ECA18618F66630EA0C89F2E4005E47A148D6A63C5BEE087A510DCE23B41B663FD00A",
+    "work": "000166957a4e5785"
+  },
+  "subtype": "send",
+  "requestsLimit": "10000",
+  "requestsRemaining": "9476",
+  "requestLimitReset": "Thu Feb 12 2026 09:08:13 GMT+0000 (Coordinated Universal Time)"
+}
+
+Raw Response Keys: [
+  'block_account',
+  'amount',
+  'balance',
+  'height',
+  'local_timestamp',
+  'successor',
+  'confirmed',
+  'contents',
+  'subtype',
+  'requestsLimit',
+  'requestsRemaining',
+  'requestLimitReset'
+]
+link_as_account in raw response (top level): undefined
+link_as_account in raw response (contents): nano_3bz7i1qzzzfb64u9umbfgnd68je4nyw5ysu7d6wm84jyxsuwmz4hkhuzhgcb
+Raw response has contents object: true
+
+Step 3: Calling RPC client getBlockInfo...
+RPC Client Response:
+{
+  "hash": "19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6",
+  "type": "state",
+  "subtype": "send",
+  "block_account": "nano_13arha9xh79u6n4i8i5jpthhmoy638m9daw1jzkj9pycupdemorjremb9zye",
+  "balance": "91779000000000000000000000000",
+  "amount": "1000000000000000000000000",
+  "confirmed": "true",
+  "height": 93
+}
+
+Client Response Keys: [
+  'hash',            'type',
+  'subtype',         'block_account',
+  'previous',        'representative',
+  'balance',         'link',
+  'link_as_account', 'signature',
+  'work',            'amount',
+  'confirmed',       'height'
+]
+link_as_account in client response: undefined
+link_as_account type: undefined
+
+Step 4: Comparison...
+────────────────────────────────────────────────────────────
+Field Comparison:
+
+❌ hash:
+   Raw:    undefined (undefined)
+   Client: "19B45E2650EADBA5985DEDD68E2E8A6EF38BB27B027707AD687C6CD1A4B77BC6" (string)
+
+❌ type:
+   Raw:    undefined (undefined)
+   Client: "state" (string)
+
+❌ height:
+   Raw:    "93" (string)
+   Client: 93 (number)
+
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+─
+
+Root Cause Analysis:
+════════════════════════════════════════════════════════════
+🔍 FOUND THE ISSUE:
+    Raw RPC returns block data in a nested "contents" object!
+
+    Response structure:
+    {
+      block_account: "...",
+      amount: "...",
+      contents: {              ← Block data is HERE
+        type: "state",
+        link: "...",
+        link_as_account: "...", ← This is where it lives!
+        ...
+      }
+    }
+
+    But RpcClient.getBlockInfo() expects flat structure:
+    {
+      link: "...",
+      link_as_account: "...", ← Expected here
+      ...
+    }
+
+🐛 BUG: RPC client needs to access response.contents fields!
+   Current code: response.link_as_account
+   Should be:    response.contents.link_as_account
+
+=== Debug Complete ===

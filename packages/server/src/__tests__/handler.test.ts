@@ -52,7 +52,12 @@ describe('NanoSessionFacilitatorHandler', () => {
       amount: '1000000',
       payTo: '0x123',
       maxTimeoutSeconds: 300,
-      extra: {}
+      extra: {
+        tag: 0,
+        sessionId: 'test',
+        tagModulus: 1000000,
+        expiresAt: new Date().toISOString()
+      }
     };
     
     const result = await handler.handleVerify!(requirements, { blockHash: '0xabc' });
@@ -65,7 +70,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       confirmed: true,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000000',
+      amount: '10000042',
       height: 100
     });
 
@@ -77,7 +82,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000000',
+      amount: '10000042',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
@@ -99,7 +104,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       confirmed: false,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000000'
+      amount: '10000042'
     });
 
     const handler = new NanoSessionFacilitatorHandler({
@@ -110,7 +115,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000000',
+      amount: '10000042',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
@@ -132,7 +137,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       confirmed: true,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000000'
+      amount: '10000042'
     });
 
     const spentSet = new InMemorySpentSet();
@@ -145,7 +150,7 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000000',
+      amount: '10000042',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {

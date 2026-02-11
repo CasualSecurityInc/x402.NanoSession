@@ -14,3 +14,6 @@
 -   "devDependencies": {}
 - }
 - This aligns with the minimal viable example client approach and avoids heavy frameworks.
+
+- Added core address pool abstraction (AddressPool, StandardAccountPool) using nanocurrency derivation via dynamic require to avoid new core dependency.
+- Integration test now derives account #0/#1 addresses from seed and performs real mainnet send/receive/sweep flows using RPC block_create/process with confirmation polling.

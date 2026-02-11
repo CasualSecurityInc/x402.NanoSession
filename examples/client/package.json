@@ -7,8 +7,9 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@nanosession/core": "*",
-    "@nanosession/client": "*"
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "@nanosession/client": "workspace:*"
   },
   "devDependencies": {}
 }

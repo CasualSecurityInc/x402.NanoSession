@@ -23,14 +23,22 @@ NanoSession is a protocol implementation that bridges the Nano cryptocurrency wi
 
 ## Quick Start
 
+### Prerequisites
+
+This project uses [pnpm](https://pnpm.io/) for package management:
+
+```bash
+npm install -g pnpm
+```
+
 ### Installation
 
 ```bash
 # Install packages
-npm install
+pnpm install
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ### Package Structure
@@ -157,7 +165,7 @@ npx tsx src/index.ts
 ### Unit Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 ### Integration Tests
@@ -170,7 +178,7 @@ cp e2e.env.example e2e.env
 # Edit e2e.env with your test credentials
 
 # Run integration tests
-source ./e2e.env && npm run test:integration
+source ./e2e.env && pnpm test:integration
 ```
 
 ⚠️ **Warning**: Integration tests spend real XNO (very small amounts).

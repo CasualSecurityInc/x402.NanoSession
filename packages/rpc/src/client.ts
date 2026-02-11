@@ -32,20 +32,23 @@ export class NanoRpcClient {
       hash
     });
     
+    // Block data is nested in the contents object
+    const contents = response.contents as Record<string, unknown>;
+    
     return {
       hash: (response.hash as string | undefined) ?? hash,
-      type: (response.type as string | undefined) ?? 'state',
+      type: (contents.type as string | undefined) ?? 'state',
       subtype: response.subtype as string | undefined,
       block_account: response.block_account as string,
-      previous: response.previous as string,
-      representative: response.representative as string | undefined,
+      previous: contents.previous as string,
+      representative: contents.representative as string | undefined,
       balance: response.balance as string,
-      link: response.link as string,
-      link_as_account: response.link_as_account as string | undefined,
-      signature: response.signature as string,
-      work: response.work as string,
+      link: contents.link as string,
+      link_as_account: contents.link_as_account as string | undefined,
+      signature: contents.signature as string,
+      work: contents.work as string,
       amount: response.amount as string,
-      confirmed: (response.confirmed as boolean | undefined) ?? false,
+      confirmed: (response.confirmed === 'true' || response.confirmed === true),
       height: parseInt((response.height as string | undefined) ?? '0', 10)
     };
   }

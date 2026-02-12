@@ -37,6 +37,9 @@ pnpm add -D vitest -w                           # Add to root workspace
 *   **/docs**: **Source of Truth**. Contains the Markdown specifications for the protocol and its extensions.
     *   `x402_NanoSession_revX_Protocol.md`: The core specification.
     *   `x402_NanoSession_revX_Extension_...md`: Optional extensions.
+    *   `/docs/references/`: **External reference materials** (read-only, do not edit).
+        *   `coinbase-x402/`: Git submodule of upstream x402 repo — use this for verifying x402 compatibility instead of web fetching.
+        *   `x402-whitepaper.pdf`: Original x402 whitepaper.
 *   **/site**: **Public Documentation Website**.
     *   Built with VitePress.
     *   Generates a static site from `/docs`.
@@ -68,8 +71,38 @@ pnpm add -D vitest -w                           # Add to root workspace
 ### ⚠️ Critical Context
 *   **Nano**: A feeless, instant cryptocurrency.
 *   **HTTP 402**: The status code used for payment required.
- *   **Rev5**: The current active revision.
- *   **pnpm**: Required package manager (enforced via `packageManager` field).
+*   **Rev5**: The current active revision.
+*   **pnpm**: Required package manager (enforced via `packageManager` field).
+
+---
+
+### 🧪 Integration Tests & RPC Configuration
+
+Integration tests (`pnpm test:integration`) perform real Nano transactions on mainnet.
+
+#### RPC URL Parameter Injection
+
+RPC endpoint URLs support query parameters that get merged into each RPC request body. This enables API key authentication for paid RPC services:
+
+```bash
+# No credentials → local CPU/GPU PoW
+NANO_RPC_URL=https://rpc.nano.org/proxy
+
+# With credentials → RPC work_generate (params merged into request body)
+NANO_RPC_URL=https://rpc.nano.to?key=YOUR-API-KEY
+```
+
+The test automatically detects credentials and chooses the appropriate PoW strategy:
+- **URL has query params** → Use RPC `work_generate` with exponential backoff on 429 errors
+- **URL has no query params** → Use local `nanocurrency.computeWork()`
+
+#### Multiple Endpoints (Failover)
+
+```bash
+NANO_RPC_URLS=https://primary.example.com?key=ABC,https://backup.example.com
+```
+
+See `test/integration/e2e.env.example` for full configuration reference.
 
 ---
 

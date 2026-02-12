@@ -1,0 +1,21 @@
+{
+  "name": "@nanosession/examples-faremeter-server",
+  "version": "0.1.0",
+  "description": "Example: NanoSession x402 server using Faremeter middleware",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "start:facilitator": "tsx src/facilitator.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "@nanosession/faremeter": "workspace:*",
+    "@faremeter/middleware": "^0.16.0",
+    "express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
+  }
+}

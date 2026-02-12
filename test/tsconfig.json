@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
+    "paths": {
+      "@nanosession/core": ["../packages/core/src/index.ts"],
+      "@nanosession/client": ["../packages/client/src/index.ts"],
+      "@nanosession/server": ["../packages/server/src/index.ts"],
+      "@nanosession/rpc": ["../packages/rpc/src/index.ts"],
+      "@nanosession/faremeter": ["../packages/faremeter-plugin/src/index.ts"]
+    }
+  },
+  "include": ["./integration/**/*.ts", "../packages/*/src/**/*.ts"],
+  "exclude": ["../node_modules", "../dist"]
+}

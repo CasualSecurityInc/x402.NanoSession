@@ -19,9 +19,13 @@ x402.NanoSession/
 │   ├── core/           # Types, constants, schemas (@nanosession/core)
 │   ├── rpc/            # Nano RPC client with failover (@nanosession/rpc)
 │   ├── server/         # Server-side payment handler (@nanosession/server)
-│   └── client/         # Client-side payment handler (@nanosession/client)
+│   ├── client/         # Client-side payment handler (@nanosession/client)
+│   └── faremeter-plugin/ # Faremeter x402 middleware adapter (@nanosession/faremeter)
 ├── docs/               # Protocol specification (source of truth)
 ├── examples/           # Working server + client demos
+│   ├── server/         # Standalone NanoSession server
+│   ├── client/         # Standalone NanoSession client
+│   └── faremeter-server/ # NanoSession + Faremeter middleware example
 ├── site/               # Documentation website (VitePress)
 └── test/               # Integration tests (real Nano transactions)
 ```
@@ -72,6 +76,25 @@ NANO_TEST_SEED=your_64_char_hex_seed pnpm start
 
 See [examples/README.md](./examples/README.md) for configuration options.
 
+### Faremeter Integration
+
+For projects using [Faremeter](https://faremeter.com) x402 middleware:
+
+```bash
+# Terminal 1: Start the NanoSession facilitator service
+cd examples/faremeter-server
+NANO_SERVER_ADDRESS=nano_your_address pnpm start:facilitator
+
+# Terminal 2: Start the Express server with Faremeter middleware
+cd examples/faremeter-server
+pnpm start
+
+# Terminal 3: Test the 402 response
+curl -i http://localhost:3000/api/resource
+```
+
+See [packages/faremeter-plugin/README.md](./packages/faremeter-plugin/README.md) for API documentation.
+
 ### Library Packages
 
 Build and test the `@nanosession/*` packages:
@@ -116,6 +139,7 @@ The documentation website is built from `docs/` and deployed automatically.
 | `@nanosession/rpc` | Nano RPC client with endpoint failover |
 | `@nanosession/server` | `NanoSessionFacilitatorHandler` for servers |
 | `@nanosession/client` | `NanoSessionPaymentHandler` for clients |
+| `@nanosession/faremeter` | [Faremeter](https://faremeter.com) x402 middleware adapter |
 
 All packages are published under the `@nanosession` scope.
 

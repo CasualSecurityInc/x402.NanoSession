@@ -29,3 +29,6 @@ coverage/
 # Temporary
 *.tmp
 *.temp
+
+# Generated site content (rebuilt from /docs at build time)
+site/docs/

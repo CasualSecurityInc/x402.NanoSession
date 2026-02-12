@@ -68,5 +68,69 @@ pnpm add -D vitest -w                           # Add to root workspace
 ### ⚠️ Critical Context
 *   **Nano**: A feeless, instant cryptocurrency.
 *   **HTTP 402**: The status code used for payment required.
-*   **Rev3**: The current active revision.
-*   **pnpm**: Required package manager (enforced via `packageManager` field).
+ *   **Rev5**: The current active revision.
+ *   **pnpm**: Required package manager (enforced via `packageManager` field).
+
+---
+
+### 🔐 Security-First Protocol Development
+
+**This protocol handles real money. Security is non-negotiable.**
+
+#### The Receipt-Stealing Attack (Rev5 Security Model)
+
+Before Rev5, the protocol had a critical vulnerability:
+
+1. **Attack Vector**: Attacker monitors server's payment address
+2. **Timing Window**: Client A pays, attacker sees the send-block hash on-chain
+3. **Exploitation**: Attacker submits `{ blockHash: <stolen>, sessionId: <attacker's session> }`
+4. **Result**: Attacker gets resource for free; Client A's payment is stolen
+
+**Why This Matters**: Nano blocks are public. Anyone can see payment hashes. Without session binding, any hash could satisfy any request.
+
+#### The Session Binding Invariant (MANDATORY)
+
+> **Invariant**: A proof-of-payment (block hash) is valid for ONE and ONLY ONE session.
+
+**Server MUST verify ALL of the following:**
+1. Block exists on network
+2. Block hash not already spent (spent-set check)
+3. **Block amount encodes the EXACT tag for THIS session** ← Critical
+
+```typescript
+// Server verification (pseudo-code)
+const expectedTag = sessions[sessionId].tag;
+const actualTag = blockAmount % TAG_MODULUS;
+if (actualTag !== expectedTag) {
+  reject("Receipt does not belong to this session");
+}
+```
+
+#### Security Checklist for Protocol Changes
+
+Before any protocol modification, verify:
+
+- [ ] **Receipt Theft**: Can an attacker use someone else's payment?
+- [ ] **Replay Attack**: Can a receipt be reused within the same session?
+- [ ] **Session Spoofing**: Can an attacker guess/forge session identifiers?
+- [ ] **Double Spend**: Can the same payment satisfy multiple requests?
+- [ ] **Timing Attack**: Is there a race condition window?
+- [ ] **Frontier Issues**: Does this introduce block-lattice edge cases?
+
+#### Attack Test Coverage (Required)
+
+All security-critical code MUST have corresponding attack tests:
+
+| Attack | Test Location | What It Verifies |
+|--------|---------------|------------------|
+| Frontrun (hash stealing) | `test/integration/payment-flow.test.ts` | Wrong sessionId rejected |
+| Receipt Reuse | `test/integration/payment-flow.test.ts` | Same hash rejected twice |
+| Session Spoofing | `test/integration/payment-flow.test.ts` | Unknown sessionId rejected |
+
+**Never remove or weaken attack tests without explicit security review.**
+
+#### Why "NanoSession" — The Name is a Security Reminder
+
+The word "Session" in NanoSession is not incidental. Sessions are a **security primitive**, not an implementation detail. They bind payments to specific requests, preventing the receipt-stealing attack.
+
+See: `docs/x402_NanoSession_rev5_Protocol.md` § Security Model

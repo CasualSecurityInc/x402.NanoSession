@@ -4,6 +4,32 @@
 
 This directory contains the **Canonical Source of Truth** for the x402.NanoSession protocol. All changes to the protocol must happen here.
 
+## 📚 Reference Materials
+
+### Upstream x402 Specification (PRIMARY)
+
+**Location**: `docs/references/coinbase-x402/` (git submodule)
+
+This is a git submodule tracking `https://github.com/coinbase/x402.git` (main branch). It contains the authoritative upstream x402 specification from Coinbase.
+
+**This submodule takes precedence over the whitepaper** when looking for original x402-spec reference material.
+
+To initialize after cloning:
+```bash
+git submodule update --init --recursive
+```
+
+To update to latest:
+```bash
+git submodule update --remote docs/references/coinbase-x402
+```
+
+### Whitepaper (SECONDARY)
+
+**Location**: `docs/references/whitepaper_text.txt` and `x402-whitepaper.pdf`
+
+Historical snapshot of the x402 whitepaper. Use the submodule for current spec.
+
 ### 📝 Naming Convention
 
 Files follow a strict pattern to support multiple revisions and automated site generation:

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from 'http';
 import * as dotenv from 'dotenv';
-import { deriveSecretKey, derivePublicKey, createBlock, signBlock, type BlockData } from 'nanocurrency';
+import { deriveSecretKey, derivePublicKey, createBlock, signBlock, computeWork, validateWork, type BlockData } from 'nanocurrency';
 import { NanoSessionFacilitatorHandler } from '@nanosession/server';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
@@ -10,6 +10,7 @@ dotenv.config({ path: './test/integration/e2e.env' });
 
 describe('Integration: Full Payment Flow', () => {
   let shouldSkip = false;
+  let skipReason = '';
   let server: ReturnType<typeof createServer>;
   let serverPort: number;
   let seed = '';
@@ -19,45 +20,71 @@ describe('Integration: Full Payment Flow', () => {
   let serverSecretKey = '';
   let serverPublicKey = '';
   let rpcClient: NanoRpcClient;
-  let rpcEndpoint = '';
+  let rpcEndpoints: Array<{ baseUrl: string; extraParams: Record<string, string> }> = [];
+  let hasRpcCredentials = false;
 
   const paymentAmount = '1000000000000000000000000';
+  const fallbackWorkThreshold = 'fffffff800000000';
+
+  const callEndpointWithRetry = async (
+    endpoint: { baseUrl: string; extraParams: Record<string, string> },
+    action: string,
+    params: Record<string, unknown>
+  ) => {
+    const maxRetries = 3;
+    let delayMs = 1000;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(endpoint.baseUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, ...params, ...endpoint.extraParams })
+        });
+
+        if (!response.ok) {
+          throw new Error(`RPC HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json() as Record<string, unknown>;
+        if (data.error) {
+          throw new Error(`RPC error: ${data.error}`);
+        }
+
+        return data;
+      } catch (error) {
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          delayMs *= 2;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('RPC request failed');
+  };
 
   const rpcCall = async (action: string, params: Record<string, unknown>) => {
-    const response = await fetch(rpcEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...params })
-    });
+    const errors: Error[] = [];
 
-    if (!response.ok) {
-      throw new Error(`RPC HTTP ${response.status}: ${response.statusText}`);
+    for (const endpoint of rpcEndpoints) {
+      try {
+        return await callEndpointWithRetry(endpoint, action, params);
+      } catch (error) {
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
     }
 
-    const data = await response.json() as Record<string, unknown>;
-    if (data.error) {
-      throw new Error(`RPC error: ${data.error}`);
-    }
-
-    return data;
+    const message = `All RPC endpoints failed for action: ${action}`;
+    throw new Error(`${message} (${errors.map(error => error.message).join('; ')})`);
   };
 
   const getAccountInfoSafe = async (address: string) => {
     try {
       return await rpcClient.getAccountInfo(address);
     } catch (error) {
-      // Handle AggregateError from RPC client (wraps multiple endpoint failures)
-      if (error instanceof AggregateError && Array.isArray((error as AggregateError).errors)) {
-        const errors = (error as AggregateError).errors;
-        const isAccountNotFound = errors.some(e => {
-          const msg = e instanceof Error ? e.message : String(e);
-          return msg.toLowerCase().includes('account not found');
-        });
-        if (isAccountNotFound) {
-          return null;
-        }
-      }
-
       const message = error instanceof Error ? error.message : String(error);
       // RPC returns "Account not found" for accounts that haven't been opened yet
       if (message.toLowerCase().includes('account not found')) {
@@ -67,9 +94,56 @@ describe('Integration: Full Payment Flow', () => {
     }
   };
 
+  const getWorkThreshold = async () => {
+    try {
+      const telemetry = await rpcCall('telemetry', {});
+      const activeDifficulty = telemetry.active_difficulty;
+      if (typeof activeDifficulty === 'string' && activeDifficulty.length > 0) {
+        return activeDifficulty;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`   ⚠️  RPC telemetry failed (${message}); using fallback threshold...`);
+    }
+
+    return fallbackWorkThreshold;
+  };
+
   const generateWork = async (root: string) => {
-    const result = await rpcCall('work_generate', { hash: root });
-    return result.work as string;
+    const threshold = await getWorkThreshold();
+
+    if (hasRpcCredentials) {
+      const maxRetries = 10;
+      let delayMs = 1000;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const result = await rpcCall('work_generate', { hash: root, difficulty: threshold });
+          return result.work as string;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const isRateLimited = message.includes('429') || message.toLowerCase().includes('too many');
+
+          if (isRateLimited && attempt < maxRetries - 1) {
+            console.log(`   ⏳ Rate limited, waiting ${delayMs / 1000}s before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            delayMs = Math.min(delayMs * 2, 30000);
+            continue;
+          }
+
+          throw new Error(`RPC work_generate failed: ${message}`);
+        }
+      }
+    }
+
+    const work = await computeWork(root, { workThreshold: threshold });
+    if (!work) {
+      throw new Error('Local work generation failed');
+    }
+    if (!validateWork({ blockHash: root, work, threshold })) {
+      throw new Error('Local work generation failed to meet threshold');
+    }
+    return work;
   };
 
   const createAndProcessSendBlock = async (args: {
@@ -245,10 +319,21 @@ describe('Integration: Full Payment Flow', () => {
     throw new Error(`Block ${hash} not confirmed within ${timeoutMs}ms`);
   };
 
-  beforeAll(() => {
+  const parseRpcUrl = (url: string): { baseUrl: string; extraParams: Record<string, string> } => {
+    const parsed = new URL(url);
+    const extraParams: Record<string, string> = {};
+    parsed.searchParams.forEach((value, key) => {
+      extraParams[key] = value;
+    });
+    parsed.search = '';
+    return { baseUrl: parsed.toString().replace(/\/$/, ''), extraParams };
+  };
+
+  beforeAll(async () => {
     seed = process.env.NANO_TEST_SEED || '';
     if (!seed) {
-      console.log('\n⚠️  Skipping integration tests: NANO_TEST_SEED not set');
+      skipReason = 'NANO_TEST_SEED not set';
+      console.log(`\n⚠️  Skipping integration tests: ${skipReason}`);
       console.log('   Create e2e.env file from e2e.env.example to run integration tests\n');
       shouldSkip = true;
       return;
@@ -259,18 +344,37 @@ describe('Integration: Full Payment Flow', () => {
     clientSecretKey = deriveSecretKey(seed, 0);
     serverSecretKey = deriveSecretKey(seed, 1);
     serverPublicKey = derivePublicKey(serverSecretKey);
-    rpcEndpoint = process.env.NANO_RPC_URL || 'https://rpc.nano.to';
-    rpcClient = new NanoRpcClient({ endpoints: [rpcEndpoint] });
+    const rpcUrls = process.env.NANO_RPC_URLS || process.env.NANO_RPC_URL || 'https://rpc.nano.to';
+    rpcEndpoints = rpcUrls
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean)
+      .map(parseRpcUrl);
+    if (!rpcEndpoints.length) {
+      skipReason = 'no RPC endpoints configured';
+      console.log(`\n⚠️  Skipping integration tests: ${skipReason}`);
+      shouldSkip = true;
+      return;
+    }
+    hasRpcCredentials = rpcEndpoints.some(e => Object.keys(e.extraParams).length > 0);
+    rpcClient = new NanoRpcClient({ endpoints: rpcEndpoints.map(e => e.baseUrl) });
 
     console.log('\n🔑 Test Accounts:');
     console.log(`   Client (acct0): ${clientAddress}`);
     console.log(`   Server (acct1): ${serverAddress}`);
+    if (hasRpcCredentials) {
+      console.log('   🔧 Work generation: RPC (credentials detected)');
+    } else {
+      console.log('   🔧 Work generation: Local CPU/GPU');
+    }
   });
 
   afterAll(async () => {
     if (shouldSkip || !seed) {
       return;
     }
+
+    console.log('\n🧹 Cleanup: sweeping funds back to client account...');
 
     try {
       const clientInfo = await getAccountInfoSafe(clientAddress);
@@ -287,11 +391,11 @@ describe('Integration: Full Payment Flow', () => {
     } catch (error) {
       console.log('   ⚠️  Cleanup failed (non-fatal):', error);
     }
-  });
+  }, 120000);
 
   test('full payment flow on mainnet', async () => {
     if (shouldSkip) {
-      console.log('Test skipped - no NANO_TEST_SEED');
+      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
       return;
     }
 
@@ -477,7 +581,7 @@ describe('Integration: Full Payment Flow', () => {
 
   test('rejects frontrun attack - stolen hash with wrong session', async () => {
     if (shouldSkip) {
-      console.log('Test skipped - no NANO_TEST_SEED');
+      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
       return;
     }
 
@@ -557,7 +661,7 @@ describe('Integration: Full Payment Flow', () => {
 
   test('rejects receipt reuse - already spent', async () => {
     if (shouldSkip) {
-      console.log('Test skipped - no NANO_TEST_SEED');
+      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
       return;
     }
 
@@ -613,7 +717,7 @@ describe('Integration: Full Payment Flow', () => {
 
   test('rejects unknown session - session spoofing', async () => {
     if (shouldSkip) {
-      console.log('Test skipped - no NANO_TEST_SEED');
+      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
       return;
     }
 

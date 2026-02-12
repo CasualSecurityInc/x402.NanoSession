@@ -140,9 +140,19 @@ describe('NanoSessionFacilitatorHandler', () => {
   });
 
   test('handleSettle rejects duplicate blockHash', async () => {
-    const baseAmount = '10000000';
-    const tag = 42;
-    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
+    const spentSet = new InMemorySpentSet();
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any,
+      spentSet
+    });
+    
+    const requirements = handler.getRequirements({
+      amount: '10000000',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300
+    });
+    
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
     
     mockRpcClient.getBlockInfo.mockResolvedValue({
       hash: '0000002A',
@@ -151,27 +161,6 @@ describe('NanoSessionFacilitatorHandler', () => {
       link_as_account: 'nano_destination',
       amount: taggedAmount
     });
-
-    const spentSet = new InMemorySpentSet();
-    const handler = new NanoSessionFacilitatorHandler({
-      rpcClient: mockRpcClient as any,
-      spentSet
-    });
-    
-    const requirements: PaymentRequirements = {
-      scheme: SCHEME,
-      network: 'nano:mainnet',
-      asset: 'XNO',
-      amount: baseAmount,
-      payTo: 'nano_destination',
-      maxTimeoutSeconds: 300,
-      extra: {
-        tag,
-        sessionId: 'test',
-        tagModulus: 10000000,
-        expiresAt: new Date().toISOString()
-      }
-    };
     
     // First settlement should succeed
     const result1 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
@@ -182,5 +171,32 @@ describe('NanoSessionFacilitatorHandler', () => {
     const result2 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
     expect(result2).not.toBeNull();
     expect(result2!.success).toBe(false);
+  });
+
+  test('handleSettle rejects unknown sessionId (session spoofing attack)', async () => {
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any
+    });
+    
+    const fakeRequirements: PaymentRequirements = {
+      scheme: SCHEME,
+      network: 'nano:mainnet',
+      asset: 'XNO',
+      amount: '10000000',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300,
+      extra: {
+        tag: 42,
+        sessionId: 'fake-session-never-issued',
+        tagModulus: 1000000,
+        expiresAt: new Date().toISOString()
+      }
+    };
+    
+    const result = await handler.handleSettle!(fakeRequirements, { blockHash: '0000002A' });
+    
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(false);
+    expect(result!.error).toBe('Unknown session ID');
   });
 });

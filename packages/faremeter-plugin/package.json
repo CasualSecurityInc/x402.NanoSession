@@ -1,0 +1,27 @@
+{
+  "name": "@nanosession/faremeter",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Faremeter adapter plugin for NanoSession",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:run": "vitest --run"
+  },
+  "dependencies": {
+    "@faremeter/types": "^0.16.0"
+  },
+  "devDependencies": {
+    "@nanosession/client": "workspace:*",
+    "@nanosession/core": "workspace:*",
+    "@nanosession/server": "workspace:*"
+  }
+}

@@ -40,6 +40,32 @@ This ensures payments flow between different addresses (avoiding acct0→acct0 w
 
 4. Ensure Account #0 has balance (0.01 XNO is plenty for testing).
 
+## RPC Configuration & Work Generation
+
+### URL Parameter Injection
+
+RPC endpoint URLs support query parameters that get merged into each RPC request body. This enables API key authentication:
+
+```bash
+# No credentials → local CPU/GPU PoW (slow but free)
+NANO_RPC_URL=https://rpc.nano.org/proxy
+
+# With credentials → RPC work_generate (fast, uses paid service)
+NANO_RPC_URL=https://rpc.nano.to?key=YOUR-API-KEY
+```
+
+The test automatically detects credentials:
+- **URL has query params** → Use RPC `work_generate` with exponential backoff on 429 rate limits
+- **URL has no query params** → Use local `nanocurrency.computeWork()`
+
+### Multiple Endpoints (Failover)
+
+```bash
+NANO_RPC_URLS=https://primary.example.com?key=ABC,https://backup.example.com
+```
+
+If the primary fails, requests automatically retry on backup endpoints.
+
 ## Running Tests
 
 ```bash

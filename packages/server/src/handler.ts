@@ -57,10 +57,19 @@ export interface SettleResult {
 /**
  * NanoSession Facilitator Handler
  * Implements x402/Faremeter FacilitatorHandler interface
+ * 
+ * SECURITY: This handler maintains a session registry to prevent session spoofing attacks.
+ * Only session IDs issued via getRequirements() are considered valid.
  */
 export class NanoSessionFacilitatorHandler {
   private rpcClient: NanoRpcClient;
   private spentSet: SpentSetStorage;
+  /**
+   * Session registry - maps sessionId to the PaymentRequirements that were issued.
+   * This prevents attackers from submitting payments with forged session IDs.
+   * See: AGENTS.md § Security-First Protocol Development
+   */
+  private sessionRegistry: Map<string, PaymentRequirements> = new Map();
 
   constructor(options: HandlerOptions) {
     this.rpcClient = options.rpcClient;
@@ -102,7 +111,7 @@ export class NanoSessionFacilitatorHandler {
       Date.now() + (args.maxTimeoutSeconds ?? 300) * 1000
     ).toISOString();
 
-    return {
+    const requirements: PaymentRequirements = {
       scheme: SCHEME,
       network: NETWORK,
       asset: ASSET,
@@ -116,6 +125,11 @@ export class NanoSessionFacilitatorHandler {
         expiresAt
       }
     };
+
+    // Register session to prevent session spoofing attacks
+    this.sessionRegistry.set(sessionId, requirements);
+
+    return requirements;
   }
 
   /**
@@ -199,6 +213,18 @@ export class NanoSessionFacilitatorHandler {
       return null;
     }
 
+    // SECURITY: Validate session was issued by this handler (prevents session spoofing)
+    const sessionId = requirements.extra?.sessionId;
+    if (!sessionId || !this.sessionRegistry.has(sessionId)) {
+      return {
+        success: false,
+        error: 'Unknown session ID'
+      };
+    }
+
+    // Use stored requirements to prevent tampering with tag/amount
+    const storedRequirements = this.sessionRegistry.get(sessionId)!;
+
     try {
       // Check if already spent
       const isSpent = await this.spentSet.has(payload.blockHash);
@@ -209,8 +235,8 @@ export class NanoSessionFacilitatorHandler {
         };
       }
 
-      // Verify payment
-      const verifyResult = await this.handleVerify(requirements, payload);
+      // Verify payment using stored requirements (not user-supplied)
+      const verifyResult = await this.handleVerify(storedRequirements, payload);
       
       // handleVerify returns null for non-matching schemes (already checked above)
       // but TypeScript doesn't know that, so handle it

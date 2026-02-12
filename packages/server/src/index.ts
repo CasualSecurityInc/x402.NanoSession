@@ -4,8 +4,8 @@
  */
 
 // Export handler
-export {
-  NanoSessionFacilitatorHandler,
+export { NanoSessionFacilitatorHandler } from './handler.js';
+export type {
   HandlerOptions,
   SupportedScheme,
   VerifyResult,
@@ -13,7 +13,5 @@ export {
 } from './handler.js';
 
 // Export spent set
-export {
-  SpentSetStorage,
-  InMemorySpentSet
-} from './spent-set.js';
+export type { SpentSetStorage } from './spent-set.js';
+export { InMemorySpentSet } from './spent-set.js';

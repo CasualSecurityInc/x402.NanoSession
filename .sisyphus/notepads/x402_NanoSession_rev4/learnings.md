@@ -1,0 +1,3 @@
+- Created docs/x402_NanoSession_rev4_Glossary.md by copying Rev 3 Glossary and updating Rev to Rev 4.
+- Verified presence of required terminology (Session, Raw Tagging, Async Verification, Spent Set) via grep.
+- Ensured frontmatter preservation and no removal of existing Glossary terms.

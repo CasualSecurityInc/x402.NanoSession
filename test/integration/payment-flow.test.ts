@@ -6,7 +6,7 @@ import { NanoSessionFacilitatorHandler } from '@nanosession/server';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
 
-dotenv.config({ path: './e2e.env' });
+dotenv.config({ path: './test/integration/e2e.env' });
 
 describe('Integration: Full Payment Flow', () => {
   let shouldSkip = false;

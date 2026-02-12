@@ -1,0 +1,1 @@
+- No blockers encountered while generating Rev 4 Glossary from Rev 3.

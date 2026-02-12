@@ -3,9 +3,9 @@
 
 # x402.NanoSession Extension A: Generational Sharded Pools
 
-**Date:** February 9, 2026
+**Date:** February 12, 2026
 **Status:** Draft / Proposal
-**Extension For:** `x402_NanoSession_Protocol_rev3.md`
+**Extension For:** `x402_NanoSession_Protocol_rev4.md`
 
 ## 1. Abstract
 
@@ -42,7 +42,7 @@ To ensure the server's pool accounts are always ready to move funds, the "Janito
 
 ## 3. Rotation & Grace Period
 
-Servers MUST monitor addresses for both the **Current** and **Previous** Generations. This ensures that clients who started a session right before a generation flip can still complete their payment.
+Servers MUST monitor addresses for both the **Current** and ** Previous** Generations. This ensures that clients who started a session right before a generation flip can still complete their payment.
 
 ## 4. Privacy Considerations
 

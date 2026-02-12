@@ -1,51 +1,74 @@
+# x402.NanoSession Protocol Specification (Rev 4)
 
-### 📂 Specification Structure
-- **Protocol**: [rev3 Protocol Definition](/protocol)
-- **Extensions**:
-  - [x402.NanoSession Extension A: Generational Sharded Pools](/extensions/extension-a-pools)
-  - [x402.NanoSession Extension B: Stochastic Rotation (Moving Window)](/extensions/extension-b-stochastic)
-
----
-
-# x402.NanoSession Protocol Specification (Rev 3)
-
-**Date:** February 9, 2026
+**Date:** February 12, 2026
 **Status:** Draft / Proposal
-**Previous Version:** `x402_NanoSession_Protocol_rev2.md`
+**Previous Version:** `x402_NanoSession_Protocol_rev3.md`
 **Base Specification:** Single Address Model
 
 ## Abstract
 
-x402.NanoSession (Rev 3) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes a **Deterministic Raw Tagging** mechanism to allow a single Nano address to process thousands of concurrent payments without requiring unique address generation per request. This base specification defines the core payment flow, async verification, and tagging logic using a single, static server address.
+x402.NanoSession (Rev 4) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes a **Deterministic Raw Tagging** mechanism to allow a single Nano address to process thousands of concurrent payments without requiring unique address generation per request. This base specification defines the core payment flow, async verification, and tagging logic using a single, static server address.
 
 Advanced address management strategies (Sharded Pools, Stochastic Rotation) are defined in separate Extension documents.
 
-## 1. Motivation
+## 1. Communication Flow
 
-The "Agent Economy" requires a frictionless way for software to compensate services for micro-units of work. This protocol leverages Nano's unique block-lattice properties to allow for payment verification in under 500ms with no fees. The Base Specification focuses on the simplest implementation: a single server address receiving tagged payments from multiple clients.
+### 1.1. Overview
 
-## 2. Terminology
+```
+┌────────┐         ┌────────┐         ┌──────────┐
+│ Client │         │ Server │         │   Nano   │
+└───┬────┘         └───┬────┘         └────┬─────┘
+    │  GET /resource   │                   │
+    │─────────────────>│                   │
+    │  402 + Headers   │                   │
+    │<─────────────────│                   │
+    │           Send Block                 │
+    │─────────────────────────────────────>│
+    │  GET /resource + Block Hash          │
+    │─────────────────>│                   │
+    │                  │  Verify Block     │
+    │                  │──────────────────>│
+    │  200 OK          │                   │
+    │<─────────────────│                   │
+```
 
-*   **Session**: A logical grouping of requests from a single client agent, identified by a `Session_ID`.
-*   **Raw Tagging**: Encoding a unique integer identifier into the least significant digits of the Nano Raw amount.
-*   **Async Verification**: A server-side process that grants access upon observing a confirmed *send* block on the network. The server **MUST NOT** wait for its own *receive* block before granting access.
-*   **Spent Set**: A durable record of all processed Nano block hashes used to prevent double-spending or replay attacks.
+### 1.2. Typical Payment Flow
 
-## 3. Architecture (Base Model)
+1.  Client requests protected resource
+2.  Server returns HTTP 402 with payment requirements (headers)
+3.  Client calculates tagged amount using provided tag
+4.  Client signs Nano send block and broadcasts to network
+5.  Client retries request with `X-402-Payment-Block` header containing block hash
+6.  Server verifies block is confirmed, tag matches, destination correct, not in Spent Set
+7.  Server adds block hash to Spent Set and grants access
 
-### 3.1. The Client: Headless "Purse" Middleware
+### 1.3. Sequence Diagram
+
+```
+Client -> Server: GET /resource
+Server --> Client: 402 + Headers
+Client --> Nano: Send Block
+Client -> Server: GET /resource + Block Hash
+Server -> Nano: Verify Block
+Server --> Client: 200 OK
+```
+
+## 2. Architecture (Base Model)
+
+### 2.1. The Client: Headless "Purse" Middleware
 The primary client is middleware for HTTP clients.
 *   **Responsibility**: Detects 402 responses, calculates the tagged amount, signs the block locally, and retries the request with the proof.
 *   **Safety**: Operates within a user-defined "Daily Budget".
 
-### 3.2. The Server: Single Address
+### 2.2. The Server: Single Address
 In this Base Specification, the server operates a single Nano account (Standard or HD Derived) to receive all payments.
 *   **Concurrency**: Achieved via **Raw Tagging**. The server does not need to pocket (receive) funds immediately to verify them.
 *   **Scalability**: A single address can passively observe infinite send blocks targeting it. The limitation is only on the "Janitor" process that must eventually pocket them.
 
-## 4. Technical Specification
+## 3. Technical Specification
 
-### 4.1. Raw Tagging & Uniqueness (Normative)
+### 3.1. Raw Tagging & Uniqueness (Normative)
 
 To distinguish payments sent to the same address, the protocol uses the least significant 7 digits of the amount.
 
@@ -54,32 +77,23 @@ To distinguish payments sent to the same address, the protocol uses the least si
 3.  **Uniqueness Enforcement**: The server **MUST** maintain a set of "Pending Tags" per session or globally. If a generated Tag is already pending, retry with a new Nonce.
 4.  **Amount Calculation**: `Amount_Final = Price_Raw + Tag` (where `Price_Raw % TAG_MODULUS == 0`).
 
-### 4.2. Verification Flow (Normative)
-
-1.  **Client Request**: Sends `GET /api/resource`.
-2.  **Server Response (402)**: Returns headers:
-    *   `X-402-Session`: The session identifier.
-    *   `X-402-Address`: The **Single Service Address**.
-    *   `X-402-Price-Raw`: The base price (multiple of 10M).
-    *   `X-402-Tag`: The unique tag.
-    *   `X-402-Expires`: Tag reservation deadline.
-3.  **Client Payment**: Publishes a Send Block to the network.
-4.  **Client Retry**: Sends request with `X-402-Payment-Block: <Block_Hash>`.
-5.  **Server Check**:
-    *   **Link Binding**: Verifies `Block.link` matches the Service Address.
-    *   **Tag Match**: Verifies `Block.Amount % TAG_MODULUS == Tag`.
-    *   **Confirmation**: Verifies `Block.Confirmed == True`.
-    *   **Spent Check**: Verifies `Block_Hash` is not in the **Spent Set**.
-6.  **Access Granted**.
-
-## 5. Extensions
+## 4. Extensions
 
 For high-volume services or privacy-sensitive implementations, see the following extensions:
 
 *   **[Extension A: Generational Sharded Pools](/extensions/extension-a-pools)**: Defines how to scale to 20-100 addresses to mitigate ledger contention during pocketing.
 *   **[Extension B: Stochastic Rotation](/extensions/extension-b-stochastic)**: Defines usage-based address rotation for privacy and traffic analysis resistance.
 
+## See Also
+
+For more information on x402 and Nano, see the following resources:
+
+*   [x402 Standard](https://github.com/coinbase/x402)
+*   [Nano Documentation](https://docs.nano.org/)
+*   [Nano Foundation](https://nano.org/)
+
 
 ## 📚 Related Extensions
 - [x402.NanoSession Extension A: Generational Sharded Pools](/extensions/extension-a-pools)
 - [x402.NanoSession Extension B: Stochastic Rotation (Moving Window)](/extensions/extension-b-stochastic)
+- [x402 Compatibility Extension](/extensions/extension-x402-compat)

@@ -1,0 +1,2 @@
+- Decision: Copy Rev 3 Glossary to Rev 4 and update the TAG_MODULUS reference to (Rev 4).
+- Rationale: Maintain historical accuracy while reflecting protocol revision.

@@ -27,3 +27,31 @@ Files follow a strict pattern to support multiple revisions and automated site g
 1.  **Drafting**: Start a new file with `Status: Draft`.
 2.  **Review**: Once reviewed, update to `Status: Proposed` or `Accepted`.
 3.  **Site Gen**: The build script in `../site/scripts/prepare-rev.js` automatically picks up files matching the `SPEC_REV` environment variable.
+
+### 🔐 Security Review Requirements
+
+**All protocol changes MUST undergo security review.**
+
+The Rev5 specification introduced a formal Security Model after discovering the **Receipt-Stealing Attack** — a vulnerability where attackers could steal payment proofs from the public blockchain.
+
+#### Mandatory Review Checklist
+
+Before finalizing any protocol change:
+
+1. **Read §1 Security Model** in `x402_NanoSession_rev5_Protocol.md`
+2. **Review the Session Binding Invariant** — sessions are security primitives
+3. **Check attack vectors**:
+   - Receipt theft (hash from different session)
+   - Replay attacks (same hash reused)
+   - Session spoofing (forged/guessed sessionId)
+   - Timing attacks (race conditions)
+4. **Verify attack test coverage** exists in `test/integration/`
+
+#### Why This Matters
+
+NanoSession handles real financial transactions. A security flaw means:
+- Users lose money
+- Attackers get free access
+- Protocol trust is destroyed
+
+**When in doubt, add more session binding, not less.**

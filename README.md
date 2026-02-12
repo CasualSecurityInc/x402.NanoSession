@@ -1,241 +1,153 @@
-# NanoSession x402 Integration
-
-[![Tests](https://img.shields.io/badge/tests-22%20passing-brightgreen)](./)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](./)
-[![License](https://img.shields.io/badge/license-MIT-green)](./)
+# x402.NanoSession
 
 > **Feeless, instant machine-to-machine payments via HTTP 402**
->
-> NanoSession brings Nano cryptocurrency payments to the x402 standard, enabling seamless pay-per-request APIs with zero fees and sub-second confirmation.
 
-## Overview
+NanoSession is a protocol for high-frequency M2M payments using [Nano](https://nano.org/) cryptocurrency and the [HTTP 402](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402) status code. Zero fees. Sub-second settlement.
 
-NanoSession is a protocol implementation that bridges the Nano cryptocurrency with the x402 payment standard. It allows API providers to charge for resources using Nano's feeless, instant transactions.
+## Why NanoSession?
 
-### Key Features
+- **Feeless**: Nano has no transaction fees — pay exactly what you owe
+- **Instant**: Sub-second confirmation, no block wait times
+- **Session-bound**: Payments are cryptographically tied to requests (no receipt theft)
+- **Simple**: HTTP headers + one RPC call = payment verified
 
-- **Feeless Payments**: Zero transaction fees using Nano
-- **Instant Confirmation**: Sub-second settlement
-- **x402 Compatible**: Works with existing x402 infrastructure
-- **Direct or Facilitated**: Verify payments directly or via facilitators
-- **TypeScript**: Full type safety and modern JavaScript support
-- **Extensible**: Pluggable storage and custom verification logic
+## Repository Layout
+
+```
+x402.NanoSession/
+├── packages/           # TypeScript libraries
+│   ├── core/           # Types, constants, schemas (@nanosession/core)
+│   ├── rpc/            # Nano RPC client with failover (@nanosession/rpc)
+│   ├── server/         # Server-side payment handler (@nanosession/server)
+│   └── client/         # Client-side payment handler (@nanosession/client)
+├── docs/               # Protocol specification (source of truth)
+├── examples/           # Working server + client demos
+├── site/               # Documentation website (VitePress)
+└── test/               # Integration tests (real Nano transactions)
+```
 
 ## Quick Start
 
-### Prerequisites
+This is a **pnpm monorepo**. All projects share dependencies installed at the root.
 
-This project uses [pnpm](https://pnpm.io/) for package management:
+### Initial Setup (Required Once)
 
 ```bash
+# Install pnpm if you don't have it
 npm install -g pnpm
+
+# Install all dependencies for all projects
+pnpm install
 ```
 
-### Installation
+### Documentation Site
+
+Generate and preview the protocol specification website:
 
 ```bash
-# Install packages
-pnpm install
-
-# Run tests
-pnpm test
+cd site
+SPEC_REV=rev5 pnpm docs:build    # Build static site from docs/
+pnpm docs:preview                 # Preview at localhost:4173
 ```
 
-### Package Structure
+For development with hot reload:
+```bash
+cd site
+SPEC_REV=rev5 pnpm docs:dev      # Dev server at localhost:5173
+```
 
-This monorepo contains the following packages:
+### Reference Server & Client
+
+Run the example implementations:
+
+```bash
+# Terminal 1: Start the payment-protected server
+cd examples/server
+NANO_SERVER_ADDRESS=nano_your_address pnpm start
+
+# Terminal 2: Run the paying client
+cd examples/client
+NANO_TEST_SEED=your_64_char_hex_seed pnpm start
+```
+
+See [examples/README.md](./examples/README.md) for configuration options.
+
+### Library Packages
+
+Build and test the `@nanosession/*` packages:
+
+```bash
+# From repository root:
+pnpm build          # Build all packages
+pnpm test           # Run unit tests (watch mode)
+pnpm test:run       # Run unit tests once
+```
+
+### E2E Integration Tests
+
+Run real Nano transactions on mainnet:
+
+```bash
+# Setup (once)
+cp test/integration/e2e.env.example test/integration/e2e.env
+# Edit e2e.env with your test wallet seed
+
+# Run integration tests
+pnpm test:integration
+```
+
+⚠️ Uses real XNO (tiny amounts). See [test/integration/README.md](./test/integration/README.md).
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| **[Protocol Spec](./docs/)** | The canonical specification (see `x402_NanoSession_rev*_Protocol.md`) |
+| **[Examples](./examples/)** | Working server and client with step-by-step instructions |
+| **[Integration Tests](./test/integration/)** | Real Nano transactions on mainnet |
+
+The documentation website is built from `docs/` and deployed automatically.
+
+## Packages
 
 | Package | Description |
 |---------|-------------|
 | `@nanosession/core` | Types, constants, and schema mapping |
-| `@nanosession/rpc` | Nano RPC client with failover |
-| `@nanosession/server` | FacilitatorHandler for servers |
-| `@nanosession/client` | PaymentHandler for clients |
+| `@nanosession/rpc` | Nano RPC client with endpoint failover |
+| `@nanosession/server` | `NanoSessionFacilitatorHandler` for servers |
+| `@nanosession/client` | `NanoSessionPaymentHandler` for clients |
 
-### Server Setup
+All packages are published under the `@nanosession` scope.
 
-```typescript
-import { createServer } from 'http';
-import { NanoSessionFacilitatorHandler } from '@nanosession/server';
-import { NanoRpcClient } from '@nanosession/rpc';
-
-const rpcClient = new NanoRpcClient({
-  endpoints: ['https://rpc.nano.to']
-});
-
-const handler = new NanoSessionFacilitatorHandler({ rpcClient });
-
-const server = createServer(async (req, res) => {
-  if (req.url === '/api/premium') {
-    // Check for payment
-    const payment = req.headers['x-payment-response'];
-    
-    if (!payment) {
-      // Return 402 with payment requirements
-      const requirements = handler.getRequirements({
-        amount: '1000000000000000000000000', // 0.001 XNO
-        payTo: 'nano_your_address_here'
-      });
-      
-      res.writeHead(402, {
-        'X-Payment-Required': JSON.stringify(requirements)
-      });
-      res.end('Payment required');
-      return;
-    }
-    
-    // Verify payment
-    const result = await handler.handleSettle(
-      requirements,
-      JSON.parse(payment as string)
-    );
-    
-    if (result?.success) {
-      res.writeHead(200);
-      res.end('Premium content here!');
-    } else {
-      res.writeHead(402);
-      res.end('Payment verification failed');
-    }
-  }
-});
-
-server.listen(3000);
-```
-
-### Client Setup
-
-```typescript
-import { NanoSessionPaymentHandler } from '@nanosession/client';
-import { NanoRpcClient } from '@nanosession/rpc';
-
-const rpcClient = new NanoRpcClient({
-  endpoints: ['https://rpc.nano.to']
-});
-
-const handler = new NanoSessionPaymentHandler({
-  rpcClient,
-  seed: process.env.NANO_TEST_SEED, // Your wallet seed
-  maxSpend: '10000000000000000000000000' // 0.01 XNO limit
-});
-
-// Request resource
-const response = await fetch('http://localhost:3000/api/premium');
-
-if (response.status === 402) {
-  // Parse payment requirements
-  const requirements = JSON.parse(
-    response.headers.get('X-Payment-Required')!
-  );
-  
-  // Create payment
-  const execers = await handler.handle({}, [requirements]);
-  const { payload } = await execers[0].exec();
-  
-  // Retry with payment
-  const paidResponse = await fetch('http://localhost:3000/api/premium', {
-    headers: {
-      'X-Payment-Response': JSON.stringify(payload)
-    }
-  });
-  
-  const content = await paidResponse.text();
-  console.log(content); // "Premium content here!"
-}
-```
-
-## Examples
-
-See the `examples/` directory for complete working examples:
-
-```bash
-# Terminal 1: Start server
-cd examples/server
-export NANO_SERVER_ADDRESS=nano_your_address
-npx tsx src/index.ts
-
-# Terminal 2: Run client
-cd examples/client
-export NANO_TEST_SEED=your_seed
-npx tsx src/index.ts
-```
-
-## Testing
-
-### Unit Tests
-
-```bash
-pnpm test
-```
-
-### Integration Tests
-
-Integration tests perform real transactions on Nano mainnet:
-
-```bash
-# Setup environment
-cp test/integration/e2e.env.example test/integration/e2e.env
-# Edit test/integration/e2e.env with your test credentials
-
-# Run integration tests
-source ./test/integration/e2e.env && pnpm test:integration
-```
-
-⚠️ **Warning**: Integration tests spend real XNO (very small amounts).
-
-## Documentation
-
-- [Protocol Specification](./docs/x402_NanoSession_rev3_Protocol.md)
-- [x402 Compatibility Extension](./docs/x402_NanoSession_rev3_Extension_x402_Compat.md)
-- [Examples](./examples/README.md)
-
-## Architecture
+## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Client                                │
-│  ┌─────────────────┐        ┌──────────────────────┐        │
-│  │ PaymentHandler  │───────►│ Block Signing (NaCl) │        │
-│  └─────────────────┘        └──────────────────────┘        │
-└────────────────────┬────────────────────────────────────────┘
-                     │ HTTP 402 + Payment
-                     │
-┌────────────────────┼────────────────────────────────────────┐
-│                    ▼                        Server           │
-│  ┌──────────────────────┐        ┌──────────────────────┐    │
-│  │ FacilitatorHandler   │◄───────┤   Spent Set Check    │    │
-│  └──────────┬───────────┘        └──────────────────────┘    │
-│             │                                                │
-│             ▼                                                │
-│  ┌──────────────────────┐                                    │
-│  │   Nano RPC Client    │                                    │
-│  └──────────┬───────────┘                                    │
-└─────────────┼────────────────────────────────────────────────┘
-              │
-              ▼
-     ┌─────────────────┐
-     │   Nano Network  │
-     └─────────────────┘
+Client                          Server                      Nano
+  │                               │                           │
+  │  GET /resource                │                           │
+  │──────────────────────────────>│                           │
+  │                               │                           │
+  │  402 + X-Payment-Required     │                           │
+  │  (sessionId, amount, payTo)   │                           │
+  │<──────────────────────────────│                           │
+  │                               │                           │
+  │  send_block(amount + tag)     │                           │
+  │───────────────────────────────────────────────────────────>
+  │                               │                           │
+  │  GET /resource                │                           │
+  │  + X-Payment (blockHash,      │                           │
+  │    sessionId)                 │  verify block + session   │
+  │──────────────────────────────>│──────────────────────────>│
+  │                               │                           │
+  │  200 OK                       │                           │
+  │<──────────────────────────────│                           │
 ```
 
-## Protocol Flow
-
-1. **Request**: Client requests protected resource
-2. **402 Response**: Server returns HTTP 402 with PaymentRequirements
-3. **Payment**: Client creates and broadcasts Nano send block
-4. **Verification**: Server verifies block via RPC
-5. **Access**: Server grants access to resource
-
-## Security
-
-- **Double-Spend Prevention**: Spent set tracks used block hashes
-- **Tag Validation**: Payment tags prevent replay attacks  
-- **Timeouts**: Payment requirements expire after configured time
-- **Budget Limits**: Client-side spending limits prevent overspend
+See the [protocol specification](./docs/) for complete details.
 
 ## Contributing
 
-This implementation is designed to be contributed to [Faremeter](https://github.com/faremeter/faremeter) as a plugin.
+Contributions welcome. This implementation is designed to integrate with [x402](https://github.com/coinbase/x402) ecosystem tooling.
 
 ## License
 
@@ -243,6 +155,5 @@ MIT
 
 ## Acknowledgments
 
-- [x402](https://github.com/coinbase/x402) - The payment standard that makes this possible
-- [Nano](https://nano.org/) - The feeless, instant cryptocurrency
-- [Faremeter](https://faremeter.org/) - The facilitator infrastructure
+- [x402](https://github.com/coinbase/x402) — The payment-required standard
+- [Nano](https://nano.org/) — Feeless, instant cryptocurrency

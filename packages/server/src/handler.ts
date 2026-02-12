@@ -153,23 +153,24 @@ export class NanoSessionFacilitatorHandler {
         };
       }
 
-      // Verify amount matches
-      if (blockInfo.amount !== requirements.amount) {
+      // Tagged amount = baseAmount + tag
+      // Validate: received amount should be baseAmount + tag (with tag encoded in LSBs)
+      const receivedAmount = BigInt(blockInfo.amount);
+      const expectedTaggedAmount = BigInt(requirements.amount) + BigInt(requirements.extra.tag);
+      
+      if (receivedAmount !== expectedTaggedAmount) {
         return {
           isValid: false,
-          error: `Amount mismatch: expected ${requirements.amount}, got ${blockInfo.amount}`
+          error: `Amount mismatch: expected ${expectedTaggedAmount}, got ${receivedAmount}`
         };
       }
 
-      // Verify tag matches (derived from amount - encoded in least significant digits)
-      // Tag = amount % TAG_MODULUS (10,000,000 for 7 digits)
-      const amountBigInt = BigInt(blockInfo.amount);
-      const actualTag = Number(amountBigInt % BigInt(requirements.extra.tagModulus));
-
+      // Extract and verify tag from received amount
+      const actualTag = Number(receivedAmount % BigInt(requirements.extra.tagModulus));
       if (actualTag !== requirements.extra.tag) {
         return {
           isValid: false,
-          error: `Tag mismatch: expected ${requirements.extra.tag}, got ${actualTag} (from amount ${blockInfo.amount})`
+          error: `Tag mismatch: expected ${requirements.extra.tag}, got ${actualTag}`
         };
       }
 

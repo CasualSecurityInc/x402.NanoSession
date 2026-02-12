@@ -65,12 +65,16 @@ describe('NanoSessionFacilitatorHandler', () => {
   });
 
   test('handleVerify returns valid for confirmed block', async () => {
+    const baseAmount = '10000000';
+    const tag = 42;
+    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
+    
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '0000002A',
       confirmed: true,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000042',
+      amount: taggedAmount,
       height: 100
     });
 
@@ -82,11 +86,11 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000042',
+      amount: baseAmount,
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
-        tag: 42,
+        tag,
         sessionId: 'test',
         tagModulus: 10000000,
         expiresAt: new Date().toISOString()
@@ -99,12 +103,16 @@ describe('NanoSessionFacilitatorHandler', () => {
   });
 
   test('handleVerify returns invalid for unconfirmed block', async () => {
+    const baseAmount = '10000000';
+    const tag = 42;
+    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
+    
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '00000029',
       confirmed: false,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000042'
+      amount: taggedAmount
     });
 
     const handler = new NanoSessionFacilitatorHandler({
@@ -115,11 +123,11 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000042',
+      amount: baseAmount,
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
-        tag: 42,
+        tag,
         sessionId: 'test',
         tagModulus: 10000000,
         expiresAt: new Date().toISOString()
@@ -132,12 +140,16 @@ describe('NanoSessionFacilitatorHandler', () => {
   });
 
   test('handleSettle rejects duplicate blockHash', async () => {
+    const baseAmount = '10000000';
+    const tag = 42;
+    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
+    
     mockRpcClient.getBlockInfo.mockResolvedValue({
       hash: '0000002A',
       confirmed: true,
       link: 'nano_destination',
       link_as_account: 'nano_destination',
-      amount: '10000042'
+      amount: taggedAmount
     });
 
     const spentSet = new InMemorySpentSet();
@@ -150,11 +162,11 @@ describe('NanoSessionFacilitatorHandler', () => {
       scheme: SCHEME,
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '10000042',
+      amount: baseAmount,
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
-        tag: 42,
+        tag,
         sessionId: 'test',
         tagModulus: 10000000,
         expiresAt: new Date().toISOString()

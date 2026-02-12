@@ -100,15 +100,7 @@ Object.keys(fileMapping).forEach(sourceName => {
   protocolContent = protocolContent.replace(regex, `(${fileMapping[sourceName]})`);
 });
 
-// Inject "Tree View" at the top
-let treeView = `\n### 📂 Specification Structure\n- **Protocol**: [${SPEC_REV} Protocol Definition](/protocol)\n`;
-if (extensionLinks.length > 0) {
-  treeView += `- **Extensions**:\n`;
-  extensionLinks.forEach(ext => {
-    treeView += `  - [${ext.text}](${ext.link})\n`;
-  });
-}
-treeView += `\n---\n\n`;
+// Tree View injection removed
 
 // Inject "See Also" at the bottom
 let seeAlso = `\n\n## 📚 Related Extensions\n`;
@@ -121,7 +113,7 @@ if (extensionLinks.length > 0) {
 }
 
 // Prepend Tree View, Append See Also
-const finalProtocolContent = treeView + protocolContent + seeAlso;
+const finalProtocolContent = protocolContent + seeAlso;
 
 fs.writeFileSync(path.join(TARGET_DIR, 'protocol.md'), finalProtocolContent);
 console.log(`Processed Protocol: ${protocolFile} -> protocol.md`);

@@ -306,6 +306,8 @@ describe('Integration: Full Payment Flow', () => {
     }
 
     await new Promise<void>((resolve) => {
+      const requirementsCache = new Map<string, ReturnType<typeof serverHandler.getRequirements>>();
+      
       server = createServer(async (req, res) => {
         if (req.url === '/protected') {
           const paymentResponse = req.headers['x-payment-response'];
@@ -316,6 +318,7 @@ describe('Integration: Full Payment Flow', () => {
               payTo: serverAddress,
               maxTimeoutSeconds: 300
             });
+            requirementsCache.set(requirements.extra.sessionId, requirements);
 
             res.writeHead(402, {
               'Content-Type': 'application/json',
@@ -327,15 +330,19 @@ describe('Integration: Full Payment Flow', () => {
 
           try {
             const payload = JSON.parse(paymentResponse as string);
-            const requirements = serverHandler.getRequirements({
-              amount: paymentAmount,
-              payTo: serverAddress,
-              maxTimeoutSeconds: 300
-            });
+            const sessionId = payload.sessionId as string | undefined;
+            const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
+            
+            if (!requirements) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Unknown session' }));
+              return;
+            }
 
             const result = await serverHandler.handleSettle!(requirements, payload);
 
             if (result?.success) {
+              requirementsCache.delete(sessionId!);
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({
                 message: 'Access granted',
@@ -400,12 +407,17 @@ describe('Integration: Full Payment Flow', () => {
       console.log('   ✓ Payment execer created');
       console.log('   📤 Broadcasting payment via RPC...');
 
+      // Encode tag in payment amount: taggedAmount = baseAmount + tag
+      // Server validates: actualTag = amount % tagModulus === expected tag
+      const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+      console.log(`   🏷️  Tag: ${requirements.extra.tag}, Tagged amount: ${taggedAmount}`);
+
       let paymentHash: string | null;
       try {
         paymentHash = await createAndProcessSendBlock({
           fromAddress: clientAddress,
           toAddress: serverAddress,
-          amountRaw: requirements.amount,
+          amountRaw: taggedAmount,
           secretKeyHex: clientSecretKey
         });
       } catch (error) {
@@ -427,7 +439,10 @@ describe('Integration: Full Payment Flow', () => {
       console.log('\n🔐 Step 3: Retrying with payment...');
       const response2 = await fetch(`${baseUrl}/protected`, {
         headers: {
-          'X-Payment-Response': JSON.stringify({ blockHash: paymentHash })
+          'X-Payment-Response': JSON.stringify({ 
+            blockHash: paymentHash,
+            sessionId: requirements.extra.sessionId
+          })
         }
       });
 

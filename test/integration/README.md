@@ -116,6 +116,19 @@ const serverPublic = derivePublicKey(serverSecret);
 const serverAddress = deriveAddress(serverPublic, { useNanoPrefix: true });
 ```
 
+## Debugging with Block Explorer
+
+To verify transactions against on-chain reality, use [blocklattice.io](https://blocklattice.io/).
+
+**Important**: Our raw tags are very small values (e.g., `134771`) encoded in the payment amount. The account overview page won't show these - amounts are displayed in human-readable XNO format which rounds away the tag.
+
+To see the actual raw tag value:
+1. Navigate to the specific block page: `https://blocklattice.io/block/<BLOCK_HASH>`
+2. Scroll to **"Original Block Content"**
+3. The `balance` field shows the raw amount including the encoded tag
+
+Example: https://blocklattice.io/block/AA4FC1BC444A83A425AC36CC39DF0EDE56545AE29EDE053CB6DBCBAB537E6965
+
 ## Notes
 
 - Integration tests are NOT run by default with `pnpm test`

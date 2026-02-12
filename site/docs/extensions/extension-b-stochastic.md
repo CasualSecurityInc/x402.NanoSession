@@ -3,9 +3,9 @@
 
 # x402.NanoSession Extension B: Stochastic Rotation (Moving Window)
 
-**Date:** February 9, 2026
+**Date:** February 12, 2026
 **Status:** Draft / Proposal
-**Extension For:** `x402_NanoSession_Protocol_rev3.md`
+**Extension For:** `x402_NanoSession_Protocol_rev4.md`
 
 ## 1. Abstract
 
@@ -17,7 +17,7 @@ While **Extension A** solves the *throughput* problem via sharding, it leaves th
 
 *   **The Problem:** An observer can map the static pool and monitor the service's total income, customer growth, and peak hours.
 *   **The Solution:** By constantly rotating addresses based on usage (stochastic), the "map" becomes stale faster than an attacker can update it.
-*   **Inherited Benefit:** Since this model also utilizes multiple active addresses (Active Window $M$), it **inherits the high-throughput concurrency benefits** of Extension A.
+*   **Inherited Benefit:** Since this model also utilizes multiple active addresses (Active Window $M$), the extension inherits the high-throughput concurrency benefits of Extension A.
 
 ## 3. Core Concept: Usage-Based Rotation
 
@@ -30,12 +30,12 @@ The server maintains an **Active Window** of slots ($M$) that move independently
 
 *   **Derivation:** `m/44'/165'/0'/index'` (Monotonic increasing index).
 *   **Slot Lifecycle:** Each of the $M$ active slots is assigned a unique `index` and a secret `Usage_Limit` ($N$).
-*   **Randomization:** $N$ is a random variable (e.g., $N \sim \text{Uniform}(3, 50)$).
+*   **Randomization:** $N$ is a random variable (e.g., $N \,sim\, \text{Uniform}(3, 50)$).
 *   **Retirement:** Once a slot has received $N$ confirmed payments, it is **retired**. A new address from the next available `index` is derived to fill the slot.
 
 ### 3.2. Privacy Advantages (Moving Target Defense)
 
-*   **Breaking the Watchlist:** An attacker's "map" of the pool becomes stale at a rate proportional to the server's traffic. High-traffic APIs rotate addresses faster, making them *harder* to monitor.
+*   **Breaking the Watchlist:** An attacker's "map" of the pool becomes stale at a rate proportional to the server's traffic. High-traffic APIs rotate addresses faster, making them harder to monitor.
 *   **Sampling rate vs. Accuracy:** To maintain an accurate view of the pool, an attacker must probe the API faster than the "fastest" slot turnover ($N_{min}$).
 
 ### 3.3. Implementation Guidelines (The Janitor)

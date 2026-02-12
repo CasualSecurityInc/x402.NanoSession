@@ -1,9 +1,9 @@
 {
-  "active_plan": "/Users/conny/Developer/CasualSecurityInc/x402.NanoSession/.sisyphus/plans/integration-test-enhancement.md",
-  "started_at": "2026-02-11T07:37:30.858Z",
+  "active_plan": "/Users/conny/Developer/CasualSecurityInc/x402.NanoSession/.sisyphus/plans/monorepo-cleanup-finalize.md",
+  "started_at": "2026-02-12T03:37:38.820Z",
   "session_ids": [
     "ses_3b99c8209ffegzpeMoZDgnr3Ay"
   ],
-  "plan_name": "integration-test-enhancement",
+  "plan_name": "monorepo-cleanup-finalize",
   "agent": "atlas"
 }

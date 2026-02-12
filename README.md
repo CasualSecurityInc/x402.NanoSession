@@ -174,11 +174,11 @@ Integration tests perform real transactions on Nano mainnet:
 
 ```bash
 # Setup environment
-cp e2e.env.example e2e.env
-# Edit e2e.env with your test credentials
+cp test/integration/e2e.env.example test/integration/e2e.env
+# Edit test/integration/e2e.env with your test credentials
 
 # Run integration tests
-source ./e2e.env && pnpm test:integration
+source ./test/integration/e2e.env && pnpm test:integration
 ```
 
 ⚠️ **Warning**: Integration tests spend real XNO (very small amounts).

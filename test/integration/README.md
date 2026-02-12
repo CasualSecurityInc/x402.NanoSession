@@ -20,10 +20,10 @@ This ensures payments flow between different addresses (avoiding acct0→acct0 w
 
 ## Setup
 
-1. Copy the example environment file:
+1. Copy the example environment file (files are in this directory):
    ```bash
-   cp e2e.env.example e2e.env
-   ```
+    cp e2e.env.example e2e.env
+    ```
 
 2. Edit `e2e.env` with your test wallet seed:
    ```bash

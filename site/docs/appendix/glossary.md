@@ -36,7 +36,7 @@ Unlike "dust" on fee-based blockchains (which can become unspendable due to fees
 
 A protocol constant defining the range of possible tags. 
 
-- **Value:** `10,000,000` (Rev 3)
+- **Value:** `10,000,000` (Rev 4)
 - **Effect:** Allows up to 10 million unique request IDs to be multiplexed onto a single receiving address
 - **Constraint:** Server-quoted prices must be multiples of `TAG_MODULUS`
 

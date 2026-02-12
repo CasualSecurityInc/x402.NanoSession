@@ -1,0 +1,4 @@
+[submodule "docs/references/coinbase-x402"]
+	path = docs/references/coinbase-x402
+	url = https://github.com/coinbase/x402.git
+	branch = main

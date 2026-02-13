@@ -1,25 +1,32 @@
 # AGENTS.md
 
 ## Project: x402.NanoSession
-**Goal**: Create a standard for High-Frequency M2M Nano Payments using HTTP 402.
+**Goal**: High-Frequency M2M Nano Payments using HTTP 402. Feeless, instant, session-bound. Compatible with the [coinbase/x402](https://docs.x402.org/) spec and evolving standard to the largest practical degree.
 
-### 📦 Package Manager: pnpm
+---
 
-This monorepo uses **pnpm** with workspace protocol for local package linking.
+### 📦 Build/Test Commands
 
-**Common Commands:**
+| Command | Description |
+|---------|-------------|
+| `pnpm install` | Install all dependencies |
+| `pnpm test` | Run tests in watch mode |
+| `pnpm test:run` | Run tests once (CI mode) |
+| `pnpm test:integration` | Run E2E tests (real Nano transactions!) |
+| `pnpm typecheck` | Type-check without emitting |
+| `pnpm build` | Build all packages |
+| `pnpm clean` | Remove dist folders |
+
+**Running a single test file:**
 ```bash
-pnpm install          # Install all dependencies
-pnpm test             # Run tests in watch mode
-pnpm test:run         # Run tests once
-pnpm build            # Build all packages
-pnpm clean            # Remove dist folders
+pnpm vitest run packages/core/src/__tests__/mapping.test.ts
+pnpm vitest run test/integration/payment-flow.test.ts
 ```
 
-**Package-specific commands:**
+**Running tests for a single package:**
 ```bash
-pnpm --filter @nanosession/core test    # Run tests for core only
-pnpm --filter "./packages/*" build      # Build all library packages
+pnpm --filter @nanosession/core test:run
+pnpm --filter @nanosession/server test:run
 ```
 
 **Adding dependencies:**
@@ -28,51 +35,93 @@ pnpm add zod --filter @nanosession/core        # Add to specific package
 pnpm add -D vitest -w                           # Add to root workspace
 ```
 
-**Workspace protocol**: Internal dependencies use `workspace:*` in package.json to link locally.
+**Workspace protocol**: Internal dependencies use `workspace:*` in package.json.
+
+---
 
 ### 📂 Directory Structure
 
-*   **/packages**: Library packages (`@nanosession/core`, `rpc`, `server`, `client`)
-*   **/examples**: Example applications (`server`, `client`)
-*   **/docs**: **Source of Truth**. Contains the Markdown specifications for the protocol and its extensions.
-    *   `x402_NanoSession_revX_Protocol.md`: The core specification.
-    *   `x402_NanoSession_revX_Extension_...md`: Optional extensions.
-    *   `/docs/references/`: **External reference materials** (read-only, do not edit).
-        *   `coinbase-x402/`: Git submodule of upstream x402 repo — use this for verifying x402 compatibility instead of web fetching.
-        *   `x402-whitepaper.pdf`: Original x402 whitepaper.
-*   **/site**: **Public Documentation Website**.
-    *   Built with VitePress.
-    *   Generates a static site from `/docs`.
-    *   See `site/AGENTS.md` for build details.
+| Path | Purpose |
+|------|---------|
+| `/packages/` | Library packages: `core`, `rpc`, `server`, `client`, `faremeter-plugin` |
+| `/examples/` | Working server + client demos |
+| `/docs/` | **Source of truth** — Protocol specs (`x402_NanoSession_revX_*.md`) |
+| `/docs/references/` | Read-only external refs (git submodule of coinbase-x402) |
+| `/site/` | VitePress docs site (generated from `/docs/`) |
+| `/test/integration/` | E2E tests with real Nano mainnet transactions |
 
-### 🤖 Core Workflows
+---
 
-1.  **Developing Packages**:
-    *   Run `pnpm test` from root for watch mode.
-    *   Use `pnpm --filter <package> <command>` for package-specific work.
-    *   Internal deps use `workspace:*` protocol.
+### 🎨 Code Style Guidelines
 
-2.  **Refining the Spec**:
-    *   Edit files in `/docs`.
-    *   Always respect the `_revX_` naming convention.
-    *   Do **NOT** edit files in `/site/docs` directly; they are overwritten by the build script.
+**TypeScript Configuration:**
+- Target: ES2022, Module: NodeNext
+- `strict: true` — No implicit any, strict null checks
+- Use `.js` extension in imports (ESM requirement)
 
-3.  **Building the Site**:
-    *   `cd site`
-    *   `SPEC_REV=rev3 pnpm docs:build`
-    *   `pnpm docs:preview`
+**Imports:**
+```typescript
+// Node built-ins first
+import { randomBytes } from 'crypto';
 
-4.  **Deploying the Site**:
-    *   Automatic via GitHub Actions on push to `main`.
-    *   Workflow: `.github/workflows/deploy.yml`
-    *   **Live URL**: https://csi.ninzin.net/x402.NanoSession/
-    *   Note: The CasualSecurityInc org has a custom domain (`csi.ninzin.net`), so `cbrunnkvist.github.io` URLs redirect there.
+// External packages
+import { describe, test, expect } from 'vitest';
+
+// Internal packages (workspace)
+import { SCHEME, NETWORK } from '@nanosession/core';
+import type { PaymentRequirements } from '@nanosession/core';
+
+// Relative imports with .js extension
+import { InMemorySpentSet } from './spent-set.js';
+import type { SpentSetStorage } from './spent-set.js';
+```
+
+**Naming Conventions:**
+- Files: `kebab-case.ts` (e.g., `spent-set.ts`, `address-pool.ts`)
+- Classes: `PascalCase` (e.g., `NanoSessionFacilitatorHandler`)
+- Functions: `camelCase` (e.g., `toX402Requirements`, `getBlockInfo`)
+- Constants: `SCREAMING_SNAKE_CASE` (e.g., `TAG_MODULUS`, `SCHEME`)
+- Types/Interfaces: `PascalCase` (e.g., `PaymentRequirements`, `VerifyResult`)
+
+**Type Annotations:**
+- Use explicit return types on exported functions
+- Prefer `interface` over `type` for object shapes
+- Use `type` imports when importing only types: `import type { X } from '...'`
+
+**Error Handling:**
+```typescript
+// Proper error narrowing
+try {
+  // ...
+} catch (error) {
+  return {
+    success: false,
+    error: error instanceof Error ? error.message : String(error)
+  };
+}
+```
+
+**Formatting:**
+- 2 spaces indentation (inferred from codebase)
+- Single quotes for strings
+- Semicolons required
+- Trailing commas in multiline
+
+**Test Files:**
+- Location: `packages/*/src/__tests__/*.test.ts`
+- Integration tests: `test/integration/*.test.ts`
+- Use `describe/test/expect` from vitest (globals enabled)
+- Use `vi.fn()` for mocks, `vi.mock()` for module mocks
+
+---
 
 ### ⚠️ Critical Context
-*   **Nano**: A feeless, instant cryptocurrency.
-*   **HTTP 402**: The status code used for payment required.
-*   **Rev5**: The current active revision.
-*   **pnpm**: Required package manager (enforced via `packageManager` field).
+
+- **Nano**: Feeless, instant cryptocurrency (sub-second finality)
+- **HTTP 402**: Payment Required status code
+- **Rev5**: Current active protocol revision
+- **pnpm**: Required package manager (enforced via `packageManager` field)
+- **ESM**: This is a pure ESM project — use `.js` extensions in imports
 
 ---
 

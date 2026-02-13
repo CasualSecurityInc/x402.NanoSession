@@ -15,9 +15,14 @@ dist/
 build/
 *.tsbuildinfo
 
-# Test environment (contains secrets) - now in test/integration/
+# Test environment (contains secrets)
 e2e.env
 test/integration/e2e.env
+test/integration/*.env
+!test/integration/e2e.env.example
+
+# Terminal recordings
+*.rec
 
 # Coverage reports
 coverage/

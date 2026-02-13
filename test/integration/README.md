@@ -155,6 +155,35 @@ To see the actual raw tag value:
 
 Example: https://blocklattice.io/block/AA4FC1BC444A83A425AC36CC39DF0EDE56545AE29EDE053CB6DBCBAB537E6965
 
+## GitHub Actions (CI)
+
+Integration tests can also run in CI via manual trigger.
+
+### Setup
+
+1. **Create environment** `integration-test` at:
+   ```
+   https://github.com/<owner>/<repo>/settings/environments
+   ```
+
+2. **Add protection rules** (recommended):
+   - Required reviewers: Add yourself or team
+   - This prevents accidental runs that spend XNO
+
+3. **Add secrets** to the `integration-test` environment:
+
+   | Secret | Description |
+   |--------|-------------|
+   | `NANO_TEST_SEED` | 64-char hex seed (Account #0 must be funded) |
+   | `NANO_RPC_URL` | RPC endpoint, optionally with API key in query params |
+
+### Running
+
+1. Go to **Actions** → **Integration Tests (Mainnet)**
+2. Click **Run workflow**
+3. Type `run` to confirm
+4. Approve via environment protection (if configured)
+
 ## Notes
 
 - Integration tests are NOT run by default with `pnpm test`

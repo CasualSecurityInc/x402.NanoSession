@@ -35,6 +35,14 @@ export default defineConfig({
                 items: [
                     { text: 'Glossary', link: '/appendix/glossary' }
                 ]
+            },
+            {
+                text: 'Links',
+                items: [
+                    { text: '↗ GitHub', link: 'https://github.com/CasualSecurityInc/x402.NanoSession' },
+                    { text: '↗ x402 Spec', link: 'https://docs.x402.org' },
+                    { text: '↗ Nano.org', link: 'https://nano.org' }
+                ]
             }
         ],
 

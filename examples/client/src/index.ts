@@ -22,8 +22,8 @@ if (!SEED) {
   console.error('Please set it before running the client:');
   console.error('  export NANO_TEST_SEED=your_64_char_hex_seed');
   console.error('');
-  console.error('Or create an e2e.env file and source it:');
-  console.error('  source ./e2e.env && npx tsx src/index.ts');
+  console.error('Or create a .env.mainnet file and source it:');
+  console.error('  source ../../.env.mainnet && npx tsx src/index.ts');
   process.exit(1);
 }
 
@@ -46,7 +46,7 @@ async function fetchWithPayment(url: string): Promise<Response> {
   // If we get 402, handle the payment
   if (response.status === 402) {
     console.log('🔒 Received 402 Payment Required');
-    
+
     // Extract payment requirements from header
     const paymentRequiredHeader = response.headers.get('X-Payment-Required');
     if (!paymentRequiredHeader) {
@@ -71,7 +71,7 @@ async function fetchWithPayment(url: string): Promise<Response> {
     // Create payment
     console.log('💰 Creating payment...');
     const execers = await handler.handle({}, [requirements]);
-    
+
     if (execers.length === 0) {
       throw new Error('No payment execers created - scheme may not match');
     }
@@ -79,7 +79,7 @@ async function fetchWithPayment(url: string): Promise<Response> {
     // Execute the payment
     console.log('📤 Broadcasting payment to network...');
     const { payload } = await execers[0].exec();
-    
+
     console.log('✅ Payment broadcast!');
     console.log(`   Block Hash: ${payload.blockHash}`);
     console.log('');

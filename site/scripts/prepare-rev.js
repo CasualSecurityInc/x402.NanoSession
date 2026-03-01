@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SPEC_REV = process.env.SPEC_REV || 'rev3';
+const SPEC_REV = process.env.SPEC_REV || 'rev5';
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
 const TARGET_DIR = path.resolve(__dirname, '../docs');
 const EXTENSIONS_DIR = path.join(TARGET_DIR, 'extensions');
@@ -130,4 +130,11 @@ if (glossaryFile) {
   console.log(`Processed Glossary: ${glossaryFile} -> appendix/glossary.md`);
 } else {
   console.log(`Note: No Glossary file found for revision ${SPEC_REV}`);
+}
+
+// Copy Demo page into docs so VitePress finds it
+const demoSource = path.join(__dirname, '../protected.md');
+if (fs.existsSync(demoSource)) {
+  fs.copyFileSync(demoSource, path.join(TARGET_DIR, 'protected.md'));
+  console.log(`Copied Demo: protected.md -> protected.md`);
 }

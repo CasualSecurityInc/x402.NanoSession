@@ -16,6 +16,8 @@ build/
 *.tsbuildinfo
 
 # Test environment (contains secrets)
+.env*
+!.env*.example
 e2e.env
 test/integration/e2e.env
 test/integration/*.env

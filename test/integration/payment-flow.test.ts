@@ -6,7 +6,7 @@ import { NanoSessionFacilitatorHandler } from '@nanosession/server';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
 
-dotenv.config({ path: './test/integration/e2e.env' });
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || './.env.mainnet' });
 
 describe('Integration: Full Payment Flow', () => {
   let shouldSkip = false;
@@ -245,7 +245,7 @@ describe('Integration: Full Payment Flow', () => {
       // - If account doesn't exist (previous = '0' or null), create open block with previous: null
       // - If account exists, previous is the frontier hash
       const isNewAccount = previous === '0' || previous === null || previous === undefined;
-      
+
       const workRoot = isNewAccount ? serverPublicKey : previous;
       const work = await generateWork(workRoot);
 
@@ -379,13 +379,13 @@ describe('Integration: Full Payment Flow', () => {
     try {
       const clientInfo = await getAccountInfoSafe(clientAddress);
       const representative = clientInfo?.representative ?? clientAddress;
-      
+
       await receivePendingAll(serverAddress, serverSecretKey, representative);
       const sweepHash = await sweepAll(serverAddress, clientAddress, serverSecretKey);
       if (sweepHash) {
         console.log(`   ↩️  Swept server balance to client: ${sweepHash}`);
       }
-      
+
       await receivePendingAll(clientAddress, clientSecretKey, representative);
       console.log('   ✅ Received all pending blocks on client account');
     } catch (error) {
@@ -415,7 +415,7 @@ describe('Integration: Full Payment Flow', () => {
 
     await new Promise<void>((resolve) => {
       const requirementsCache = new Map<string, ReturnType<typeof serverHandler.getRequirements>>();
-      
+
       server = createServer(async (req, res) => {
         if (req.url === '/protected') {
           const paymentResponse = req.headers['x-payment-response'];
@@ -440,7 +440,7 @@ describe('Integration: Full Payment Flow', () => {
             const payload = JSON.parse(paymentResponse as string);
             const sessionId = payload.sessionId as string | undefined;
             const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
-            
+
             if (!requirements) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'Unknown session' }));
@@ -547,7 +547,7 @@ describe('Integration: Full Payment Flow', () => {
       console.log('\n🔐 Step 3: Retrying with payment...');
       const response2 = await fetch(`${baseUrl}/protected`, {
         headers: {
-          'X-Payment-Response': JSON.stringify({ 
+          'X-Payment-Response': JSON.stringify({
             blockHash: paymentHash,
             sessionId: requirements.extra.sessionId
           })
@@ -587,9 +587,9 @@ describe('Integration: Full Payment Flow', () => {
 
     // This test verifies the Session Binding Invariant:
     // A payment made for Session A cannot be used to satisfy Session B
-    
+
     console.log('\n🔓 ATTACK TEST: Frontrun (Receipt Stealing)');
-    
+
     // 1. Victim requests resource → gets sessionId A with tag A
     // 2. Attacker requests resource → gets sessionId B with tag B  
     // 3. Victim pays (amount includes tag A)
@@ -597,63 +597,63 @@ describe('Integration: Full Payment Flow', () => {
     // 5. Server MUST reject: tag A ≠ tag B
 
     const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-    
+
     // Get requirements for two different "sessions"
     const victimRequirements = serverHandler.getRequirements({
       amount: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
-    
+
     const attackerRequirements = serverHandler.getRequirements({
       amount: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
-    
+
     console.log(`   Victim session: ${victimRequirements.extra.sessionId}, tag: ${victimRequirements.extra.tag}`);
     console.log(`   Attacker session: ${attackerRequirements.extra.sessionId}, tag: ${attackerRequirements.extra.tag}`);
-    
+
     // Verify tags are different (critical for this test)
     expect(victimRequirements.extra.tag).not.toBe(attackerRequirements.extra.tag);
-    
+
     // Victim pays with THEIR tag encoded in amount
     const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.tag)).toString();
-    
+
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(victimTaggedAmount)) {
       console.log('   ⚠️ Skipping: Insufficient balance');
       return;
     }
-    
+
     const victimBlockHash = await createAndProcessSendBlock({
       fromAddress: clientAddress,
       toAddress: serverAddress,
       amountRaw: victimTaggedAmount,
       secretKeyHex: clientSecretKey
     });
-    
+
     if (!victimBlockHash) {
       console.log('   ⚠️ Skipping: Could not create payment block');
       return;
     }
-    
+
     await waitForConfirmation(victimBlockHash);
     console.log(`   ✅ Victim payment confirmed: ${victimBlockHash}`);
-    
+
     // ATTACK: Attacker tries to use victim's hash with attacker's session
     const attackPayload = {
       blockHash: victimBlockHash,
       sessionId: attackerRequirements.extra.sessionId // WRONG SESSION!
     };
-    
+
     const result = await serverHandler.handleSettle!(attackerRequirements, attackPayload);
-    
+
     // MUST FAIL - the block's tag doesn't match attacker's session tag
     console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
     expect(result?.success).toBe(false);
     console.log('   ✅ Attack correctly rejected!');
-    
+
     // Cleanup: sweep funds back
     await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
     await sweepAll(serverAddress, clientAddress, serverSecretKey);
@@ -666,50 +666,50 @@ describe('Integration: Full Payment Flow', () => {
     }
 
     console.log('\n🔓 ATTACK TEST: Receipt Reuse (Double Spend Attempt)');
-    
+
     const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-    
+
     const requirements = serverHandler.getRequirements({
       amount: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
-    
+
     const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
-    
+
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
       console.log('   ⚠️ Skipping: Insufficient balance');
       return;
     }
-    
+
     const blockHash = await createAndProcessSendBlock({
       fromAddress: clientAddress,
       toAddress: serverAddress,
       amountRaw: taggedAmount,
       secretKeyHex: clientSecretKey
     });
-    
+
     if (!blockHash) {
       console.log('   ⚠️ Skipping: Could not create payment block');
       return;
     }
-    
+
     await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
-    
+
     // First submission - should succeed
     const payload = { blockHash, sessionId: requirements.extra.sessionId };
     const result1 = await serverHandler.handleSettle!(requirements, payload);
     console.log(`   First submission: success=${result1?.success}`);
     expect(result1?.success).toBe(true);
-    
+
     // Second submission - same hash - MUST FAIL (already spent)
     const result2 = await serverHandler.handleSettle!(requirements, payload);
     console.log(`   Second submission: success=${result2?.success}, error=${result2?.error}`);
     expect(result2?.success).toBe(false);
     console.log('   ✅ Reuse correctly rejected!');
-    
+
     // Cleanup
     await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
     await sweepAll(serverAddress, clientAddress, serverSecretKey);
@@ -722,57 +722,57 @@ describe('Integration: Full Payment Flow', () => {
     }
 
     console.log('\n🔓 ATTACK TEST: Session Spoofing (Unknown Session)');
-    
+
     const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-    
+
     // Create a real payment for a real session
     const realRequirements = serverHandler.getRequirements({
       amount: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
-    
+
     const taggedAmount = (BigInt(realRequirements.amount) + BigInt(realRequirements.extra.tag)).toString();
-    
+
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
       console.log('   ⚠️ Skipping: Insufficient balance');
       return;
     }
-    
+
     const blockHash = await createAndProcessSendBlock({
       fromAddress: clientAddress,
       toAddress: serverAddress,
       amountRaw: taggedAmount,
       secretKeyHex: clientSecretKey
     });
-    
+
     if (!blockHash) {
       console.log('   ⚠️ Skipping: Could not create payment block');
       return;
     }
-    
+
     await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
-    
+
     // ATTACK: Submit with a FAKE session ID that was never issued
     const fakeSessionId = 'fake-session-id-12345-never-issued';
-    
+
     // Create fake requirements with the spoofed session
     const fakeRequirements = {
       ...realRequirements,
       extra: { ...realRequirements.extra, sessionId: fakeSessionId }
     };
-    
+
     const payload = { blockHash, sessionId: fakeSessionId };
     const result = await serverHandler.handleSettle!(fakeRequirements, payload);
-    
+
     // This should fail because the tag won't match (or session is unknown)
     // The exact behavior depends on implementation, but it MUST NOT succeed
     console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
     expect(result?.success).toBe(false);
     console.log('   ✅ Spoofing correctly rejected!');
-    
+
     // Cleanup
     await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
     await sweepAll(serverAddress, clientAddress, serverSecretKey);

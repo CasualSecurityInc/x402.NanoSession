@@ -5,10 +5,34 @@
   "scripts": {
     "docs:dev": "node scripts/prepare-rev.js && vitepress dev .",
     "docs:build": "node scripts/prepare-rev.js && vitepress build .",
-    "docs:preview": "vitepress preview ."
+    "docs:preview": "vitepress preview .",
+    "dev:demo": "concurrently --kill-others -n docs,mainnet,testnet \"pnpm docs:dev\" \"pnpm demo:server:mainnet\" \"pnpm demo:server:testnet\"",
+    "demo:server:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet tsx demo-server/index.ts",
+    "demo:server:testnet": "DOTENV_CONFIG_PATH=../.env.testnet tsx demo-server/index.ts",
+    "test:server": "vitest run demo-server/"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/supertest": "^7.2.0",
+    "@types/ws": "^8.18.1",
+    "supertest": "^7.2.2",
     "vitepress": "^1.0.0-rc.31",
+    "vitest": "^2.1.9",
     "vue": "^3.3.0"
+  },
+  "dependencies": {
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "@nanosession/server": "workspace:*",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "express": "^5.0.1",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.7.0",
+    "ws": "^8.19.0"
   }
 }

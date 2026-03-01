@@ -20,22 +20,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
-          cache: 'npm'
-          cache-dependency-path: site/package-lock.json
+          cache: 'pnpm'
 
       - name: Install dependencies
-        working-directory: site
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build site
         working-directory: site
         env:
           SPEC_REV: ${{ vars.SPEC_REV || 'rev3' }}
-        run: npm run docs:build
+        run: pnpm run docs:build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

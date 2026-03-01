@@ -39,3 +39,4 @@ coverage/
 
 # Generated site content (rebuilt from /docs at build time)
 site/docs/
+site/.vitepress/cache/

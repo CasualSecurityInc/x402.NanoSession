@@ -19,7 +19,8 @@ export default defineConfig({
             {
                 text: 'About',
                 items: [
-                    { text: 'Intro', link: '/' }
+                    { text: 'Intro', link: '/' },
+                    { text: 'Protected Demo', link: '/protected' }
                 ]
             },
             {

@@ -13,6 +13,7 @@
 | `pnpm test` | Run tests in watch mode |
 | `pnpm test:run` | Run tests once (CI mode) |
 | `pnpm test:integration` | Run E2E tests (real Nano transactions!) |
+| `pnpm run dev:demo` | Run VitePress docs and Facilitator Demo Server concurrently |
 | `pnpm typecheck` | Type-check without emitting |
 | `pnpm build` | Build all packages |
 | `pnpm clean` | Remove dist folders |
@@ -48,6 +49,7 @@ pnpm add -D vitest -w                           # Add to root workspace
 | `/docs/` | **Source of truth** — Protocol specs (`x402_NanoSession_revX_*.md`) |
 | `/docs/references/` | Read-only external refs (git submodule of coinbase-x402) |
 | `/site/` | VitePress docs site (generated from `/docs/`) |
+| `/site/demo-server/` | Active HTTP 402 Facilitator Server for the protected demo |
 | `/test/integration/` | E2E tests with real Nano mainnet transactions |
 
 ---

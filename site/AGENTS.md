@@ -26,9 +26,26 @@ We do **not** edit markdown files in `site/docs/` directly. Instead, we generate
     *   **CRITICAL**: The paths in `config.mts` MUST match the generated paths from `prepare-rev.js`.
 *   **Theme**: `.vitepress/theme/`
     *   Custom CSS (`custom.css`) for "Modern, Serious, Responsive" look.
+    *   **Paywall Components**: Contains `NanoPaywall.vue` and composables (`usePaymentStatus.ts`, `useXnapSnap.ts`) for the live 402 demo.
+
+### 🚀 Demo Server (Facilitator)
+
+The `site/` folder now hosts a live backend Node.js server (`site/demo-server/`) that acts as an x402 Facilitator, running concurrently with VitePress via `pnpm run dev:demo`.
+
+**Core Mechanics:**
+1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/server`, and returns the `HTTP 402 Payment Required` payload.
+2. **WebSocket Bridge**: `services/nano-websocket.ts` listens to the public Nano network (`wss://ws.nano.to`) for incoming SEND or RECEIVE blocks hitting the `NANO_SERVER_ADDRESS`, extracting the dust tag.
+3. **Server-Sent Events (SSE)**: `routes/status.ts` pipes verified block hashes back to the Vue `<NanoPaywall>` client in real-time, instantly unlocking the UI.
+
+**Configuration (`.env`):**
+To run the server, `site/.env` MUST be configured (see `site/.env.example`):
+- `NANO_RPC_URL` (for REST verification)
+- `NANO_SERVER_ADDRESS` (The address the Facilitator watches for dust payments)
 
 ### 🐛 Known Issues / Debugging
 
 *   **404 Errors**: If the site returns 404s, it usually means `prepare-rev.js` failed to generate files OR the `config.mts` paths don't match the generated filenames.
 *   **Dead Links**: VitePress build will FAIL if there are broken internal links.
     *   *Fix*: Ensure `prepare-rev.js` correctly rewrites links from the source Markdown to the new web paths.
+*   **EADDRINUSE (Port 3001)**: If `pnpm run dev:demo` fails saying port 3001 is in use, an old `tsx demo-server/index.ts` process is still running. Use `killall -9 node tsx` to free the port.
+*   **Wallet Precision Truncation Bug (Nault)**: The Nault consumer wallet currently has a bug where it truncates outgoing fractions to 6 decimal places, destroying the required NanoSession dust tag and causing payments to be ignored by the WebSocket. Test using Natrium, the Xnap plugin, or `scripts/test-payment.ts`.

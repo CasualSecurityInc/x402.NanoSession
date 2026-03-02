@@ -22,7 +22,7 @@ The x402 standard provides a uniform way to request and verify payments over HTT
 
 ## Why Not "Exact" x402?
 
-The original x402 protocol (x402.org) uses **wallet-signed authorizations** (EIP-712) where the client signs a message binding the payment to a specific request. NanoSession cannot use this approach due to Nano's architecture:
+The original x402 "exact" scheme uses **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. NanoSession cannot use this approach due to Nano's architecture:
 
 ### The Frontier Problem
 

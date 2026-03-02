@@ -1,6 +1,7 @@
 import { ref, onMounted } from 'vue';
 
-const XNAP_SNAP_ID = 'npm:@xnap/snap';
+const XNAP_SNAP_ID = 'npm:@obsidia/xnap';
+const XNAP_LEGACY_SNAP_ID = 'npm:@xnap/snap'; // Old ID for backwards compatibility
 
 export function useXnapSnap() {
     const isMetaMaskInstalled = ref(false);
@@ -25,12 +26,36 @@ export function useXnapSnap() {
         try {
             const provider = (window as any).ethereum;
             const snaps = await provider.request({ method: 'wallet_getSnaps' });
-            isXnapInstalled.value = Object.keys(snaps).includes(XNAP_SNAP_ID);
+            const snapIds = Object.keys(snaps);
+            // Check for either the new or legacy snap ID
+            isXnapInstalled.value = snapIds.includes(XNAP_SNAP_ID) || snapIds.includes(XNAP_LEGACY_SNAP_ID);
             return isXnapInstalled.value;
-        } catch (e) {
-            console.error('Failed to check snaps:', e);
+        } catch (e: any) {
+            // wallet_getSnaps may not be available if:
+            // 1. MetaMask doesn't support Snaps (older version)
+            // 2. Another wallet is overriding window.ethereum
+            // 3. User hasn't connected any wallet yet
+            console.warn('Could not check installed snaps:', e?.message || e);
             return false;
         }
+    }
+
+    /**
+     * Get the detected snap ID (new or legacy) or default to new
+     */
+    async function getDetectedSnapId(): Promise<string> {
+        if (!isMetaMaskInstalled.value) return XNAP_SNAP_ID;
+        
+        try {
+            const provider = (window as any).ethereum;
+            const snaps = await provider.request({ method: 'wallet_getSnaps' });
+            const snapIds = Object.keys(snaps);
+            if (snapIds.includes(XNAP_SNAP_ID)) return XNAP_SNAP_ID;
+            if (snapIds.includes(XNAP_LEGACY_SNAP_ID)) return XNAP_LEGACY_SNAP_ID;
+        } catch (e: any) {
+            console.warn('Could not detect snap ID:', e?.message || e);
+        }
+        return XNAP_SNAP_ID;
     }
 
     async function installXnap() {
@@ -64,26 +89,47 @@ export function useXnapSnap() {
 
         try {
             const provider = (window as any).ethereum;
+            
+            // Get the actual detected snap ID (handles legacy installs)
+            const snapId = await getDetectedSnapId();
+            
+            // Convert raw to XNO decimal format
+            const rawBigInt = BigInt(amountRaw);
+            const divisor = BigInt('1000000000000000000000000000'); // 10^29 for 29 decimal places
+            const wholePart = rawBigInt / divisor;
+            const fractionPart = rawBigInt % divisor;
+            const amountDecimal = `${wholePart}.${fractionPart.toString().padStart(29, '0').replace(/0+$/, '')}`;
 
             const response = await provider.request({
                 method: 'wallet_invokeSnap',
                 params: {
-                    snapId: XNAP_SNAP_ID,
+                    snapId: snapId,
                     request: {
-                        method: 'nano_send',
+                        method: 'xno_makeTransaction',
                         params: {
                             to: toAddress,
-                            amount: amountRaw,
-                            network: 'mainnet'
+                            value: amountDecimal
                         }
                     }
                 }
             });
 
-            return response; // Usually contains the block hash or success boolean depending on xnap version
+            return response; // Contains { hash: string | undefined }
         } catch (e: any) {
             console.error('Payment failed via Xnap:', e);
-            error.value = e.message || 'Payment was rejected or failed';
+            
+            // Handle specific error cases
+            const errorCode = e?.code || e?.data?.code;
+            const errorMsg = e?.message || '';
+            
+            if (errorCode === -32603 || errorMsg.includes('non-JSON-serializable')) {
+                // Xnap snap bug: returns non-serializable error (e.g., insufficient balance)
+                error.value = 'Transaction failed. This may be due to insufficient XNO balance or a network issue.';
+            } else if (errorCode === 4001) {
+                error.value = 'Transaction rejected by user.';
+            } else {
+                error.value = errorMsg || 'Payment was rejected or failed';
+            }
             throw e;
         } finally {
             isPending.value = false;

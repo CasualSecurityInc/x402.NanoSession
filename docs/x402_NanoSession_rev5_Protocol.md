@@ -58,7 +58,7 @@ Several stateless approaches were analyzed and rejected:
 
 ### 1.4. Why "Exact" x402 Schemes Are Unviable for Nano
 
-The original x402 protocol (x402.org) uses **wallet-signed authorizations** (EIP-712) where the client signs a message binding the payment to a specific request. This works because:
+The original x402 "exact" scheme uses **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. This works because:
 
 1. EVM transactions can include arbitrary signed data
 2. The signature proves the wallet owner authorized *this specific* payment

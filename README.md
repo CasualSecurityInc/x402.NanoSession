@@ -11,6 +11,34 @@ NanoSession is a protocol for high-frequency M2M payments using [Nano](https://n
 - **Session-bound**: Payments are cryptographically tied to requests (no receipt theft)
 - **Simple**: HTTP headers + one RPC call = payment verified
 
+## Protocol Flow (Simplified)
+
+Four steps. No intermediaries. Zero fees.
+
+```
+Client                          Server                      Nano
+  │                               │                           │
+  │  GET /resource                │                           │
+  │──────────────────────────────>│                           │
+  │                               │                           │
+  │  402 + X-Payment-Required     │                           │
+  │  (sessionId, amount, payTo)   │                           │
+  │<──────────────────────────────│                           │
+  │                               │                           │
+  │  send_block(amount + tag)     │                           │
+  │───────────────────────────────────────────────────────────>
+  │                               │                           │
+  │  GET /resource                │                           │
+  │  + X-Payment (blockHash,      │                           │
+  │    sessionId)                 │  verify block + session   │
+  │──────────────────────────────>│──────────────────────────>│
+  │                               │                           │
+  │  200 OK                       │                           │
+  │<──────────────────────────────│                           │
+```
+
+The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is cryptographically tied to a specific request. See the [full protocol specification](./docs/) for security model details.
+
 ## Repository Layout
 
 ```
@@ -143,31 +171,6 @@ The documentation website is built from `docs/` and deployed automatically.
 
 All packages are published under the `@nanosession` scope.
 
-## How It Works
-
-```
-Client                          Server                      Nano
-  │                               │                           │
-  │  GET /resource                │                           │
-  │──────────────────────────────>│                           │
-  │                               │                           │
-  │  402 + X-Payment-Required     │                           │
-  │  (sessionId, amount, payTo)   │                           │
-  │<──────────────────────────────│                           │
-  │                               │                           │
-  │  send_block(amount + tag)     │                           │
-  │───────────────────────────────────────────────────────────>
-  │                               │                           │
-  │  GET /resource                │                           │
-  │  + X-Payment (blockHash,      │                           │
-  │    sessionId)                 │  verify block + session   │
-  │──────────────────────────────>│──────────────────────────>│
-  │                               │                           │
-  │  200 OK                       │                           │
-  │<──────────────────────────────│                           │
-```
-
-See the [protocol specification](./docs/) for complete details.
 
 ## Contributing
 

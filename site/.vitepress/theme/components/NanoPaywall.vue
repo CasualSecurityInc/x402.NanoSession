@@ -69,10 +69,20 @@ onUnmounted(() => {
 })
 
 async function fetchPaymentRequirements() {
+  // Clean up existing state for restart
+  if (timerInterval) clearInterval(timerInterval)
+  if (eventSource) {
+      eventSource.close()
+      eventSource = null
+  }
+  session.value = null
+  paymentStatus.value = 'pending'
+  finalBlockHash.value = null
+  serverProvidedContent.value = null
+  
   isLoading.value = true
   fetchError.value = null
   httpLog.value = [] // Reset log
-  
   try {
     const targetHost = new URL(activeServerUrl.value).host
     httpLog.value.push({ type: 'req', content: `GET /api/protected\nHost: ${targetHost}\nAccept: application/json` })
@@ -311,7 +321,28 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         </div>
         
         <div class="mt-6 text-xs text-gray-500 opacity-70">
-           Block: <a :href="`https://nanolooker.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="hover:underline text-[var(--vp-c-brand)]">{{ finalBlockHash }}</a>
+           Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="hover:underline text-[var(--vp-c-brand)]">{{ finalBlockHash }}</a>
+        </div>
+        
+        <div class="mt-2 text-xs">
+           <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
+        </div>
+        
+        <!-- Protocol Terminal Log (shown after completion for review) -->
+        <div class="protocol-terminal mt-6">
+            <div class="terminal-header">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+                <span class="title">Protocol Log</span>
+            </div>
+            <div class="terminal-body" ref="logBody">
+                <div v-for="(log, i) in httpLog" :key="i" class="log-entry">
+                    <span v-if="log.type === 'req'" class="req-text">→ Client Request:<br>{{ log.content }}</span>
+                    <span v-else-if="log.type === 'res'" class="res-text">← Server Response:<br>{{ log.content }}</span>
+                    <span v-else class="info-text">{{ log.content }}</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -384,7 +415,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 >
                     <span v-if="xnapPending">Opening Wallet...</span>
                     <span v-else-if="isXnapInstalled">Pay with MetaMask</span>
-                    <span v-else>Install @xnap/snap</span>
+                    <span v-else>Install Xnap (MetaMask Snap for Nano)</span>
                 </button>
                 <div v-if="xnapError" class="xnap-error">{{ xnapError }}</div>
             </div>

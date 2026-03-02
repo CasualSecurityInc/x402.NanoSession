@@ -3,6 +3,26 @@ import { NanoSessionFacilitatorHandler, InMemorySpentSet } from '@nanosession/se
 import crypto from 'crypto';
 import { registerSession } from './status';
 
+/**
+ * Determine the base URL for the resource based on request headers.
+ * Precedence: X-Forwarded-Host > X-Proxy-Host > Host
+ * Protocol: X-Forwarded-Proto > req.protocol
+ */
+function getResourceBaseUrl(req: Request): string {
+    // Protocol: check X-Forwarded-Proto first (standard proxy header)
+    const proto = req.header('X-Forwarded-Proto') || req.protocol;
+    
+    // Host: precedence for proxy scenarios
+    const forwardedHost = req.header('X-Forwarded-Host');
+    const proxyHost = req.header('X-Proxy-Host');
+    const hostHeader = req.header('Host');
+    
+    // Use first available host in precedence order
+    const host = forwardedHost || proxyHost || hostHeader || 'localhost:3001';
+    
+    return `${proto}://${host}`;
+}
+
 export const protectedRoute = Router();
 
 // Create a single instance of the facilitator handler with an in-memory spent set for the demo
@@ -91,7 +111,7 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
             x402Version: 5, // Custom rev 5 value for demo context
             error: 'Payment Required',
             resource: {
-                url: 'http://localhost:3001/api/protected',
+                url: `${getResourceBaseUrl(req)}/api/protected`,
                 description: 'Access to protected demo content',
                 mimeType: 'application/json'
             },

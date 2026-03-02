@@ -40,7 +40,7 @@ See [Protocol Specification § Security Model](./protocol.md#1-security-model) f
 
 ## Why Not "Exact" x402?
 
-The original x402 scheme uses EIP-712 wallet signatures to bind payments to requests. This works on EVM chains because transactions can include arbitrary signed data.
+The original x402 "exact" scheme uses EIP-3009 `transferWithAuthorization` (or Permit2) with EIP-712 signatures to bind payments to requests. This works on EVM chains because tokens can verify off-chain signatures and execute transfers in a single on-chain call.
 
 Nano's architecture prevents this:
 

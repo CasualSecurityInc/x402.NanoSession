@@ -4,15 +4,10 @@ import { NanoRpcClient } from '@nanosession/rpc';
 import crypto from 'crypto';
 import { registerSession } from './status';
 
-// Create RPC client for the facilitator
 const rpcClient = new NanoRpcClient({
     endpoints: [process.env.NANO_RPC_URL!],
-    timeoutMs: 10000
+    timeoutMs: 15000
 });
-
-import { NanoSessionFacilitatorHandler, InMemorySpentSet } from '@nanosession/server';
-import crypto from 'crypto';
-import { registerSession } from './status';
 
 /**
  * Determine the base URL for the resource based on request headers.

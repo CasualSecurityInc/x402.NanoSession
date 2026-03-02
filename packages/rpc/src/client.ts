@@ -7,12 +7,15 @@ export interface NanoRpcClientOptions {
   maxRetries?: number;
   /** Initial retry delay in ms (doubles each retry) */
   retryDelayMs?: number;
+  /** Request timeout in ms */
+  timeoutMs?: number;
 }
 
 export class NanoRpcClient {
   private endpoints: string[];
   private maxRetries: number;
   private retryDelayMs: number;
+  private timeoutMs: number;
 
   constructor(options: NanoRpcClientOptions) {
     if (!options.endpoints.length) {
@@ -21,6 +24,7 @@ export class NanoRpcClient {
     this.endpoints = options.endpoints;
     this.maxRetries = options.maxRetries ?? 3;
     this.retryDelayMs = options.retryDelayMs ?? 1000;
+    this.timeoutMs = options.timeoutMs ?? 30000;
   }
 
   /**
@@ -111,17 +115,22 @@ export class NanoRpcClient {
     let delay = this.retryDelayMs;
     
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+      
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ action, ...params })
+          body: JSON.stringify({ action, ...params }),
+          signal: controller.signal
         });
         
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const bodyText = await response.text().catch(() => '');
+          throw new Error(`HTTP ${response.status}: ${response.statusText}${bodyText ? ` - ${bodyText.slice(0, 200)}` : ''}`);
         }
         
         const data = await response.json() as Record<string, unknown>;
@@ -132,12 +141,18 @@ export class NanoRpcClient {
         
         return data;
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        if (error instanceof Error && error.name === 'AbortError') {
+          lastError = new Error(`Request timeout after ${this.timeoutMs}ms`);
+        } else {
+          lastError = error instanceof Error ? error : new Error(String(error));
+        }
         
         if (attempt < this.maxRetries - 1) {
           await this.sleep(delay);
-          delay *= 2; // Exponential backoff
+          delay *= 2;
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
     

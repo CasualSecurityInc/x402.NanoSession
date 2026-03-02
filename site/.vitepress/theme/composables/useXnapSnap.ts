@@ -92,7 +92,12 @@ export function useXnapSnap() {
             
             // Get the actual detected snap ID (handles legacy installs)
             const snapId = await getDetectedSnapId();
-            
+            // Convert raw to XNO decimal format (Nano uses 30 decimal places)
+            const rawBigInt = BigInt(amountRaw);
+            const divisor = BigInt('1000000000000000000000000000000'); // 10^30
+            const wholePart = rawBigInt / divisor;
+            const fractionPart = rawBigInt % divisor;
+            const amountDecimal = `${wholePart}.${fractionPart.toString().padStart(30, '0').replace(/0+$/, '')}`;
             // Convert raw to XNO decimal format
             const rawBigInt = BigInt(amountRaw);
             const divisor = BigInt('1000000000000000000000000000'); // 10^29 for 29 decimal places

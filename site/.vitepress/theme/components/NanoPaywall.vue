@@ -550,7 +550,10 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .success-banner h2 {
     margin: 0;
+    border-bottom: none;
+    padding-bottom: 0;
 }
+
 
 .server-content {
     margin-top: 16px;

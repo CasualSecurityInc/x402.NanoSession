@@ -27,6 +27,9 @@ const qrcodeDataUrl = ref('')
 const countdown = ref(0)
 let timerInterval: any = null
 
+// Payment method tab state
+const activePaymentTab = ref<'qr' | 'metamask'>('qr')
+
 // Protocol Log
 interface LogEntry {
     type: 'req' | 'res' | 'info'
@@ -37,9 +40,6 @@ const httpLog = ref<LogEntry[]>([])
 // Payment State
 const session = ref<any>(null)
 const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
-  // We need to pass the reactive session ID, but usePaymentStatus is set up as a one-shot right now.
-  // Actually, we can fetch the 402 FIRST then inject the sessionId. 
-  // For simplicity, we'll fetch the 402, then manually subscribe.
   '', ''
 )
 
@@ -79,6 +79,7 @@ async function fetchPaymentRequirements() {
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
   serverProvidedContent.value = null
+  activePaymentTab.value = 'qr' // Reset to QR tab
   
   isLoading.value = true
   fetchError.value = null
@@ -308,8 +309,8 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
       </div>
     </div>
 
-    <!-- IF CONFIRMED: REVEAL CONTENT -->
-    <div v-if="paymentStatus === 'confirmed'" class="protected-content-revealed bg-green-50/10 p-6 rounded-xl border border-green-500/30">
+    <!-- SUCCESS STATE -->
+    <div v-if="paymentStatus === 'confirmed'" class="protected-content-revealed bg-green-50/10 p-6 rounded-xl border border-green-500/30 mb-6">
         <div class="success-banner mb-6 text-green-600 dark:text-green-400 font-semibold flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             <h2>🎉 Payment successful!</h2>
@@ -323,30 +324,9 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         <div class="mt-6 text-xs text-gray-500 opacity-70">
            Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="hover:underline text-[var(--vp-c-brand)]">{{ finalBlockHash }}</a>
         </div>
-        
-        <div class="mt-2 text-xs">
-           <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
-        </div>
-        
-        <!-- Protocol Terminal Log (shown after completion for review) -->
-        <div class="protocol-terminal mt-6">
-            <div class="terminal-header">
-                <span class="dot red"></span>
-                <span class="dot yellow"></span>
-                <span class="dot green"></span>
-                <span class="title">Protocol Log</span>
-            </div>
-            <div class="terminal-body" ref="logBody">
-                <div v-for="(log, i) in httpLog" :key="i" class="log-entry">
-                    <span v-if="log.type === 'req'" class="req-text">→ Client Request:<br>{{ log.content }}</span>
-                    <span v-else-if="log.type === 'res'" class="res-text">← Server Response:<br>{{ log.content }}</span>
-                    <span v-else class="info-text">{{ log.content }}</span>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- ELSE: SHOW PAYWALL -->
+    <!-- MAIN PAYWALL CONTAINER -->
     <div v-else class="paywall-container max-w-md mx-auto border border-[var(--vp-c-divider)] rounded-xl overflow-hidden shadow-lg bg-[var(--vp-c-bg-soft)]" data-testid="payment-required">
         
         <!-- Header -->
@@ -372,81 +352,131 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         <!-- Expired State -->
         <div v-else-if="paymentStatus === 'expired'" class="p-8 text-center text-orange-500">
             <p>Session Expired. Please refresh to start a new payment session.</p>
-            <div class="mt-4 text-xs">
-                <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
-            </div>
         </div>
 
         <!-- Active Payment State -->
-        <div v-else-if="session" class="p-6 flex flex-col items-center">
+        <div v-else-if="session" class="payment-active">
             
-            <p class="text-center text-sm mb-4">
-               Please pay exactly <strong data-testid="payment-amount-raw" :data-raw="session.amountRaw">{{ formatRawAmount(session.amountRaw) }} XNO</strong> to continue.
-            </p>
+            <!-- COMMON INFO (always visible) -->
+            <div class="common-info p-6 border-b border-[var(--vp-c-divider)]">
+                <p class="text-center text-sm mb-4">
+                   Please pay exactly <strong data-testid="payment-amount-raw" :data-raw="session.amountRaw">{{ formatRawAmount(session.amountRaw) }} XNO</strong> to:
+                </p>
 
-            <div class="qr-wrapper bg-white p-2 rounded-lg shadow-sm mb-6">
-                <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" class="w-48 h-48 block" />
+                <div class="address-pane w-full bg-[var(--vp-c-bg-alt)] text-xs font-mono p-3 rounded text-center break-all text-[var(--vp-c-text-2)] mb-4 select-all" data-testid="payment-address">
+                    {{ session.payTo }}
+                </div>
+
+                <!-- Session Timer -->
+                <div class="text-center text-xs text-[var(--vp-c-text-3)]">
+                    Session expires in: <span class="font-mono">{{ Math.floor(countdown / 60) }}:{{ (countdown % 60).toString().padStart(2, '0') }}</span>
+                </div>
             </div>
 
-            <div class="address-pane w-full bg-[var(--vp-c-bg-alt)] text-xs font-mono p-3 rounded text-center break-all text-[var(--vp-c-text-2)] mb-6 select-all" data-testid="payment-address">
-                {{ session.payTo }}
+            <!-- PAYMENT METHOD TABS -->
+            <div class="payment-tabs">
+                <div class="tab-headers flex border-b border-[var(--vp-c-divider)]">
+                    <button 
+                        @click="activePaymentTab = 'qr'"
+                        :class="['tab-btn flex-1 py-3 text-sm font-medium transition-colors', activePaymentTab === 'qr' ? 'active-tab' : 'text-[var(--vp-c-text-2)] hover:text-[var(--vp-c-text-1)]']"
+                    >
+                        📱 QR Code
+                    </button>
+                    <button 
+                        v-if="isMetaMaskInstalled"
+                        @click="activePaymentTab = 'metamask'"
+                        :class="['tab-btn flex-1 py-3 text-sm font-medium transition-colors', activePaymentTab === 'metamask' ? 'active-tab' : 'text-[var(--vp-c-text-2)] hover:text-[var(--vp-c-text-1)]']"
+                    >
+                        🦊 MetaMask
+                    </button>
+                </div>
+
+                <!-- QR Code Tab -->
+                <div v-if="activePaymentTab === 'qr'" class="tab-content p-6">
+                    <div class="flex flex-col items-center">
+                        <div class="qr-wrapper bg-white p-2 rounded-lg shadow-sm mb-4">
+                            <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" class="w-48 h-48 block" />
+                        </div>
+                        <p class="text-xs text-[var(--vp-c-text-2)] text-center">
+                            Scan with Natrium, Nault, or any Nano wallet
+                        </p>
+                    </div>
+                </div>
+
+                <!-- MetaMask Tab -->
+                <div v-if="activePaymentTab === 'metamask'" class="tab-content p-6">
+                    <div class="flex flex-col items-center text-center">
+                        <div v-if="!xnapPending" class="metamask-idle">
+                            <button 
+                                @click="handleXnapClick" 
+                                class="xnap-btn"
+                            >
+                                <span v-if="!isXnapInstalled">Install Xnap Snap</span>
+                                <span v-else>Pay with MetaMask</span>
+                            </button>
+                            <p class="text-xs text-[var(--vp-c-text-2)] mt-4 max-w-xs">
+                                Xnap is a MetaMask Snap that enables Nano payments directly in your browser wallet.
+                            </p>
+                        </div>
+                        
+                        <div v-else class="metamask-pending">
+                            <div class="inline-block animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+                            <p class="text-sm font-medium text-[var(--vp-c-brand)]">Transaction in progress...</p>
+                            <p class="text-xs text-[var(--vp-c-text-2)] mt-2 max-w-xs">
+                                MetaMask snap is calculating Proof-of-Work.<br>
+                                This may take 10-30 seconds.
+                            </p>
+                        </div>
+                        
+                        <div v-if="xnapError" class="xnap-error mt-4">{{ xnapError }}</div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Wait Status & Timer -->
-            <div class="w-full border-t border-[var(--vp-c-divider)] pt-4 flex flex-col items-center">
-                <div class="flex items-center gap-2 mb-2 text-[var(--vp-c-brand)] font-medium" data-testid="payment-status" data-status="pending">
+            <!-- GLOBAL STATUS (always visible) -->
+            <div class="global-status p-4 bg-[var(--vp-c-bg-alt)] border-t border-[var(--vp-c-divider)] text-center">
+                <div v-if="paymentStatus === 'pending'" class="flex items-center justify-center gap-2 text-[var(--vp-c-brand)] font-medium" data-testid="payment-status" data-status="pending">
                     <span class="relative flex h-3 w-3">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--vp-c-brand)] opacity-75"></span>
                       <span class="relative inline-flex rounded-full h-3 w-3 bg-[var(--vp-c-brand)]"></span>
                     </span>
                     Waiting for payment...
                 </div>
-                <div class="text-xs text-[var(--vp-c-text-3)]">
-                    Session expires in: {{ Math.floor(countdown / 60) }}:{{ (countdown % 60).toString().padStart(2, '0') }}
+                <div v-else-if="paymentStatus === 'expired'" class="text-orange-500">
+                    Session expired
                 </div>
             </div>
-
-            <!-- Xnap MetaMask Integration -->
-            <div class="xnap-container" v-if="isMetaMaskInstalled">
-                <button 
-                  @click="handleXnapClick" 
-                  :disabled="xnapPending"
-                  class="xnap-btn"
-                >
-                    <span v-if="xnapPending">Opening Wallet...</span>
-                    <span v-else-if="isXnapInstalled">Pay with MetaMask</span>
-                    <span v-else>Install Xnap (MetaMask Snap for Nano)</span>
-                </button>
-                <div v-if="xnapError" class="xnap-error">{{ xnapError }}</div>
-            </div>
-
         </div>
+    </div>
 
-        <!-- Protocol Terminal Log -->
-        <div class="protocol-terminal">
-            <div class="terminal-header">
-                <span class="dot red"></span>
-                <span class="dot yellow"></span>
-                <span class="dot green"></span>
-                <span class="title">Live Protocol Log</span>
+    <!-- GLOBAL RESTART LINK (always visible) -->
+    <div class="text-center mt-4 text-xs">
+        <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
+    </div>
+
+    <!-- GLOBAL PROTOCOL CONSOLE (always visible) -->
+    <div class="protocol-terminal max-w-md mx-auto mt-4 rounded-xl overflow-hidden border border-[var(--vp-c-divider)]">
+        <div class="terminal-header">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <span class="title">Protocol Log</span>
+        </div>
+        <div class="terminal-body" ref="logBody">
+            <div v-for="(log, i) in httpLog" :key="i" class="log-entry">
+                <span v-if="log.type === 'req'" class="req-text">→ Client Request:<br>{{ log.content }}</span>
+                <span v-else-if="log.type === 'res'" class="res-text">← Server Response:<br>{{ log.content }}</span>
+                <span v-else class="info-text">{{ log.content }}</span>
             </div>
-            <div class="terminal-body" ref="logBody">
-                <div v-for="(log, i) in httpLog" :key="i" class="log-entry">
-                    <span v-if="log.type === 'req'" class="req-text">→ Client Request:<br>{{ log.content }}</span>
-                    <span v-else-if="log.type === 'res'" class="res-text">← Server Response:<br>{{ log.content }}</span>
-                    <span v-else class="info-text">{{ log.content }}</span>
-                </div>
-            </div>
+            <div v-if="httpLog.length === 0" class="info-text italic">Waiting for first request...</div>
         </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Minimal scoping if needed, relying mostly on VitePress var colors */
 .protocol-terminal {
     background-color: #1e1e1e;
-    border-top: 1px solid var(--vp-c-divider);
     display: flex;
     flex-direction: column;
 }
@@ -501,22 +531,22 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 }
 
 .req-text {
-    color: #56b6c2; /* Cyan-ish */
+    color: #56b6c2;
 }
 
 .res-text {
-    color: #98c379; /* Green-ish */
+    color: #98c379;
 }
 
 .info-text {
-    color: #7f848e; /* Gray */
+    color: #7f848e;
     font-style: italic;
 }
 
 /* Invisible Anchors for smooth hash routing */
 .network-anchor {
   position: relative;
-  top: -80px; /* Offset for VitePress sticky header */
+  top: -80px;
   visibility: hidden;
   height: 0;
 }
@@ -558,21 +588,35 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* Xnap Button Styling */
-.xnap-container {
-  width: 100%;
-  border-top: 1px solid var(--vp-c-divider);
-  margin-top: 24px;
-  padding-top: 16px;
+/* Payment Method Tabs */
+.tab-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    position: relative;
 }
 
+.tab-btn.active-tab {
+    color: var(--vp-c-brand);
+}
+
+.tab-btn.active-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--vp-c-brand);
+}
+
+/* Xnap Button Styling */
 .xnap-btn {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 12px 24px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   color: #ffffff;
@@ -582,7 +626,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   transition: background-color 0.2s;
 }
 
-.xnap-btn:hover:not(:disabled) {
+.xnap-btn:hover {
   background-color: #1d4ed8;
 }
 
@@ -591,19 +635,16 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
 }
 
-.xnap-btn:-moz-focusring {
-  outline: auto;
-}
-
-.xnap-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .xnap-error {
-  margin-top: 8px;
   font-size: 12px;
   color: #ef4444;
   text-align: center;
+}
+
+/* Success content */
+.protected-content-revealed {
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
 }
 </style>

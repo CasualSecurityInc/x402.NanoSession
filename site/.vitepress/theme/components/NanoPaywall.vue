@@ -200,18 +200,56 @@ function connectSSE() {
 
 async function generateQRCode() {
   if (!session.value) return
-  // xrb: or nano:
   const uri = `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
   try {
-    qrcodeDataUrl.value = await QRCode.toDataURL(uri, {
-        width: 250,
+    // Create a virtual canvas to draw QR and overlay logo
+    const canvas = document.createElement('canvas')
+    // We use a larger size for better logo resolution, then display scaled down
+    const size = 600 
+    
+    await QRCode.toCanvas(canvas, uri, {
+        width: size,
         margin: 2,
-        color: { dark: '#000000FF', light: '#FFFFFFFF' }
+        color: { dark: '#000000FF', light: '#FFFFFFFF' },
+        errorCorrectionLevel: 'H' // High correction to handle the overlay
     })
+
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+        // Load the Nano logo
+        const logo = new Image()
+        logo.crossOrigin = 'anonymous'
+        logo.src = 'https://assets.nano.org/img/nano-symbol-blue.png'
+
+        await new Promise((resolve) => {
+            logo.onload = resolve
+            logo.onerror = resolve // Continue even if logo fails
+        })
+
+        if (logo.complete && logo.naturalWidth > 0) {
+            const logoSize = size * 0.22 // 22% of QR size
+            const x = (size - logoSize) / 2
+            const y = (size - logoSize) / 2
+            
+            // Draw a white circular background for the logo
+            ctx.fillStyle = '#FFFFFF'
+            ctx.beginPath()
+            ctx.arc(size / 2, size / 2, (logoSize / 2) + 5, 0, Math.PI * 2)
+            ctx.fill()
+            
+            // Draw the logo
+            ctx.drawImage(logo, x, y, logoSize, logoSize)
+        }
+    }
+    
+    qrcodeDataUrl.value = canvas.toDataURL('image/png')
   } catch (err) {
     console.error('QR code generation failed', err)
+    // Fallback to basic QR if canvas fails
+    qrcodeDataUrl.value = await QRCode.toDataURL(uri, { width: 250, margin: 2 })
   }
 }
+
 
 function startCountdown() {
     updateCountdown()

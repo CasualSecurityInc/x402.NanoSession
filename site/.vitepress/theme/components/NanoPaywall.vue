@@ -80,7 +80,7 @@ async function fetchPaymentRequirements() {
   finalBlockHash.value = null
   serverProvidedContent.value = null
   activePaymentTab.value = 'qr' // Reset to QR tab
-  
+
   isLoading.value = true
   fetchError.value = null
   httpLog.value = [] // Reset log
@@ -89,7 +89,7 @@ async function fetchPaymentRequirements() {
     httpLog.value.push({ type: 'req', content: `GET /api/protected\nHost: ${targetHost}\nAccept: application/json` })
 
     const res = await fetch(`${activeServerUrl.value}/api/protected`)
-    
+
     // Check if it's the expected 402
     if (res.status === 402) {
       const xPaymentRequired = res.headers.get('x-payment-required')
@@ -101,26 +101,26 @@ async function fetchPaymentRequirements() {
         } catch {
             prettyJson = xPaymentRequired
         }
-        
-        httpLog.value.push({ 
-            type: 'res', 
-            content: `HTTP/1.1 402 Payment Required\nX-Payment-Required: ${prettyJson}` 
+
+        httpLog.value.push({
+            type: 'res',
+            content: `HTTP/1.1 402 Payment Required\nX-Payment-Required: ${prettyJson}`
         })
-        
+
         const reqs = JSON.parse(xPaymentRequired)
         session.value = {
           payTo: reqs.payTo,
           amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString(),
           sessionId: reqs.extra.sessionId,
-          expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000 
+          expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000
         }
-        
+
         // Generate QR
         generateQRCode()
-        
+
         // Start countdown
         startCountdown()
-        
+
         // Connect SSE
         connectSSE()
       } else {
@@ -142,9 +142,9 @@ async function fetchPaymentRequirements() {
 
 function connectSSE() {
    if (!session.value?.sessionId) return
-   
+
    eventSource = new EventSource(`${activeServerUrl.value}/api/status/${session.value.sessionId}`);
-   
+
    eventSource.onopen = () => {
        httpLog.value.push({ type: 'info', content: `(SSE connection established for session...)` })
    }
@@ -159,10 +159,10 @@ function connectSSE() {
 
                 if (data.status === 'confirmed') {
                     httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
-                    
+
                     // Fetch the protected content using the newly confirmed block hash and session
                     httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${data.blockHash}\nX-Payment-Session: ${session.value?.sessionId}` })
-                    
+
                     fetch(`${activeServerUrl.value}/api/protected`, {
                         headers: {
                             'X-Payment-Block': data.blockHash,
@@ -188,7 +188,7 @@ function connectSSE() {
             console.error('Failed to parse SSE', e);
         }
     };
-    
+
     eventSource.onerror = () => {
         globalError.value = "Live connection lost. Checking manually..."
         // In a real app we'd trigger a manual verification poll here
@@ -200,7 +200,7 @@ async function generateQRCode() {
   // xrb: or nano:
   const uri = `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
   try {
-    qrcodeDataUrl.value = await QRCode.toDataURL(uri, { 
+    qrcodeDataUrl.value = await QRCode.toDataURL(uri, {
         width: 250,
         margin: 2,
         color: { dark: '#000000FF', light: '#FFFFFFFF' }
@@ -219,7 +219,7 @@ function updateCountdown() {
     if (!session.value) return
     const now = Date.now()
     const diff = Math.floor((session.value.expiresAt - now) / 1000)
-    
+
     if (diff <= 0) {
         countdown.value = 0
         clearInterval(timerInterval)
@@ -233,17 +233,17 @@ function updateCountdown() {
 function formatRawAmount(raw: string) {
     // Convert RAW to XNO (10^30) for display purposes
     if (!raw || raw.length < 25) return "0.000000"
-    
+
     const padded = raw.padStart(31, '0')
     const whole = padded.slice(0, -30) || '0'
     const fraction = padded.slice(-30) // keep all 30 decimals
-    
+
     // Trim trailing zeros but ensure at least 6 decimals
     let trimmedFraction = fraction.replace(/0+$/, '')
     if (trimmedFraction.length < 6) {
         trimmedFraction = trimmedFraction.padEnd(6, '0')
     }
-    
+
     return `${whole}.${trimmedFraction}`
 }
 
@@ -261,14 +261,14 @@ async function handleXnapClick() {
 
 async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   if (networkMode.value === mode) return
-  
+
   networkMode.value = mode
   activeServerUrl.value = mode === 'testnet' ? props.demoTestnetServerUrl : props.demoServerUrl
-  
+
   if (typeof window !== 'undefined') {
     window.history.replaceState(null, '', mode === 'testnet' ? '#testnet' : window.location.pathname)
   }
-  
+
   // Clean up existing state
   if (timerInterval) clearInterval(timerInterval)
   if (eventSource) {
@@ -279,14 +279,14 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
   serverProvidedContent.value = null
-  
+
   await fetchPaymentRequirements()
 }
 </script>
 
 <template>
   <div class="nano-paywall">
-    
+
     <!-- Anchor targets for hash navigation -->
     <div id="mainnet" class="network-anchor"></div>
     <div id="testnet" class="network-anchor"></div>
@@ -294,13 +294,13 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     <!-- Network Tab Switcher -->
     <div class="network-tabs-wrapper" id="network-tabs" v-if="enableTestnetTab">
       <div class="network-tabs-container">
-        <button 
+        <button
           @click="setNetworkMode('mainnet')"
           :class="['network-tab', networkMode === 'mainnet' ? 'active' : '']"
         >
           Mainnet
         </button>
-        <button 
+        <button
           @click="setNetworkMode('testnet')"
           :class="['network-tab', networkMode === 'testnet' ? 'active' : '']"
         >
@@ -312,15 +312,14 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     <!-- SUCCESS STATE -->
     <div v-if="paymentStatus === 'confirmed'" class="success-container">
         <div class="success-banner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             <h2>🎉 Payment successful!</h2>
         </div>
         <div data-testid="protected-content">
            <slot></slot>
-           
+
            <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
         </div>
-        
+
         <div class="block-info">
            Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
         </div>
@@ -328,7 +327,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
     <!-- MAIN PAYWALL CONTAINER -->
     <div v-else class="paywall-container" data-testid="payment-required">
-        
+
         <!-- Header -->
         <div class="paywall-header">
             <h3>Payment Required</h3>
@@ -348,7 +347,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 Retry
             </button>
         </div>
-        
+
         <!-- Expired State -->
         <div v-else-if="paymentStatus === 'expired'" class="expired-state">
             <p>Session Expired. Please refresh to start a new payment session.</p>
@@ -356,7 +355,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
         <!-- Active Payment State -->
         <div v-else-if="session" class="payment-active">
-            
+
             <!-- COMMON INFO (always visible) -->
             <div class="common-info">
                 <p class="payment-amount">
@@ -376,13 +375,13 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
             <!-- PAYMENT METHOD TABS -->
             <div class="payment-tabs">
                 <div class="tab-headers">
-                    <button 
+                    <button
                         @click="activePaymentTab = 'qr'"
                         :class="['tab-btn', activePaymentTab === 'qr' ? 'active-tab' : '']"
                     >
                         📱 QR Code
                     </button>
-                    <button 
+                    <button
                         v-if="isMetaMaskInstalled"
                         @click="activePaymentTab = 'metamask'"
                         :class="['tab-btn', activePaymentTab === 'metamask' ? 'active-tab' : '']"
@@ -407,8 +406,8 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 <div v-if="activePaymentTab === 'metamask'" class="tab-content">
                     <div class="metamask-section">
                         <div v-if="!xnapPending" class="metamask-idle">
-                            <button 
-                                @click="handleXnapClick" 
+                            <button
+                                @click="handleXnapClick"
                                 class="xnap-btn"
                             >
                                 <span v-if="!isXnapInstalled">Install Xnap Snap</span>
@@ -418,7 +417,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                                 Xnap is a MetaMask Snap that enables Nano payments directly in your browser wallet.
                             </p>
                         </div>
-                        
+
                         <div v-else class="metamask-pending">
                             <div class="spinner"></div>
                             <p class="pending-title">Transaction in progress...</p>
@@ -427,7 +426,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                                 This may take 10-30 seconds.
                             </p>
                         </div>
-                        
+
                         <div v-if="xnapError" class="xnap-error">{{ xnapError }}</div>
                     </div>
                 </div>
@@ -557,6 +556,12 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     border-radius: 8px;
     border: 1px solid var(--vp-c-divider);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: center;
+}
+
+.server-content iframe {
+    display: block;
 }
 
 .block-info {

@@ -691,9 +691,10 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .session-timer {
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--vp-c-text-3);
 }
+
 
 .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;

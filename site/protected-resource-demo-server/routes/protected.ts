@@ -1,5 +1,16 @@
 import { Request, Response, Router } from 'express';
 import { NanoSessionFacilitatorHandler, InMemorySpentSet } from '@nanosession/server';
+import { NanoRpcClient } from '@nanosession/rpc';
+import crypto from 'crypto';
+import { registerSession } from './status';
+
+// Create RPC client for the facilitator
+const rpcClient = new NanoRpcClient({
+    endpoints: [process.env.NANO_RPC_URL!],
+    timeoutMs: 10000
+});
+
+import { NanoSessionFacilitatorHandler, InMemorySpentSet } from '@nanosession/server';
 import crypto from 'crypto';
 import { registerSession } from './status';
 
@@ -28,9 +39,11 @@ export const protectedRoute = Router();
 // Create a single instance of the facilitator handler with an in-memory spent set for the demo
 const spentSet = new InMemorySpentSet();
 const facilitator = new NanoSessionFacilitatorHandler({
+    rpcClient,
     spentSet,
     tagModulus: 10000000 // 10 million raw tag range
 });
+
 
 protectedRoute.get('/', async (req: Request, res: Response) => {
     const paymentProof = req.header('X-Payment-Block');

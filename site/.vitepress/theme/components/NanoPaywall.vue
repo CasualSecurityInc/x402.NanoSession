@@ -7,13 +7,16 @@ import { useXnapSnap } from '../composables/useXnapSnap'
 const props = defineProps({
   demoServerUrl: {
     type: String,
-    default: () => import.meta.env.VITE_DEMO_SERVER_URL || 'http://localhost:3001'
+    default: () => import.meta.env.VITE_MAINNET_DEMO_URL || 'http://localhost:3001'
   },
   demoTestnetServerUrl: {
     type: String,
-    default: () => import.meta.env.VITE_DEMO_TESTNET_SERVER_URL || 'http://localhost:3002'
+    default: () => import.meta.env.VITE_TESTNET_DEMO_URL || 'http://localhost:3002'
   }
 })
+
+// Check if the developer explicitly disabled the Testnet tab in building .env
+const enableTestnetTab = import.meta.env.VITE_ENABLE_TESTNET_TAB !== 'false'
 
 // UI State
 const networkMode = ref<'mainnet' | 'testnet'>('mainnet')
@@ -43,12 +46,11 @@ const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
 // Xnap Integration
 const { isMetaMaskInstalled, isXnapInstalled, isPending: xnapPending, error: xnapError, installXnap, payWithXnap } = useXnapSnap()
 
-// Instead of passing sessionId to composable on setup, we'll handle the EventSource manually here 
-// since we need to wait for the 402 response first
 let eventSource: EventSource | null = null
 const paymentStatus = ref<'pending' | 'confirmed' | 'failed' | 'expired'>('pending')
 const finalBlockHash = ref<string | null>(null)
 const globalError = ref<string | null>(null)
+const serverProvidedContent = ref<string | null>(null)
 
 onMounted(async () => {
   if (typeof window !== 'undefined' && window.location.hash === '#testnet') {
@@ -146,8 +148,27 @@ function connectSSE() {
 
                 if (data.status === 'confirmed') {
                     httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
-                    httpLog.value.push({ type: 'req', content: `GET /protected-content\nX-Payment-Response: {"blockHash": "${data.blockHash}", "sessionId": "..."}` })
-                    httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: text/html\n\n<protected content revealed>` })
+                    
+                    // Fetch the protected content using the newly confirmed block hash and session
+                    httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${data.blockHash}\nX-Payment-Session: ${session.value?.sessionId}` })
+                    
+                    fetch(`${activeServerUrl.value}/api/protected`, {
+                        headers: {
+                            'X-Payment-Block': data.blockHash,
+                            'X-Payment-Session': session.value?.sessionId
+                        }
+                    })
+                    .then(res => res.json())
+                    .then(protectedData => {
+                        if (protectedData.success && protectedData.html) {
+                            serverProvidedContent.value = protectedData.html;
+                            httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n<protected content revealed>` })
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to fetch protected content via verify route', err);
+                    })
+
                     eventSource?.close();
                     clearInterval(timerInterval);
                 }
@@ -246,6 +267,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
   session.value = null
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
+  serverProvidedContent.value = null
   
   await fetchPaymentRequirements()
 }
@@ -259,7 +281,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     <div id="testnet" class="network-anchor"></div>
 
     <!-- Network Tab Switcher -->
-    <div class="network-tabs-wrapper" id="network-tabs">
+    <div class="network-tabs-wrapper" id="network-tabs" v-if="enableTestnetTab">
       <div class="network-tabs-container">
         <button 
           @click="setNetworkMode('mainnet')"
@@ -280,14 +302,16 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     <div v-if="paymentStatus === 'confirmed'" class="protected-content-revealed bg-green-50/10 p-6 rounded-xl border border-green-500/30">
         <div class="success-banner mb-6 text-green-600 dark:text-green-400 font-semibold flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            Payment Confirmed!
+            <h2>🎉 Payment successful!</h2>
         </div>
         <div data-testid="protected-content">
            <slot></slot>
+           
+           <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-html-injection mt-4 bg-white dark:bg-[#1e1e20] p-4 rounded-lg border border-[var(--vp-c-divider)] shadow-inner"></div>
         </div>
         
         <div class="mt-6 text-xs text-gray-500 opacity-70">
-           Block: {{ finalBlockHash }}
+           Block: <a :href="`https://nanolooker.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="hover:underline text-[var(--vp-c-brand)]">{{ finalBlockHash }}</a>
         </div>
     </div>
 

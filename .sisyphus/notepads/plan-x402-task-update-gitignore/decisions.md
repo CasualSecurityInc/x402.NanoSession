@@ -1,1 +1,0 @@
-- Decision: Append ignore entries to existing .gitignore to cover common Node.js monorepo artifacts.

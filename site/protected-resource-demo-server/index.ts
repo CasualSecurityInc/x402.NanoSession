@@ -40,10 +40,22 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/protected', protectedRoute);
 app.use('/api/status', statusRoute);
 
-const PORT = process.env.PORT || 3001;
+// Parse binding PORT from the Unified Server URL (12-factor standard)
+const serverUrlCandidate = process.env.VITE_TEST_AND_DEMO_SERVER_URL || 'http://localhost:3001';
+let PORT: number = 3001;
+let HOST: string = 'localhost';
 
-server.listen(PORT, () => {
-    console.log(`Demo X402 Facilitator Server running on port ${PORT}`);
+try {
+    const parsedUrl = new URL(serverUrlCandidate);
+    PORT = parsedUrl.port ? parseInt(parsedUrl.port, 10) : (parsedUrl.protocol === 'https:' ? 443 : 80);
+    HOST = parsedUrl.hostname || 'localhost';
+} catch (e) {
+    console.warn(`WARNING: Failed to parse VITE_TEST_AND_DEMO_SERVER_URL ('${serverUrlCandidate}'). Defaulting to port 3001 on 0.0.0.0.`);
+    HOST = '0.0.0.0';
+}
+
+server.listen(PORT, HOST, () => {
+    console.log(`Demo X402 Facilitator Server running on ${HOST}:${PORT}`);
     console.log(`Watching for payments on address: ${NANO_SERVER_ADDRESS}`);
 
     // Initialize WebSocket connection to Nano network

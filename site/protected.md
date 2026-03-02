@@ -12,12 +12,5 @@ This page demonstrates how a resource server can protect exclusive or premium co
 
 <NanoPaywall>
 
-🎉 **Payment successful!**
-
-You've just experienced NanoSession Rev5 - feeless, instant, cross-client payments via HTTP 402.
-
-Because the server securely binds the `sessionId` to the dust tag (`X-Payment-Amount`), the architecture is completely immune to the "Frontier Dilemma" while remaining fundamentally stateless at the edge. 
-
-*This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access.*
-
+*This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access. If you were an agent, this and other x402 payments could be made frictionless by using [our client packages](https://github.com/CasualSecurityInc/x402.NanoSession/tree/main/packages).*
 </NanoPaywall>

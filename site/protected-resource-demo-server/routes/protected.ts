@@ -32,7 +32,21 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
             const result = await facilitator.handleVerify(mockReqs, { blockHash: paymentProof });
 
             if (result?.isValid) {
-                res.json({ success: true, message: "Payment accepted! You have access to the protected demo content." });
+                const exclusiveContent = `
+                    <div class="exclusive-content">
+                        <h4>Top Secret Project Roadmap (Rev 5)</h4>
+                        <ul>
+                            <li><strong>Q3:</strong> Mainnet general availability and stable RPC load balancers.</li>
+                            <li><strong>Q4:</strong> x402-native browser extensions for seamless dust tagging.</li>
+                            <li><strong>Q1 Next Year:</strong> Native mobile wallet integration for one-tap auth.</li>
+                        </ul>
+                    </div>
+                `;
+                res.json({
+                    success: true,
+                    message: "Payment accepted! You have access to the protected demo content.",
+                    html: exclusiveContent
+                });
                 return;
             } else {
                 res.status(402).json({ error: result?.error || "Invalid payment proof" });

@@ -7,9 +7,11 @@
     "docs:build": "node scripts/prepare-rev.js && vitepress build .",
     "docs:preview": "vitepress preview .",
     "dev:demo": "concurrently --kill-others -n docs,mainnet,testnet \"pnpm docs:dev\" \"pnpm demo:server:mainnet\" \"pnpm demo:server:testnet\"",
-    "demo:server:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet tsx demo-server/index.ts",
-    "demo:server:testnet": "DOTENV_CONFIG_PATH=../.env.testnet tsx demo-server/index.ts",
-    "test:server": "vitest run demo-server/"
+    "demo:server:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet tsx protected-resource-demo-server/index.ts",
+    "demo:server:testnet": "DOTENV_CONFIG_PATH=../.env.testnet tsx protected-resource-demo-server/index.ts",
+    "test:server": "vitest run protected-resource-demo-server/",
+    "deploy:fly:mainnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.mainnet.toml .",
+    "deploy:fly:testnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.testnet.toml ."
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

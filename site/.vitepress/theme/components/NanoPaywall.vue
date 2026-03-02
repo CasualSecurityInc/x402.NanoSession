@@ -372,9 +372,9 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         <!-- Expired State -->
         <div v-else-if="paymentStatus === 'expired'" class="p-8 text-center text-orange-500">
             <p>Session Expired. Please refresh to start a new payment session.</p>
-            <button @click="fetchPaymentRequirements" class="mt-4 px-4 py-2 bg-[var(--vp-c-brand)] text-white rounded hover:bg-[var(--vp-c-brand-dark)] transition-colors">
-                Generate New Code
-            </button>
+            <div class="mt-4 text-xs">
+                <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
+            </div>
         </div>
 
         <!-- Active Payment State -->

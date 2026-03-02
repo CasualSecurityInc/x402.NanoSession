@@ -1,0 +1,38 @@
+# Exclude git history
+.git/
+.github/
+
+# Temporary files
+.gemini/
+tmp/
+*.log
+
+# OS files
+.DS_Store
+
+# Dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test environment
+.env*
+e2e.env
+test/integration/e2e.env
+test/integration/*.env
+
+# Coverage reports
+coverage/
+
+# Generated site content
+site/docs/
+site/.vitepress/cache/
+docs/
+
+# Fly.io specifics
+site/deploy/fly.io/*.toml

@@ -1,0 +1,20 @@
+app = "x402-demo-server-mainnet"
+primary_region = "fra"
+
+[build]
+dockerfile = "Dockerfile"
+
+[build.args]
+PNPM_VERSION = "10.30.3"
+
+[env]
+VITE_TEST_AND_DEMO_SERVER_URL = "http://0.0.0.0:3001"
+# DOTENV_CONFIG_PATH is omitted so the Express logic falls back to using the injected Fly secrets
+
+[http_service]
+internal_port = 3001
+force_https = true
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+processes = ["app"]

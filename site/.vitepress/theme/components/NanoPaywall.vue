@@ -285,7 +285,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 </script>
 
 <template>
-  <div class="nano-paywall pt-4 pb-8">
+  <div class="nano-paywall">
     
     <!-- Anchor targets for hash navigation -->
     <div id="mainnet" class="network-anchor"></div>
@@ -310,47 +310,47 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     </div>
 
     <!-- SUCCESS STATE -->
-    <div v-if="paymentStatus === 'confirmed'" class="protected-content-revealed bg-green-50/10 p-6 rounded-xl border border-green-500/30 mb-6">
-        <div class="success-banner mb-6 text-green-600 dark:text-green-400 font-semibold flex items-center gap-2">
+    <div v-if="paymentStatus === 'confirmed'" class="success-container">
+        <div class="success-banner">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             <h2>🎉 Payment successful!</h2>
         </div>
         <div data-testid="protected-content">
            <slot></slot>
            
-           <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-html-injection mt-4 bg-white dark:bg-[#1e1e20] p-4 rounded-lg border border-[var(--vp-c-divider)] shadow-inner"></div>
+           <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
         </div>
         
-        <div class="mt-6 text-xs text-gray-500 opacity-70">
-           Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="hover:underline text-[var(--vp-c-brand)]">{{ finalBlockHash }}</a>
+        <div class="block-info">
+           Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
         </div>
     </div>
 
     <!-- MAIN PAYWALL CONTAINER -->
-    <div v-else class="paywall-container max-w-md mx-auto border border-[var(--vp-c-divider)] rounded-xl overflow-hidden shadow-lg bg-[var(--vp-c-bg-soft)]" data-testid="payment-required">
+    <div v-else class="paywall-container" data-testid="payment-required">
         
         <!-- Header -->
-        <div class="bg-[var(--vp-c-bg-alt)] border-b border-[var(--vp-c-divider)] px-6 py-4 text-center">
-            <h3 class="m-0 text-xl font-bold">Payment Required</h3>
-            <p class="text-sm text-[var(--vp-c-text-2)] mt-1">Access to protected content.</p>
+        <div class="paywall-header">
+            <h3>Payment Required</h3>
+            <p>Access to protected content.</p>
         </div>
 
         <!-- Loading State -->
-        <div v-if="isLoading" class="p-12 text-center">
-            <div class="inline-block animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+        <div v-if="isLoading" class="loading-state">
+            <div class="spinner"></div>
             <p>Generating session...</p>
         </div>
 
         <!-- Fetch Error State -->
-        <div v-else-if="fetchError" class="p-8 text-center text-red-500">
+        <div v-else-if="fetchError" class="error-state">
             <p>{{ fetchError }}</p>
-            <button @click="fetchPaymentRequirements" class="mt-4 px-4 py-2 bg-[var(--vp-c-brand)] text-white rounded hover:bg-[var(--vp-c-brand-dark)] transition-colors">
+            <button @click="fetchPaymentRequirements" class="retry-btn">
                 Retry
             </button>
         </div>
         
         <!-- Expired State -->
-        <div v-else-if="paymentStatus === 'expired'" class="p-8 text-center text-orange-500">
+        <div v-else-if="paymentStatus === 'expired'" class="expired-state">
             <p>Session Expired. Please refresh to start a new payment session.</p>
         </div>
 
@@ -358,54 +358,54 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         <div v-else-if="session" class="payment-active">
             
             <!-- COMMON INFO (always visible) -->
-            <div class="common-info p-6 border-b border-[var(--vp-c-divider)]">
-                <p class="text-center text-sm mb-4">
+            <div class="common-info">
+                <p class="payment-amount">
                    Please pay exactly <strong data-testid="payment-amount-raw" :data-raw="session.amountRaw">{{ formatRawAmount(session.amountRaw) }} XNO</strong> to:
                 </p>
 
-                <div class="address-pane w-full bg-[var(--vp-c-bg-alt)] text-xs font-mono p-3 rounded text-center break-all text-[var(--vp-c-text-2)] mb-4 select-all" data-testid="payment-address">
+                <div class="address-pane" data-testid="payment-address">
                     {{ session.payTo }}
                 </div>
 
                 <!-- Session Timer -->
-                <div class="text-center text-xs text-[var(--vp-c-text-3)]">
-                    Session expires in: <span class="font-mono">{{ Math.floor(countdown / 60) }}:{{ (countdown % 60).toString().padStart(2, '0') }}</span>
+                <div class="session-timer">
+                    Session expires in: <span class="mono">{{ Math.floor(countdown / 60) }}:{{ (countdown % 60).toString().padStart(2, '0') }}</span>
                 </div>
             </div>
 
             <!-- PAYMENT METHOD TABS -->
             <div class="payment-tabs">
-                <div class="tab-headers flex border-b border-[var(--vp-c-divider)]">
+                <div class="tab-headers">
                     <button 
                         @click="activePaymentTab = 'qr'"
-                        :class="['tab-btn flex-1 py-3 text-sm font-medium transition-colors', activePaymentTab === 'qr' ? 'active-tab' : 'text-[var(--vp-c-text-2)] hover:text-[var(--vp-c-text-1)]']"
+                        :class="['tab-btn', activePaymentTab === 'qr' ? 'active-tab' : '']"
                     >
                         📱 QR Code
                     </button>
                     <button 
                         v-if="isMetaMaskInstalled"
                         @click="activePaymentTab = 'metamask'"
-                        :class="['tab-btn flex-1 py-3 text-sm font-medium transition-colors', activePaymentTab === 'metamask' ? 'active-tab' : 'text-[var(--vp-c-text-2)] hover:text-[var(--vp-c-text-1)]']"
+                        :class="['tab-btn', activePaymentTab === 'metamask' ? 'active-tab' : '']"
                     >
                         🦊 MetaMask
                     </button>
                 </div>
 
                 <!-- QR Code Tab -->
-                <div v-if="activePaymentTab === 'qr'" class="tab-content p-6">
-                    <div class="flex flex-col items-center">
-                        <div class="qr-wrapper bg-white p-2 rounded-lg shadow-sm mb-4">
-                            <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" class="w-48 h-48 block" />
+                <div v-if="activePaymentTab === 'qr'" class="tab-content">
+                    <div class="qr-section">
+                        <div class="qr-wrapper">
+                            <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
                         </div>
-                        <p class="text-xs text-[var(--vp-c-text-2)] text-center">
+                        <p class="qr-hint">
                             Scan with Natrium, Nault, or any Nano wallet
                         </p>
                     </div>
                 </div>
 
                 <!-- MetaMask Tab -->
-                <div v-if="activePaymentTab === 'metamask'" class="tab-content p-6">
-                    <div class="flex flex-col items-center text-center">
+                <div v-if="activePaymentTab === 'metamask'" class="tab-content">
+                    <div class="metamask-section">
                         <div v-if="!xnapPending" class="metamask-idle">
                             <button 
                                 @click="handleXnapClick" 
@@ -414,35 +414,35 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                                 <span v-if="!isXnapInstalled">Install Xnap Snap</span>
                                 <span v-else>Pay with MetaMask</span>
                             </button>
-                            <p class="text-xs text-[var(--vp-c-text-2)] mt-4 max-w-xs">
+                            <p class="xnap-description">
                                 Xnap is a MetaMask Snap that enables Nano payments directly in your browser wallet.
                             </p>
                         </div>
                         
                         <div v-else class="metamask-pending">
-                            <div class="inline-block animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-                            <p class="text-sm font-medium text-[var(--vp-c-brand)]">Transaction in progress...</p>
-                            <p class="text-xs text-[var(--vp-c-text-2)] mt-2 max-w-xs">
+                            <div class="spinner"></div>
+                            <p class="pending-title">Transaction in progress...</p>
+                            <p class="pending-description">
                                 MetaMask snap is calculating Proof-of-Work.<br>
                                 This may take 10-30 seconds.
                             </p>
                         </div>
                         
-                        <div v-if="xnapError" class="xnap-error mt-4">{{ xnapError }}</div>
+                        <div v-if="xnapError" class="xnap-error">{{ xnapError }}</div>
                     </div>
                 </div>
             </div>
 
             <!-- GLOBAL STATUS (always visible) -->
-            <div class="global-status p-4 bg-[var(--vp-c-bg-alt)] border-t border-[var(--vp-c-divider)] text-center">
-                <div v-if="paymentStatus === 'pending'" class="flex items-center justify-center gap-2 text-[var(--vp-c-brand)] font-medium" data-testid="payment-status" data-status="pending">
-                    <span class="relative flex h-3 w-3">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--vp-c-brand)] opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-3 w-3 bg-[var(--vp-c-brand)]"></span>
+            <div class="global-status">
+                <div v-if="paymentStatus === 'pending'" class="waiting-status" data-testid="payment-status" data-status="pending">
+                    <span class="status-dot">
+                      <span class="status-ping"></span>
+                      <span class="status-core"></span>
                     </span>
                     Waiting for payment...
                 </div>
-                <div v-else-if="paymentStatus === 'expired'" class="text-orange-500">
+                <div v-else-if="paymentStatus === 'expired'" class="expired-status">
                     Session expired
                 </div>
             </div>
@@ -450,12 +450,12 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     </div>
 
     <!-- GLOBAL RESTART LINK (always visible) -->
-    <div class="text-center mt-4 text-xs">
-        <button @click="fetchPaymentRequirements" class="hover:underline text-[var(--vp-c-brand)] cursor-pointer bg-transparent border-none p-0">↻ Restart demo</button>
+    <div class="restart-link-container">
+        <button @click="fetchPaymentRequirements" class="restart-link">↻ Restart demo</button>
     </div>
 
     <!-- GLOBAL PROTOCOL CONSOLE (always visible) -->
-    <div class="protocol-terminal max-w-md mx-auto mt-4 rounded-xl overflow-hidden border border-[var(--vp-c-divider)]">
+    <div class="protocol-terminal">
         <div class="terminal-header">
             <span class="dot red"></span>
             <span class="dot yellow"></span>
@@ -468,14 +468,455 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 <span v-else-if="log.type === 'res'" class="res-text">← Server Response:<br>{{ log.content }}</span>
                 <span v-else class="info-text">{{ log.content }}</span>
             </div>
-            <div v-if="httpLog.length === 0" class="info-text italic">Waiting for first request...</div>
+            <div v-if="httpLog.length === 0" class="empty-log">Waiting for first request...</div>
         </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.nano-paywall {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+
+/* Invisible Anchors for smooth hash routing */
+.network-anchor {
+  position: relative;
+  top: -80px;
+  visibility: hidden;
+  height: 0;
+}
+
+/* Network Tabs */
+.network-tabs-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.network-tabs-container {
+  background-color: var(--vp-c-bg-alt);
+  padding: 4px;
+  display: flex;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.network-tab {
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.network-tab:hover {
+  color: var(--vp-c-text-1);
+}
+
+.network-tab.active {
+  background-color: var(--vp-c-brand);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Success State */
+.success-container {
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 24px;
+    background-color: rgba(34, 197, 94, 0.1);
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.success-banner {
+    margin-bottom: 24px;
+    color: #16a34a;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.success-banner h2 {
+    margin: 0;
+}
+
+.server-content {
+    margin-top: 16px;
+    background-color: var(--vp-c-bg);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--vp-c-divider);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.block-info {
+    margin-top: 24px;
+    font-size: 12px;
+    color: #6b7280;
+    opacity: 0.7;
+}
+
+.block-link {
+    color: var(--vp-c-brand);
+    text-decoration: none;
+}
+
+.block-link:hover {
+    text-decoration: underline;
+}
+
+/* Paywall Container */
+.paywall-container {
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    background-color: var(--vp-c-bg-soft);
+}
+
+.paywall-header {
+    background-color: var(--vp-c-bg-alt);
+    border-bottom: 1px solid var(--vp-c-divider);
+    padding: 16px 24px;
+    text-align: center;
+}
+
+.paywall-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.paywall-header p {
+    font-size: 0.875rem;
+    color: var(--vp-c-text-2);
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+/* Loading State */
+.loading-state {
+    padding: 48px;
+    text-align: center;
+}
+
+.spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 4px solid #3b82f6;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Error State */
+.error-state {
+    padding: 32px;
+    text-align: center;
+    color: #ef4444;
+}
+
+.retry-btn {
+    margin-top: 16px;
+    padding: 8px 16px;
+    background-color: var(--vp-c-brand);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.retry-btn:hover {
+    background-color: var(--vp-c-brand-dark);
+}
+
+/* Expired State */
+.expired-state {
+    padding: 32px;
+    text-align: center;
+    color: #f97316;
+}
+
+/* Common Info */
+.common-info {
+    padding: 24px;
+    border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.payment-amount {
+    text-align: center;
+    font-size: 0.875rem;
+    margin-bottom: 16px;
+    margin-top: 0;
+}
+
+.address-pane {
+    width: 100%;
+    background-color: var(--vp-c-bg-alt);
+    font-size: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    padding: 12px;
+    border-radius: 6px;
+    text-align: center;
+    word-break: break-all;
+    color: var(--vp-c-text-2);
+    margin-bottom: 16px;
+    user-select: all;
+}
+
+.session-timer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--vp-c-text-3);
+}
+
+.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Payment Method Tabs */
+.tab-headers {
+    display: flex;
+    border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    color: var(--vp-c-text-2);
+    transition: color 0.2s;
+}
+
+.tab-btn:hover {
+    color: var(--vp-c-text-1);
+}
+
+.tab-btn.active-tab {
+    color: var(--vp-c-brand);
+}
+
+.tab-btn.active-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--vp-c-brand);
+}
+
+/* Tab Content */
+.tab-content {
+    padding: 24px;
+}
+
+/* QR Section */
+.qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.qr-wrapper {
+    background-color: white;
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 16px;
+}
+
+.qr-wrapper img {
+    width: 192px;
+    height: 192px;
+    display: block;
+}
+
+.qr-hint {
+    font-size: 0.75rem;
+    color: var(--vp-c-text-2);
+    text-align: center;
+    margin: 0;
+}
+
+/* MetaMask Section */
+.metamask-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.metamask-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.xnap-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    background-color: #2563eb;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.xnap-btn:hover {
+    background-color: #1d4ed8;
+}
+
+.xnap-description {
+    font-size: 0.75rem;
+    color: var(--vp-c-text-2);
+    margin-top: 16px;
+    max-width: 20rem;
+    margin-bottom: 0;
+}
+
+.metamask-pending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pending-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--vp-c-brand);
+    margin: 0;
+}
+
+.pending-description {
+    font-size: 0.75rem;
+    color: var(--vp-c-text-2);
+    margin-top: 8px;
+    max-width: 20rem;
+    margin-bottom: 0;
+}
+
+.xnap-error {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #ef4444;
+    text-align: center;
+}
+
+/* Global Status */
+.global-status {
+    padding: 16px;
+    background-color: var(--vp-c-bg-alt);
+    border-top: 1px solid var(--vp-c-divider);
+    text-align: center;
+}
+
+.waiting-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--vp-c-brand);
+    font-weight: 500;
+}
+
+.status-dot {
+    position: relative;
+    display: inline-flex;
+    width: 12px;
+    height: 12px;
+}
+
+.status-ping {
+    position: absolute;
+    display: inline-flex;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: var(--vp-c-brand);
+    opacity: 0.75;
+    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping {
+    75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.status-core {
+    position: relative;
+    display: inline-flex;
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    background-color: var(--vp-c-brand);
+}
+
+.expired-status {
+    color: #f97316;
+}
+
+/* Restart Link */
+.restart-link-container {
+    text-align: center;
+    margin-top: 16px;
+}
+
+.restart-link {
+    font-size: 0.75rem;
+    color: var(--vp-c-brand);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-decoration: none;
+}
+
+.restart-link:hover {
+    text-decoration: underline;
+}
+
+/* Protocol Terminal */
 .protocol-terminal {
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--vp-c-divider);
     background-color: #1e1e1e;
     display: flex;
     flex-direction: column;
@@ -543,108 +984,8 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     font-style: italic;
 }
 
-/* Invisible Anchors for smooth hash routing */
-.network-anchor {
-  position: relative;
-  top: -80px;
-  visibility: hidden;
-  height: 0;
-}
-
-/* UI Tabs Styling */
-.network-tabs-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-.network-tabs-container {
-  background-color: var(--vp-c-bg-alt);
-  padding: 4px;
-  display: flex;
-  border-radius: 8px;
-  border: 1px solid var(--vp-c-divider);
-}
-
-.network-tab {
-  padding: 6px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  color: var(--vp-c-text-2);
-  cursor: pointer;
-  background: transparent;
-  border: none;
-}
-
-.network-tab:hover {
-  color: var(--vp-c-text-1);
-}
-
-.network-tab.active {
-  background-color: var(--vp-c-brand);
-  color: #ffffff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-/* Payment Method Tabs */
-.tab-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    position: relative;
-}
-
-.tab-btn.active-tab {
-    color: var(--vp-c-brand);
-}
-
-.tab-btn.active-tab::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--vp-c-brand);
-}
-
-/* Xnap Button Styling */
-.xnap-btn {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  background-color: #2563eb;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.xnap-btn:hover {
-  background-color: #1d4ed8;
-}
-
-.xnap-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
-}
-
-.xnap-error {
-  font-size: 12px;
-  color: #ef4444;
-  text-align: center;
-}
-
-/* Success content */
-.protected-content-revealed {
-    max-width: 28rem;
-    margin-left: auto;
-    margin-right: auto;
+.empty-log {
+    color: #7f848e;
+    font-style: italic;
 }
 </style>

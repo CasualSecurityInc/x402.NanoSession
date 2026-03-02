@@ -536,15 +536,6 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     border-radius: 12px;
     border: 1px solid rgba(34, 197, 94, 0.3);
 }
-    max-width: 36rem;
-    margin-left: auto;
-    margin-right: auto;
-    margin-bottom: 24px;
-    background-color: rgba(34, 197, 94, 0.1);
-    padding: 24px;
-    border-radius: 12px;
-    border: 1px solid rgba(34, 197, 94, 0.3);
-}
 
 .success-banner {
     margin-bottom: 24px;

@@ -559,8 +559,13 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     border-radius: 8px;
     border: 1px solid var(--vp-c-divider);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: center;
+    text-align: center;
+}
+
+.server-content :deep(iframe) {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
 }
 
 .server-content iframe {

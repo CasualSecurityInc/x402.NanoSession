@@ -1,9 +1,7 @@
 # x402.NanoSession Protocol Specification (Rev 3)
 
 **Date:** February 9, 2026
-**Status:** Draft / Proposal
-**Previous Version:** `x402_NanoSession_Protocol_rev2.md`
-**Base Specification:** Single Address Model
+
 
 ## Abstract
 

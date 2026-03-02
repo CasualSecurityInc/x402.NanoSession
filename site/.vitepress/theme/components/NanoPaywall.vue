@@ -527,6 +527,15 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 /* Success State */
 .success-container {
+    max-width: 40rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 24px;
+    background-color: rgba(34, 197, 94, 0.1);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
     max-width: 36rem;
     margin-left: auto;
     margin-right: auto;

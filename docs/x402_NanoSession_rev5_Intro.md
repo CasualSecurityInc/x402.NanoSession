@@ -26,7 +26,35 @@ The **session** provides this binding:
 2. Client returns `sessionId` alongside the block hash
 3. Server verifies the block matches requirements for *that specific session*
 
-This prevents the **receipt-stealing attack** where an observer claims another client's payment.
+## Protocol Flow
+
+Four steps. No intermediaries. Zero fees.
+
+```
+Client                          Server                      Nano
+  │                               │                           │
+  │  GET /resource                │                           │
+  │──────────────────────────────>│                           │
+  │                               │                           │
+  │  402 + X-Payment-Required     │                           │
+  │  (sessionId, amount, payTo)   │                           │
+  │<──────────────────────────────│                           │
+  │                               │                           │
+  │  send_block(amount + tag)     │                           │
+  │───────────────────────────────────────────────────────────>
+  │                               │                           │
+  │  GET /resource                │                           │
+  │  + X-Payment (blockHash,      │                           │
+  │    sessionId)                 │  verify block + session   │
+  │──────────────────────────────>│───────────────────────────>
+  │                               │                           │
+  │  200 OK                       │                           │
+  │<──────────────────────────────│                           │
+```
+
+The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is cryptographically tied to a specific request. See the [Protocol Specification](./protocol.md) for security model details.
+
+## Why Not Stateless?
 
 ## Why Not Stateless?
 

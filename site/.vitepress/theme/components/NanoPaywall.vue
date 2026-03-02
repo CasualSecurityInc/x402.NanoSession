@@ -171,13 +171,16 @@ function connectSSE() {
                     })
                     .then(res => res.json())
                     .then(protectedData => {
+                        // Always log the response
+                        httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
+                        
                         if (protectedData.success && protectedData.html) {
                             serverProvidedContent.value = protectedData.html;
-                            httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n<protected content revealed>` })
                         }
                     })
                     .catch(err => {
                         console.error('Failed to fetch protected content via verify route', err);
+                        httpLog.value.push({ type: 'res', content: `Error: ${err.message}` })
                     })
 
                     eventSource?.close();

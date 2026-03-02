@@ -1,220 +1,239 @@
 # AGENTS.md
 
-## Project: x402.NanoSession
-**Goal**: High-Frequency M2M Nano Payments using HTTP 402. Feeless, instant, session-bound. Compatible with the [coinbase/x402](https://docs.x402.org/) spec and evolving standard to the largest practical degree.
+**Project**: x402.NanoSession  
+**Generated**: 2026-03-02  
+**Goal**: Feeless, instant machine-to-machine payments via HTTP 402 using Nano cryptocurrency
 
 ---
 
-### 📦 Build/Test Commands
+## OVERVIEW
 
-| Command | Description |
-|---------|-------------|
-| `pnpm install` | Install all dependencies |
-| `pnpm test` | Run tests in watch mode |
-| `pnpm test:run` | Run tests once (CI mode) |
-| `pnpm test:integration` | Run E2E tests (real Nano transactions!) |
-| `pnpm run dev:demo` | Run VitePress docs and Facilitator Demo Server concurrently |
-| `pnpm typecheck` | Type-check without emitting |
-| `pnpm build` | Build all packages |
-| `pnpm clean` | Remove dist folders |
+TypeScript monorepo implementing the NanoSession protocol — a session-bound payment system for HTTP 402 using Nano cryptocurrency.
 
-**Running a single test file:**
+**Goals:**
+- **x402 Compatible**: Implements the [coinbase/x402](https://docs.x402.org/) specification for HTTP 402 Payment Required flows
+- **Direct Integration**: `@nanosession/server` (FacilitatorHandler) and `@nanosession/client` (PaymentHandler) packages for direct use in Node.js applications
+- **Faremeter Integration**: `@nanosession/faremeter` plugin for [Faremeter](https://github.com/faremeter/faremeter) middleware (experimental)
+
+**⚠️ Handles real financial transactions — security is mandatory.**
+
+---
+
+## STRUCTURE
+
+```
+./
+├── packages/          # Library packages (@nanosession/*)
+│   ├── core/          # Types, constants, schema mapping
+│   ├── rpc/           # Nano RPC client with failover
+│   ├── server/        # FacilitatorHandler for servers
+│   ├── client/        # PaymentHandler for clients
+│   └── faremeter-plugin/  # Faremeter middleware adapter
+├── examples/          # Working demos (server, client, faremeter)
+├── docs/              # Protocol specs (source of truth)
+├── site/              # VitePress docs + live demo server
+└── test/integration/  # E2E tests with real Nano mainnet
+```
+
+---
+
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| **Protocol specs** | `docs/x402_NanoSession_rev5_Protocol.md` | Current active revision |
+| **Core types** | `packages/core/src/index.ts` | Exports all public types |
+| **Server handler** | `packages/server/src/handler.ts` | FacilitatorHandler implementation |
+| **Client handler** | `packages/client/src/handler.ts` | PaymentHandler implementation |
+| **RPC client** | `packages/rpc/src/client.ts` | NanoRpcClient with failover |
+| **Unit tests** | `packages/*/src/__tests__/*.test.ts` | Vitest, per-package |
+| **E2E tests** | `test/integration/payment-flow.test.ts` | Real Nano transactions |
+| **Faremeter adapter** | `packages/faremeter-plugin/src/` | Middleware bridge |
+| **Example server** | `examples/server/src/index.ts` | Reference implementation |
+| **Demo server** | `site/protected-resource-demo-server/` | Live x402 facilitator |
+
+---
+
+## CODE MAP
+
+| Symbol | Type | Package | Location |
+|--------|------|---------|----------|
+| `NanoSessionFacilitatorHandler` | Class | @nanosession/server | `server/src/handler.ts` |
+| `NanoSessionPaymentHandler` | Class | @nanosession/client | `client/src/handler.ts` |
+| `NanoRpcClient` | Class | @nanosession/rpc | `rpc/src/client.ts` |
+| `SCHEME`, `NETWORK` | Constants | @nanosession/core | `core/src/constants.ts` |
+| `PaymentRequirements` | Interface | @nanosession/core | `core/src/types.ts` |
+| `createFacilitatorHandler` | Function | @nanosession/faremeter | `faremeter-plugin/src/facilitator.ts` |
+| `createPaymentHandler` | Function | @nanosession/faremeter | `faremeter-plugin/src/client.ts` |
+
+---
+
+## CONVENTIONS
+
+**TypeScript:**
+- Target: ES2022, Module: NodeNext, `strict: true`
+- Use `.js` extension in all imports (ESM requirement)
+
+**Imports:**
+```typescript
+// 1. Node built-ins
+import { randomBytes } from 'crypto';
+
+// 2. External packages
+import { z } from 'zod';
+
+// 3. Workspace packages
+import { SCHEME } from '@nanosession/core';
+import type { PaymentRequirements } from '@nanosession/core';
+
+// 4. Relative imports with .js
+import { InMemorySpentSet } from './spent-set.js';
+```
+
+**Naming:**
+- Files: `kebab-case.ts`
+- Classes: `PascalCase`
+- Functions: `camelCase`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Types/Interfaces: `PascalCase`
+
+**Workspace Protocol:**
+Internal deps use `workspace:*` in package.json.
+
+---
+
+## ANTI-PATTERNS
+
+**CRITICAL (Security):**
+
+1. **Never skip session binding verification**
+   ```typescript
+   // WRONG: Only checking block exists
+   if (await rpc.blockExists(hash)) { accept(); }
+   
+   // RIGHT: Verify tag matches THIS session
+   const expectedTag = sessions[sessionId].tag;
+   const actualTag = blockAmount % TAG_MODULUS;
+   if (actualTag !== expectedTag) { reject(); }
+   ```
+
+2. **Never omit spent-set checks**
+   - Same block hash must be rejected on second attempt
+   - Enables replay attacks (double spend)
+
+3. **Never rely on IP addresses or sender addresses for security**
+   - NAT, proxies, VPNs make IP unreliable
+   - Attacker can intercept and replay
+
+4. **Never commit seeds or private keys**
+   - `.env*.example` files show structure but never real values
+   - Integration tests use mainnet with real XNO
+
+**Code:**
+
+5. **Don't use implicit any** — `strict: true` is enforced
+6. **Don't omit .js extension** in relative imports (ESM requirement)
+7. **Don't import without type prefix** when only importing types
+
+---
+
+## SECURITY MODEL
+
+**The Receipt-Stealing Attack (Rev5 Protection):**
+
+Before Rev5, attackers could steal payment proofs from the public blockchain and reuse them. NanoSession prevents this via **session binding**:
+
+1. Server generates unique `sessionId` + `tag` for each request
+2. Payment amount encodes the tag: `actual = base + tag`
+3. Server verifies tag matches session before acceptance
+4. Server tracks spent block hashes to prevent replay
+
+**Mandatory Security Checklist** (from `AGENTS.md`):
+- [ ] Receipt theft: Can attacker use someone else's payment?
+- [ ] Replay attack: Can receipt be reused in same session?
+- [ ] Session spoofing: Can attacker forge session IDs?
+- [ ] Double spend: Can same payment satisfy multiple requests?
+- [ ] Timing attack: Is there a race condition window?
+
+**Attack Test Coverage** (in `test/integration/payment-flow.test.ts`):
+- ATTACK TEST: Frontrun (receipt stealing)
+- ATTACK TEST: Receipt reuse (double spend)
+- ATTACK TEST: Session spoofing
+
+---
+
+## COMMANDS
+
+```bash
+# Development
+pnpm install              # Install all dependencies
+pnpm test                 # Unit tests (watch mode)
+pnpm test:run             # Unit tests once (CI)
+pnpm test:integration     # E2E tests (real Nano mainnet!)
+pnpm typecheck            # Type-check without emit
+
+# Build
+pnpm build                # Build all packages
+pnpm clean                # Remove dist folders
+
+# Docs + Demo
+pnpm dev:demo             # Docs + demo servers concurrently
+pnpm docs:dev             # VitePress dev server
+pnpm docs:build           # Build static site (set SPEC_REV=rev5)
+
+# Single package
+cd packages/core
+pnpm test                 # Test specific package
+```
+
+**Running specific tests:**
 ```bash
 pnpm vitest run packages/core/src/__tests__/mapping.test.ts
 pnpm vitest run test/integration/payment-flow.test.ts
 ```
 
-**Running tests for a single package:**
+---
+
+## INTEGRATION TESTS
+
+**⚠️ Uses real XNO on mainnet.**
+
+Setup:
 ```bash
-pnpm --filter @nanosession/core test:run
-pnpm --filter @nanosession/server test:run
+cp test/integration/e2e.env.example test/integration/e2e.env
+# Edit with your test wallet seed
 ```
 
-**Adding dependencies:**
+**RPC URL with credentials** (for paid RPC services):
 ```bash
-pnpm add zod --filter @nanosession/core        # Add to specific package
-pnpm add -D vitest -w                           # Add to root workspace
-```
-
-**Workspace protocol**: Internal dependencies use `workspace:*` in package.json.
-
----
-
-### 📂 Directory Structure
-
-| Path | Purpose |
-|------|---------|
-| `/packages/` | Library packages: `core`, `rpc`, `server`, `client`, `faremeter-plugin` |
-| `/examples/` | Working server + client demos |
-| `/docs/` | **Source of truth** — Protocol specs (`x402_NanoSession_revX_*.md`) |
-| `/docs/references/` | Read-only external refs (git submodule of coinbase-x402) |
-| `/site/` | VitePress docs site (generated from `/docs/`) |
-| `/site/demo-server/` | Active HTTP 402 Facilitator Server for the protected demo |
-| `/test/integration/` | E2E tests with real Nano mainnet transactions |
-
----
-
-### 🎨 Code Style Guidelines
-
-**TypeScript Configuration:**
-- Target: ES2022, Module: NodeNext
-- `strict: true` — No implicit any, strict null checks
-- Use `.js` extension in imports (ESM requirement)
-
-**Imports:**
-```typescript
-// Node built-ins first
-import { randomBytes } from 'crypto';
-
-// External packages
-import { describe, test, expect } from 'vitest';
-
-// Internal packages (workspace)
-import { SCHEME, NETWORK } from '@nanosession/core';
-import type { PaymentRequirements } from '@nanosession/core';
-
-// Relative imports with .js extension
-import { InMemorySpentSet } from './spent-set.js';
-import type { SpentSetStorage } from './spent-set.js';
-```
-
-**Naming Conventions:**
-- Files: `kebab-case.ts` (e.g., `spent-set.ts`, `address-pool.ts`)
-- Classes: `PascalCase` (e.g., `NanoSessionFacilitatorHandler`)
-- Functions: `camelCase` (e.g., `toX402Requirements`, `getBlockInfo`)
-- Constants: `SCREAMING_SNAKE_CASE` (e.g., `TAG_MODULUS`, `SCHEME`)
-- Types/Interfaces: `PascalCase` (e.g., `PaymentRequirements`, `VerifyResult`)
-
-**Type Annotations:**
-- Use explicit return types on exported functions
-- Prefer `interface` over `type` for object shapes
-- Use `type` imports when importing only types: `import type { X } from '...'`
-
-**Error Handling:**
-```typescript
-// Proper error narrowing
-try {
-  // ...
-} catch (error) {
-  return {
-    success: false,
-    error: error instanceof Error ? error.message : String(error)
-  };
-}
-```
-
-**Formatting:**
-- 2 spaces indentation (inferred from codebase)
-- Single quotes for strings
-- Semicolons required
-- Trailing commas in multiline
-
-**Test Files:**
-- Location: `packages/*/src/__tests__/*.test.ts`
-- Integration tests: `test/integration/*.test.ts`
-- Use `describe/test/expect` from vitest (globals enabled)
-- Use `vi.fn()` for mocks, `vi.mock()` for module mocks
-
----
-
-### ⚠️ Critical Context
-
-- **Nano**: Feeless, instant cryptocurrency (sub-second finality)
-- **HTTP 402**: Payment Required status code
-- **Rev5**: Current active protocol revision
-- **pnpm**: Required package manager (enforced via `packageManager` field)
-- **ESM**: This is a pure ESM project — use `.js` extensions in imports
-
----
-
-### 🧪 Integration Tests & RPC Configuration
-
-Integration tests (`pnpm test:integration`) perform real Nano transactions on mainnet.
-
-#### RPC URL Parameter Injection
-
-RPC endpoint URLs support query parameters that get merged into each RPC request body. This enables API key authentication for paid RPC services:
-
-```bash
-# No credentials → local CPU/GPU PoW
-NANO_RPC_URL=https://rpc.nano.org/proxy
-
-# With credentials → RPC work_generate (params merged into request body)
 NANO_RPC_URL=https://rpc.nano.to?key=YOUR-API-KEY
 ```
 
-The test automatically detects credentials and chooses the appropriate PoW strategy:
-- **URL has query params** → Use RPC `work_generate` with exponential backoff on 429 errors
-- **URL has no query params** → Use local `nanocurrency.computeWork()`
+The test auto-detects credentials:
+- URL has query params → Uses RPC `work_generate`
+- URL has no params → Uses local `nanocurrency.computeWork()`
 
-#### Multiple Endpoints (Failover)
-
+**Multiple endpoints** (failover):
 ```bash
 NANO_RPC_URLS=https://primary.example.com?key=ABC,https://backup.example.com
 ```
 
-See `test/integration/e2e.env.example` for full configuration reference.
+---
+
+## NOTES
+
+- **pnpm required**: Enforced via `packageManager` field
+- **ESM only**: Pure ESM project (no CommonJS)
+- **Rev5**: Current active protocol revision
+- **Session = Security**: Sessions are security primitives, not implementation details
+- **Feeless**: Nano has zero transaction fees
+- **Sub-second**: Nano confirms in <1 second
 
 ---
 
-### 🔐 Security-First Protocol Development
+## SUBDIRECTORY AGENTS.md
 
-**This protocol handles real money. Security is non-negotiable.**
-
-#### The Receipt-Stealing Attack (Rev5 Security Model)
-
-Before Rev5, the protocol had a critical vulnerability:
-
-1. **Attack Vector**: Attacker monitors server's payment address
-2. **Timing Window**: Client A pays, attacker sees the send-block hash on-chain
-3. **Exploitation**: Attacker submits `{ blockHash: <stolen>, sessionId: <attacker's session> }`
-4. **Result**: Attacker gets resource for free; Client A's payment is stolen
-
-**Why This Matters**: Nano blocks are public. Anyone can see payment hashes. Without session binding, any hash could satisfy any request.
-
-#### The Session Binding Invariant (MANDATORY)
-
-> **Invariant**: A proof-of-payment (block hash) is valid for ONE and ONLY ONE session.
-
-**Server MUST verify ALL of the following:**
-1. Block exists on network
-2. Block hash not already spent (spent-set check)
-3. **Block amount encodes the EXACT tag for THIS session** ← Critical
-
-```typescript
-// Server verification (pseudo-code)
-const expectedTag = sessions[sessionId].tag;
-const actualTag = blockAmount % TAG_MODULUS;
-if (actualTag !== expectedTag) {
-  reject("Receipt does not belong to this session");
-}
-```
-
-#### Security Checklist for Protocol Changes
-
-Before any protocol modification, verify:
-
-- [ ] **Receipt Theft**: Can an attacker use someone else's payment?
-- [ ] **Replay Attack**: Can a receipt be reused within the same session?
-- [ ] **Session Spoofing**: Can an attacker guess/forge session identifiers?
-- [ ] **Double Spend**: Can the same payment satisfy multiple requests?
-- [ ] **Timing Attack**: Is there a race condition window?
-- [ ] **Frontier Issues**: Does this introduce block-lattice edge cases?
-
-#### Attack Test Coverage (Required)
-
-All security-critical code MUST have corresponding attack tests:
-
-| Attack | Test Location | What It Verifies |
-|--------|---------------|------------------|
-| Frontrun (hash stealing) | `test/integration/payment-flow.test.ts` | Wrong sessionId rejected |
-| Receipt Reuse | `test/integration/payment-flow.test.ts` | Same hash rejected twice |
-| Session Spoofing | `test/integration/payment-flow.test.ts` | Unknown sessionId rejected |
-
-**Never remove or weaken attack tests without explicit security review.**
-
-#### Why "NanoSession" — The Name is a Security Reminder
-
-The word "Session" in NanoSession is not incidental. Sessions are a **security primitive**, not an implementation detail. They bind payments to specific requests, preventing the receipt-stealing attack.
-
-See: `docs/x402_NanoSession_rev5_Protocol.md` § Security Model
+| Directory | Purpose |
+|-----------|---------|
+| [docs/](./docs/AGENTS.md) | Protocol specifications (canonical source) |
+| [site/](./site/AGENTS.md) | VitePress docs site + demo server |

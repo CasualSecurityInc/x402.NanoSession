@@ -4,6 +4,21 @@
 
 This directory contains the VitePress project for the x402.NanoSession documentation.
 
+---
+
+## 🚀 Deployment Architecture
+
+**Two separate deployment targets:**
+
+| Component | Platform | URL | Workflow |
+|-----------|----------|-----|----------|
+| **Static Docs** | GitHub Pages | `https://csi.ninzin.net/x402.NanoSession/` | `.github/workflows/deploy.yml` |
+| **Demo Server(s)** | fly.io | Separate subdomain(s) | Manual / `pnpm deploy:fly:*` |
+
+**Important:** The Protected Resource demo server(s) deploy to an **external hosting platform (fly.io)** and must be treated separately from the docs site. The static docs are served from GitHub Pages (CasualSecurityInc org) behind a CloudFlare proxy.
+
+---
+
 ### 🏗️ Build System (`scripts/prepare-rev.js`)
 
 We do **not** edit markdown files in `site/docs/` directly. Instead, we generate them from `../docs/` at build time.
@@ -28,9 +43,15 @@ We do **not** edit markdown files in `site/docs/` directly. Instead, we generate
     *   Custom CSS (`custom.css`) for "Modern, Serious, Responsive" look.
     *   **Paywall Components**: Contains `NanoPaywall.vue` and composables (`usePaymentStatus.ts`, `useXnapSnap.ts`) for the live 402 demo.
 
-### 🚀 Demo Server (Facilitator)
+### 🚀 Demo Server (Protected Resource Facilitator)
 
-The `site/` folder now hosts a live backend Node.js server (`site/demo-server/`) that acts as an x402 Facilitator, running concurrently with VitePress via `pnpm run dev:demo`.
+**Location**: `site/protected-resource-demo-server/`
+
+The demo server is a live backend Node.js server that acts as an x402 Facilitator. It runs concurrently with VitePress in dev mode via `pnpm run dev:demo`.
+
+**Deployment**: Fly.io (separate from docs site)
+- Mainnet: `pnpm deploy:fly:mainnet`
+- Testnet: `pnpm deploy:fly:testnet`
 
 **Core Mechanics:**
 1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/server`, and returns the `HTTP 402 Payment Required` payload.
@@ -38,6 +59,7 @@ The `site/` folder now hosts a live backend Node.js server (`site/demo-server/`)
 3. **Server-Sent Events (SSE)**: `routes/status.ts` pipes verified block hashes back to the Vue `<NanoPaywall>` client in real-time, instantly unlocking the UI.
 
 **Configuration (`.env`):**
+
 To run the server, `site/.env` MUST be configured (see `site/.env.example`):
 - `NANO_RPC_URL` (for REST verification)
 - `NANO_SERVER_ADDRESS` (The address the Facilitator watches for dust payments)

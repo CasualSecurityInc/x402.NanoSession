@@ -17,6 +17,7 @@ const props = defineProps({
 
 // Check if the developer explicitly disabled the Testnet tab in building .env
 const enableTestnetTab = import.meta.env.VITE_ENABLE_TESTNET_TAB !== 'false'
+const enableXnap = import.meta.env.VITE_ENABLE_XNAP !== 'false'
 
 // UI State
 const networkMode = ref<'mainnet' | 'testnet'>('mainnet')
@@ -44,7 +45,7 @@ const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
 )
 
 // Xnap Integration
-const { isMetaMaskInstalled, isXnapInstalled, isPending: xnapPending, error: xnapError, installXnap, payWithXnap } = useXnapSnap()
+const { isMetaMaskInstalled, isXnapInstalled, isPending: xnapPending, error: xnapError, installXnap, payWithXnap, reset: xnapReset } = useXnapSnap()
 
 let eventSource: EventSource | null = null
 const paymentStatus = ref<'pending' | 'confirmed' | 'failed' | 'expired'>('pending')
@@ -75,6 +76,7 @@ async function fetchPaymentRequirements() {
       eventSource.close()
       eventSource = null
   }
+  xnapReset() // Clear any pending Xnap states
   session.value = null
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
@@ -108,6 +110,19 @@ async function fetchPaymentRequirements() {
         })
 
         const reqs = JSON.parse(xPaymentRequired)
+        
+        // Log 402 response for debugging
+        console.warn('[NanoPaywall] 402 Response received:', {
+            scheme: reqs.scheme,
+            network: reqs.network,
+            amount: reqs.amount,
+            payTo: reqs.payTo,
+            tag: reqs.extra?.tag,
+            sessionId: reqs.extra?.sessionId,
+            tagModulus: reqs.extra?.tagModulus,
+            calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.tag || 0)).toString()
+        })
+        
         session.value = {
           payTo: reqs.payTo,
           amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString(),
@@ -160,6 +175,13 @@ function connectSSE() {
                 if (data.status === 'confirmed') {
                     httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
 
+                    // Log verification request for debugging
+                    console.warn('[NanoPaywall] Sending verification request:', {
+                        blockHash: data.blockHash,
+                        sessionId: session.value?.sessionId,
+                        expectedAmountRaw: session.value?.amountRaw
+                    })
+
                     // Fetch the protected content using the newly confirmed block hash and session
                     httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${data.blockHash}\nX-Payment-Session: ${session.value?.sessionId}` })
 
@@ -173,6 +195,17 @@ function connectSSE() {
                     .then(protectedData => {
                         // Always log the response
                         httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
+                        
+                        // Log verification response for debugging
+                        if (protectedData.error) {
+                            console.warn('[NanoPaywall] Verification failed:', protectedData.error)
+                        } else {
+                            console.warn('[NanoPaywall] Verification successful:', {
+                                success: protectedData.success,
+                                blockHash: finalBlockHash.value,
+                                sessionId: session.value?.sessionId
+                            })
+                        }
                         
                         if (protectedData.success && protectedData.html) {
                             serverProvidedContent.value = protectedData.html;
@@ -361,8 +394,8 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
            <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
         </div>
 
-        <div class="block-info">
-           Block: <a :href="`https://nanexplorer.com/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
+         <div class="block-info">
+            Block: <a :href="`https://nanexplorer.com/nano/blocks/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
         </div>
     </div>
 
@@ -450,12 +483,17 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                             <button
                                 @click="handleXnapClick"
                                 class="xnap-btn"
+                                :disabled="!enableXnap"
+                                :class="{ 'disabled': !enableXnap }"
                             >
                                 <span v-if="!isXnapInstalled">Install Xnap Snap</span>
                                 <span v-else>Pay with MetaMask</span>
                             </button>
+                            <div v-if="!enableXnap" class="xnap-unavailable-note">
+                                This feature is temporarily unavailable.
+                            </div>
                             <p class="xnap-description">
-                                Xnap is a MetaMask Snap that enables Nano payments directly in your browser wallet.
+                                <a href="https://xnap.xyz" target="_blank" rel="noopener noreferrer">Xnap</a> is a <a href="https://metamask.io/snaps/" target="_blank" rel="noopener noreferrer">MetaMask Snap</a> that enables Nano payments directly in your browser wallet.
                             </p>
                         </div>
 
@@ -847,6 +885,19 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .xnap-btn:hover {
     background-color: #1d4ed8;
+}
+
+.xnap-btn.disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.xnap-unavailable-note {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #ef4444;
+    font-weight: 500;
 }
 
 .xnap-description {

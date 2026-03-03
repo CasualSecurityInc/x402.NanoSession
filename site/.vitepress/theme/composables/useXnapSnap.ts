@@ -99,7 +99,7 @@ export function useXnapSnap() {
             const fractionPart = rawBigInt % divisor;
             const amountDecimal = `${wholePart}.${fractionPart.toString().padStart(30, '0').replace(/0+$/, '')}`;
 
-            const response = await provider.request({
+            const requestPayload = {
                 method: 'wallet_invokeSnap',
                 params: {
                     snapId: snapId,
@@ -111,28 +111,50 @@ export function useXnapSnap() {
                         }
                     }
                 }
-            });
+            };
+            console.log('[Xnap] Sending request:', JSON.stringify(requestPayload, null, 2));
 
+            const response = await provider.request(requestPayload);
+            console.log('[Xnap] Raw response:', response);
+            console.log('[Xnap] Response type:', typeof response);
+            console.log('[Xnap] Response keys:', response ? Object.keys(response) : 'null');
+
+            isPending.value = false;
             return response; // Contains { hash: string | undefined }
         } catch (e: any) {
-            console.error('Payment failed via Xnap:', e);
+            console.error('[Xnap] Payment failed:', e);
+            console.error('[Xnap] Error type:', typeof e);
+            console.error('[Xnap] Error code:', e?.code);
+            console.error('[Xnap] Error message:', e?.message);
+            console.error('[Xnap] Error data:', e?.data);
+            console.error('[Xnap] Error stack:', e?.stack);
             
             // Handle specific error cases
             const errorCode = e?.code || e?.data?.code;
             const errorMsg = e?.message || '';
             
             if (errorCode === -32603 || errorMsg.includes('non-JSON-serializable')) {
-                // Xnap snap bug: returns non-serializable error (e.g., insufficient balance)
-                error.value = 'Transaction failed. This may be due to insufficient XNO balance or a network issue.';
+                // Xnap snap bug: returns non-serializable response even on success
+                // Transaction likely succeeded - let SSE detect it
+                console.log('[Xnap] Non-serializable error detected. Transaction may have succeeded. Waiting for SSE...');
+                // Don't set error or throw - keep isPending true so UI shows "in progress"
+                // SSE will update the UI when payment is detected
+                return { hash: undefined, pending: true };
             } else if (errorCode === 4001) {
                 error.value = 'Transaction rejected by user.';
+                isPending.value = false;
+                throw e;
             } else {
                 error.value = errorMsg || 'Payment was rejected or failed';
+                isPending.value = false;
+                throw e;
             }
-            throw e;
-        } finally {
-            isPending.value = false;
         }
+    }
+
+    function reset() {
+        isPending.value = false;
+        error.value = null;
     }
 
     return {
@@ -141,6 +163,7 @@ export function useXnapSnap() {
         isPending,
         error,
         installXnap,
-        payWithXnap
+        payWithXnap,
+        reset
     };
 }

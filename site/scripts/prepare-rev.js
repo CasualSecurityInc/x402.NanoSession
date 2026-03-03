@@ -23,6 +23,7 @@ let introFile = null;
 let protocolFile = null;
 let glossaryFile = null;
 const extensionFiles = [];
+const appendixFiles = [];
 
 files.forEach(file => {
   if (file.includes(SPEC_REV) && file.startsWith('x402_NanoSession_')) {
@@ -32,6 +33,8 @@ files.forEach(file => {
       protocolFile = file;
     } else if (file.includes('Glossary')) {
       glossaryFile = file;
+    } else if (file.includes('Appendix')) {
+      appendixFiles.push(file);
     } else {
       extensionFiles.push(file);
     }
@@ -131,6 +134,24 @@ if (glossaryFile) {
 } else {
   console.log(`Note: No Glossary file found for revision ${SPEC_REV}`);
 }
+
+// Process Appendix Files
+appendixFiles.sort().forEach(file => {
+  const content = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
+
+  // Clean up appendix filenames for URL friendliness
+  // x402_NanoSession_rev5_Appendix_Wallet_UX.md -> wallet-ux.md
+  const simpleName = file
+    .replace(/^x402_NanoSession_rev\d+_Appendix_/, '')
+    .replace(/_/g, '-')
+    .toLowerCase();
+
+  const targetFilename = `${simpleName}`;
+  const targetPath = path.join(APPENDIX_DIR, targetFilename);
+
+  fs.writeFileSync(targetPath, content);
+  console.log(`Processed Appendix: ${file} -> appendix/${targetFilename}`);
+});
 
 // Copy Demo page into docs so VitePress finds it
 const demoSource = path.join(__dirname, '../protected.md');

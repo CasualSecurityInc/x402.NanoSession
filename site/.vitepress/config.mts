@@ -12,7 +12,10 @@ export default defineConfig({
             { text: 'Protocol', link: '/protocol' },
             { text: 'Extension A: Pools', link: '/extensions/extension-a-pools' },
             { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' },
-            { text: 'Glossary', link: '/appendix/glossary' }
+            { text: 'Appendix', items: [
+                { text: 'Raw-Dust UX', link: '/appendix/wallet-ux' },
+                { text: 'Glossary', link: '/appendix/glossary' }
+            ]}
         ],
 
         sidebar: [
@@ -34,6 +37,7 @@ export default defineConfig({
             {
                 text: 'Appendix',
                 items: [
+                    { text: 'Notes on Raw-Dust UX', link: '/appendix/wallet-ux' },
                     { text: 'Glossary', link: '/appendix/glossary' }
                 ]
             },

@@ -471,7 +471,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                             <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
                         </div>
                         <p class="qr-hint">
-                            Scan with Natrium, Nault, or any Nano wallet
+                            Scan with Natrium or any Nano wallet that handles exact amounts correctly (i.e. _not_ Nault or Cake Wallet)
                         </p>
                     </div>
                 </div>

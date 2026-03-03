@@ -133,13 +133,11 @@ export function useXnapSnap() {
             const errorCode = e?.code || e?.data?.code;
             const errorMsg = e?.message || '';
             
-            if (errorCode === -32603 || errorMsg.includes('non-JSON-serializable')) {
-                // Xnap snap bug: returns non-serializable response even on success
-                // Transaction likely succeeded - let SSE detect it
-                console.log('[Xnap] Non-serializable error detected. Transaction may have succeeded. Waiting for SSE...');
-                // Don't set error or throw - keep isPending true so UI shows "in progress"
-                // SSE will update the UI when payment is detected
-                return { hash: undefined, pending: true };
+            if (errorCode === -32603) {
+                // Internal error from MetaMask/Xnap - transaction failed
+                error.value = 'Transaction failed due to an internal MetaMask/Xnap error. Please try again or use QR code.';
+                isPending.value = false;
+                throw e;
             } else if (errorCode === 4001) {
                 error.value = 'Transaction rejected by user.';
                 isPending.value = false;

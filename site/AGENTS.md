@@ -64,6 +64,34 @@ To run the server, `site/.env` MUST be configured (see `site/.env.example`):
 - `NANO_RPC_URL` (for REST verification)
 - `NANO_SERVER_ADDRESS` (The address the Facilitator watches for dust payments)
 
+### 🖥️ Local Development with tmux
+
+**Always use tmux to run the demo servers** for persistent, detachable sessions.
+
+```bash
+# Create a new tmux session named "demo" and start servers
+tmux new -s demo
+cd /Users/conny/Developer/CasualSecurityInc/x402.NanoSession/site
+pnpm dev:demo
+
+# Detach: Ctrl+B then D
+# Reattach: tmux attach -t demo
+# Kill session: tmux kill-session -t demo
+```
+
+**Commands:**
+| Command | Purpose |
+|---------|---------|
+| `pnpm dev:demo` | Both VitePress (5173) + Demo API (3001) |
+| `pnpm docs:dev` | VitePress only (5173) |
+| `pnpm docs:build` | Build static site (set `SPEC_REV=rev5`) |
+
+**Restarting servers in tmux:**
+```bash
+tmux send-keys -t demo C-c          # Stop current process
+tmux send-keys -t demo 'pnpm dev:demo' Enter  # Start servers
+```
+
 ### 🐛 Known Issues / Debugging
 
 *   **404 Errors**: If the site returns 404s, it usually means `prepare-rev.js` failed to generate files OR the `config.mts` paths don't match the generated filenames.

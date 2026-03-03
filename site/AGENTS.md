@@ -82,11 +82,13 @@ pnpm dev:demo
 **Commands:**
 | Command | Purpose |
 |---------|---------|
-| `pnpm dev:demo` | Watch + VitePress (5173) + Demo API (3001/3002) |
-| `pnpm docs:dev` | VitePress only (5173) |
-| `pnpm docs:build` | Build static site (set `SPEC_REV=rev5`) |
+| `pnpm dev:demo` | All: site watcher + VitePress (5173) + demo servers (3001/3002) |
+| `pnpm site:dev` | Site only: source watcher + VitePress (5173) |
+| `pnpm site:build` | Build static site (set `SPEC_REV=rev5`) |
+| `pnpm demo:mainnet` | Demo server only: mainnet (3001) |
+| `pnpm demo:testnet` | Demo server only: testnet (3002) |
 
-**Note:** `dev:demo` includes a `chokidar` watcher that monitors `../docs/*.md` and rebuilds when source docs change.
+**Note:** `site:dev` watches `../docs/*.md` and `protected.md` for changes and rebuilds automatically.
 
 **Restarting servers in tmux:**
 ```bash

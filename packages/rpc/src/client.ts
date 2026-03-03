@@ -59,9 +59,30 @@ export class NanoRpcClient {
 
   /**
    * Confirm a block (trigger election if needed)
+   * Silently succeeds if the RPC doesn't support block_confirm
    */
   async confirmBlock(hash: string): Promise<void> {
-    await this.callRpc('block_confirm', { hash });
+    try {
+      await this.callRpc('block_confirm', { hash }, { silent: true });
+    } catch (error) {
+      const isUnsupported = (err: Error): boolean => {
+        const msg = err.message.toLowerCase();
+        return msg.includes('unsupported') && msg.includes('rpc');
+      };
+      
+      if (error instanceof AggregateError) {
+        const allUnsupported = error.errors.every(e => 
+          e instanceof Error && isUnsupported(e)
+        );
+        if (allUnsupported) {
+          return;
+        }
+      } else if (error instanceof Error && isUnsupported(error)) {
+        return;
+      }
+      
+      throw error;
+    }
   }
 
   /**
@@ -92,7 +113,8 @@ export class NanoRpcClient {
   /**
    * Internal method to call RPC with failover and retry
    */
-  private async callRpc(action: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async callRpc(action: string, params: Record<string, unknown>, options?: { silent?: boolean }): Promise<Record<string, unknown>> {
+    const silent = options?.silent ?? false;
     const errors: Error[] = [];
     
     for (const endpoint of this.endpoints) {
@@ -100,12 +122,16 @@ export class NanoRpcClient {
         return await this.callEndpointWithRetry(endpoint, action, params);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.error(`[RPC] ${action} failed for ${endpoint}: ${err.message}`);
+        if (!silent) {
+          console.error(`[RPC] ${action} failed for ${endpoint}: ${err.message}`);
+        }
         errors.push(err);
       }
     }
     
-    console.error(`[RPC] All endpoints failed for action: ${action}`, errors.map(e => e.message));
+    if (!silent) {
+      console.error(`[RPC] All endpoints failed for action: ${action}`, errors.map(e => e.message));
+    }
     throw new AggregateError(errors, `All RPC endpoints failed for action: ${action}`);
   }
 

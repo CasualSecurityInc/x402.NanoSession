@@ -106,7 +106,7 @@ See [examples/README.md](./examples/README.md) for configuration options.
 
 ### Faremeter Integration
 
-For projects using [Faremeter](https://faremeter.com) x402 middleware:
+For projects using [Faremeter](https://github.com/faremeter/faremeter) x402 middleware:
 
 ```bash
 # Terminal 1: Start the NanoSession facilitator service
@@ -167,7 +167,7 @@ The documentation website is built from `docs/` and deployed automatically.
 | `@nanosession/rpc` | Nano RPC client with endpoint failover |
 | `@nanosession/server` | `NanoSessionFacilitatorHandler` for servers |
 | `@nanosession/client` | `NanoSessionPaymentHandler` for clients |
-| `@nanosession/faremeter` | [Faremeter](https://faremeter.com) x402 middleware adapter |
+| `@nanosession/faremeter` | [Faremeter](https://github.com/faremeter/faremeter) x402 middleware adapter |
 
 All packages are published under the `@nanosession` scope.
 

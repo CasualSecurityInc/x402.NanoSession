@@ -2,7 +2,7 @@
 
 > Faremeter adapter for NanoSession x402 payments
 
-This package provides adapters that bridge NanoSession's payment handlers to the [Faremeter](https://faremeter.com) x402 middleware interface.
+This package provides adapters that bridge NanoSession's payment handlers to the [Faremeter](https://github.com/faremeter/faremeter) x402 middleware interface.
 
 ## Installation
 

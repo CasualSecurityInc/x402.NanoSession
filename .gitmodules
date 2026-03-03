@@ -2,3 +2,6 @@
 	path = docs/references/coinbase-x402
 	url = https://github.com/coinbase/x402.git
 	branch = main
+[submodule "docs/references/xnap"]
+	path = docs/references/xnap
+	url = https://github.com/ObsidiaHQ/xnap.git

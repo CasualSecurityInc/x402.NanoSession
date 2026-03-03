@@ -40,3 +40,8 @@ coverage/
 # Generated site content (rebuilt from /docs at build time)
 site/docs/
 site/.vitepress/cache/
+site/.sessions.json
+site/.sse_state.json
+
+# Trace files
+test-xnap-trace.md

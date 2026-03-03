@@ -52,6 +52,7 @@ const paymentStatus = ref<'pending' | 'verifying' | 'confirmed' | 'failed' | 'ex
 const finalBlockHash = ref<string | null>(null)
 const globalError = ref<string | null>(null)
 const serverProvidedContent = ref<string | null>(null)
+const isVerifying = ref(false)
 
 onMounted(async () => {
   if (typeof window !== 'undefined' && window.location.hash === '#testnet') {
@@ -189,19 +190,21 @@ function connectSSE() {
 }
 
 async function verifyPayment(hash: string) {
-    if (!session.value?.sessionId) return
+    if (!session.value?.sessionId || isVerifying.value) return
     
-    // Set status immediately to avoid flickering back to the button
-    paymentStatus.value = 'verifying'
-    finalBlockHash.value = hash
-
-    // Log verification request for debugging
-    console.warn('[NanoPaywall] Verifying block:', hash)
-
-    // Fetch the protected content using the newly confirmed block hash and session
-    httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
-
+    isVerifying.value = true
+    
     try {
+        // Set status immediately to avoid flickering back to the button
+        paymentStatus.value = 'verifying'
+        finalBlockHash.value = hash
+
+        // Log verification request for debugging
+        console.warn('[NanoPaywall] Verifying block:', hash)
+
+        // Fetch the protected content using the newly confirmed block hash and session
+        httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
+
         const res = await fetch(`${activeServerUrl.value}/api/protected`, {
             headers: {
                 'X-Payment-Block': hash,
@@ -229,11 +232,20 @@ async function verifyPayment(hash: string) {
         httpLog.value.push({ type: 'res', content: `Error: ${err.message}` })
         paymentStatus.value = 'failed'
         globalError.value = "Failed to communicate with verification server."
+    } finally {
+        isVerifying.value = false
+        // Only stop listening if we were successful
+        // If we failed (e.g. Block not confirmed), we keep the SSE open
+        // so it can trigger a second attempt automatically when it finally confirms
+        if (paymentStatus.value === 'confirmed') {
+            eventSource?.close();
+            eventSource = null;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
     }
-
-    eventSource?.close();
-    eventSource = null;
-    clearInterval(timerInterval);
 }
 
 async function generateQRCode() {

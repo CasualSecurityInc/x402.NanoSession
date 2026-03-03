@@ -88,7 +88,7 @@ export class NanoSessionFacilitatorHandler {
   constructor(options: HandlerOptions) {
     this.rpcClient = options.rpcClient;
     this.spentSet = options.spentSet ?? new InMemorySpentSet();
-    
+
     // Default implementation using Map
     const inMemoryRegistry = new Map<string, PaymentRequirements>();
     this.sessionRegistry = options.sessionRegistry ?? {
@@ -128,7 +128,7 @@ export class NanoSessionFacilitatorHandler {
 
     // Generate session ID
     const sessionId = randomBytes(16).toString('hex');
-    
+
     const expiresAt = new Date(Date.now() + (args.maxTimeoutSeconds ?? 600) * 1000).toISOString();
 
     const requirements: PaymentRequirements = {
@@ -161,14 +161,14 @@ export class NanoSessionFacilitatorHandler {
     if (!requirements) {
       return undefined;
     }
-    
+
     // Check if session has expired
     const expiresAt = requirements.extra?.expiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
       this.sessionRegistry.delete(sessionId);
       return undefined;
     }
-    
+
     return requirements;
   }
 
@@ -187,7 +187,17 @@ export class NanoSessionFacilitatorHandler {
 
     try {
       // Get block information from Nano RPC
-      const blockInfo = await this.rpcClient.getBlockInfo(payload.blockHash);
+      let blockInfo = await this.rpcClient.getBlockInfo(payload.blockHash);
+
+      // Simple retry logic for confirmation propagation delay
+      // WebSocket often sees block faster than RPC node marks it as confirmed
+      if (!blockInfo.confirmed) {
+        for (let i = 0; i < 10; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          blockInfo = await this.rpcClient.getBlockInfo(payload.blockHash);
+          if (blockInfo.confirmed) break;
+        }
+      }
 
       // Verify block is confirmed
       if (!blockInfo.confirmed) {
@@ -230,7 +240,7 @@ export class NanoSessionFacilitatorHandler {
       // Amount tagging: Verify amount matches base amount + session tag
       const actualAmount = BigInt(blockInfo.amount);
       const expectedAmount = BigInt(requirements.amount) + BigInt(requirements.extra?.tag ?? 0);
-      
+
       if (actualAmount !== expectedAmount) {
         return {
           isValid: false,
@@ -260,7 +270,7 @@ export class NanoSessionFacilitatorHandler {
   ): Promise<SettleResult | null> {
     // Verify first
     const verifyResult = await this.handleVerify(requirements, payload);
-    
+
     if (!verifyResult) {
       return null;
     }

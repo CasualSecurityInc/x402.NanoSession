@@ -56,8 +56,6 @@ The **session binding** (tag embedded in payment amount) prevents receipt theft 
 
 ## Why Not Stateless?
 
-## Why Not Stateless?
-
 We analyzed multiple stateless approaches (HMAC from IP, signed requirements, sender binding). All fail because:
 
 - HTTP provides no standard client identity primitive

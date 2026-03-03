@@ -2,12 +2,82 @@ import { Request, Response, Router } from 'express';
 import { NanoSessionFacilitatorHandler, InMemorySpentSet } from '@nanosession/server';
 import { NanoRpcClient } from '@nanosession/rpc';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { registerSession } from './status';
 
-const rpcClient = new NanoRpcClient({
-    endpoints: [process.env.NANO_RPC_URL!],
-    timeoutMs: 15000
-});
+// Simple file-based session persistence for the demo
+const SESSION_DB_PATH = path.resolve(__dirname, '../../.sessions.json');
+
+function loadSessions(): Record<string, any> {
+    try {
+        if (fs.existsSync(SESSION_DB_PATH)) {
+            return JSON.parse(fs.readFileSync(SESSION_DB_PATH, 'utf8'));
+        }
+    } catch (e) {
+        console.warn('Failed to load sessions from disk:', e);
+    }
+    return {};
+}
+
+function saveSessions(sessions: Record<string, any>) {
+    try {
+        fs.writeFileSync(SESSION_DB_PATH, JSON.stringify(sessions, null, 2));
+    } catch (e) {
+        console.warn('Failed to save sessions to disk:', e);
+    }
+}
+
+const persistentRegistry = {
+    get: (id: string) => {
+        const sessions = loadSessions();
+        return sessions[id];
+    },
+    set: (id: string, reqs: any) => {
+        const sessions = loadSessions();
+        sessions[id] = reqs;
+        saveSessions(sessions);
+    },
+    delete: (id: string) => {
+        const sessions = loadSessions();
+        delete sessions[id];
+        saveSessions(sessions);
+    },
+    has: (id: string) => {
+        const sessions = loadSessions();
+        return !!sessions[id];
+    }
+};
+
+// Lazy-initialize to ensure dotenv has loaded env vars before we read them
+let _rpcClient: NanoRpcClient | null = null;
+let _facilitator: NanoSessionFacilitatorHandler | null = null;
+let _spentSet: InMemorySpentSet | null = null;
+
+function getRpcClient(): NanoRpcClient {
+    if (!_rpcClient) {
+        if (!process.env.NANO_RPC_URL) {
+            throw new Error('NANO_RPC_URL environment variable is not set');
+        }
+        _rpcClient = new NanoRpcClient({
+            endpoints: [process.env.NANO_RPC_URL],
+            timeoutMs: 15000
+        });
+    }
+    return _rpcClient;
+}
+
+function getFacilitator(): NanoSessionFacilitatorHandler {
+    if (!_facilitator) {
+        _spentSet = new InMemorySpentSet();
+        _facilitator = new NanoSessionFacilitatorHandler({
+            rpcClient: getRpcClient(),
+            spentSet: _spentSet,
+            sessionRegistry: persistentRegistry
+        });
+    }
+    return _facilitator;
+}
 
 /**
  * Determine the base URL for the resource based on request headers.
@@ -31,33 +101,23 @@ function getResourceBaseUrl(req: Request): string {
 
 export const protectedRoute = Router();
 
-// Create a single instance of the facilitator handler with an in-memory spent set for the demo
-const spentSet = new InMemorySpentSet();
-const facilitator = new NanoSessionFacilitatorHandler({
-    rpcClient,
-    spentSet,
-    tagModulus: 10000000 // 10 million raw tag range
-});
-
-
 protectedRoute.get('/', async (req: Request, res: Response) => {
     const paymentProof = req.header('X-Payment-Block');
-    const sessionId = req.header('X-Payment-Session');
+    const incomingSessionId = req.header('X-Payment-Session');
+    const facilitator = getFacilitator();
 
     // If the client provided a block hash, verify it
-    if (paymentProof && sessionId) {
-        // Generate requirements just to satisfy the API interface (amount isn't needed for verify in Nano)
-        // In a real app we'd retrieve the session requirements here
-        const mockReqs = facilitator.getRequirements({
-            amount: '10000000000000000000000000000', // 0.01 XNO
-            payTo: process.env.NANO_SERVER_ADDRESS!
-        });
-
-        // Add sessionId manually for the verify step (as per x402 rev4/5)
-        mockReqs.extra.sessionId = sessionId;
+    if (paymentProof && incomingSessionId) {
+        // Retrieve the stored requirements for this session (issued during the 402 response)
+        const storedReqs = facilitator.getStoredRequirements(incomingSessionId);
+        
+        if (!storedReqs) {
+            res.status(402).json({ error: "Session not found or expired. Please request a new payment." });
+            return;
+        }
 
         try {
-            const result = await facilitator.handleVerify(mockReqs, { blockHash: paymentProof });
+            const result = await facilitator.handleVerify(storedReqs, { blockHash: paymentProof });
 
             if (result?.isValid) {
                 const exclusiveContent = `
@@ -101,9 +161,8 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
         reqs.network = 'nano:testnet';
     }
 
-    // Specifically generate matching Rev5 fields 
-    const newSessionId = crypto.randomUUID();
-    reqs.extra.sessionId = newSessionId;
+    // Use the sessionId generated by the facilitator
+    const newSessionId = reqs.extra.sessionId;
 
     // The FacilitatorHandler has likely already added a random tag
     const taggedAmountRaw = (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString();

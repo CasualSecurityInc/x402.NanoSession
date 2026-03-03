@@ -99,10 +99,13 @@ export class NanoRpcClient {
       try {
         return await this.callEndpointWithRetry(endpoint, action, params);
       } catch (error) {
-        errors.push(error instanceof Error ? error : new Error(String(error)));
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`[RPC] ${action} failed for ${endpoint}: ${err.message}`);
+        errors.push(err);
       }
     }
     
+    console.error(`[RPC] All endpoints failed for action: ${action}`, errors.map(e => e.message));
     throw new AggregateError(errors, `All RPC endpoints failed for action: ${action}`);
   }
 

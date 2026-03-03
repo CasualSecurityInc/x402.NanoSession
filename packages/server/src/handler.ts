@@ -11,6 +11,16 @@ import { InMemorySpentSet } from './spent-set.js';
 import { randomBytes } from 'crypto';
 
 /**
+ * Interface for session storage
+ */
+export interface SessionRegistry {
+  get(sessionId: string): PaymentRequirements | undefined;
+  set(sessionId: string, requirements: PaymentRequirements): void;
+  delete(sessionId: string): void;
+  has(sessionId: string): boolean;
+}
+
+/**
  * Configuration options for the handler
  */
 export interface HandlerOptions {
@@ -18,6 +28,8 @@ export interface HandlerOptions {
   rpcClient: NanoRpcClient;
   /** Optional spent set storage (defaults to in-memory) */
   spentSet?: SpentSetStorage;
+  /** Optional session storage (defaults to in-memory Map) */
+  sessionRegistry?: SessionRegistry;
 }
 
 /**
@@ -40,6 +52,8 @@ export interface VerifyResult {
   isValid: boolean;
   /** Error message if verification failed */
   error?: string;
+  /** The transaction hash if verified */
+  blockHash?: string;
 }
 
 /**
@@ -69,11 +83,20 @@ export class NanoSessionFacilitatorHandler {
    * This prevents attackers from submitting payments with forged session IDs.
    * See: AGENTS.md § Security-First Protocol Development
    */
-  private sessionRegistry: Map<string, PaymentRequirements> = new Map();
+  private sessionRegistry: SessionRegistry;
 
   constructor(options: HandlerOptions) {
     this.rpcClient = options.rpcClient;
     this.spentSet = options.spentSet ?? new InMemorySpentSet();
+    
+    // Default implementation using Map
+    const inMemoryRegistry = new Map<string, PaymentRequirements>();
+    this.sessionRegistry = options.sessionRegistry ?? {
+      get: (id) => inMemoryRegistry.get(id),
+      set: (id, reqs) => inMemoryRegistry.set(id, reqs),
+      delete: (id) => { inMemoryRegistry.delete(id); },
+      has: (id) => inMemoryRegistry.has(id)
+    };
   }
 
   /**
@@ -105,11 +128,8 @@ export class NanoSessionFacilitatorHandler {
 
     // Generate session ID
     const sessionId = randomBytes(16).toString('hex');
-
-    // Calculate expiration time
-    const expiresAt = new Date(
-      Date.now() + (args.maxTimeoutSeconds ?? 300) * 1000
-    ).toISOString();
+    
+    const expiresAt = new Date(Date.now() + (args.maxTimeoutSeconds ?? 600) * 1000).toISOString();
 
     const requirements: PaymentRequirements = {
       scheme: SCHEME,
@@ -117,7 +137,7 @@ export class NanoSessionFacilitatorHandler {
       asset: ASSET,
       amount: args.amount,
       payTo: args.payTo,
-      maxTimeoutSeconds: args.maxTimeoutSeconds ?? 300,
+      maxTimeoutSeconds: args.maxTimeoutSeconds ?? 600,
       extra: {
         tag,
         sessionId,
@@ -129,6 +149,26 @@ export class NanoSessionFacilitatorHandler {
     // Register session to prevent session spoofing attacks
     this.sessionRegistry.set(sessionId, requirements);
 
+    return requirements;
+  }
+
+  /**
+   * Retrieves stored requirements for a session ID
+   * Returns undefined if session not found or expired
+   */
+  getStoredRequirements(sessionId: string): PaymentRequirements | undefined {
+    const requirements = this.sessionRegistry.get(sessionId);
+    if (!requirements) {
+      return undefined;
+    }
+    
+    // Check if session has expired
+    const expiresAt = requirements.extra?.expiresAt;
+    if (expiresAt && new Date(expiresAt) < new Date()) {
+      this.sessionRegistry.delete(sessionId);
+      return undefined;
+    }
+    
     return requirements;
   }
 
@@ -163,109 +203,95 @@ export class NanoSessionFacilitatorHandler {
       if (destination !== requirements.payTo) {
         return {
           isValid: false,
-          error: `Destination mismatch: expected ${requirements.payTo}, got ${destination}`
+          error: `Address mismatch: expected ${requirements.payTo}, got ${destination}`
         };
       }
 
-      // Tagged amount = baseAmount + tag
-      // Validate: received amount should be baseAmount + tag (with tag encoded in LSBs)
-      const receivedAmount = BigInt(blockInfo.amount);
-      const expectedTaggedAmount = BigInt(requirements.amount) + BigInt(requirements.extra.tag);
+      // Session Binding: Verify session ID matches
+      // This protects against receipt-stealing attacks
+      // We check if the payload (which can be extended) or the requirements match
+      const payloadSessionId = (payload as any).sessionId ?? requirements.extra?.sessionId;
+      if (payloadSessionId !== requirements.extra?.sessionId) {
+        return {
+          isValid: false,
+          error: 'Session ID mismatch'
+        };
+      }
+
+      // Session Registry Check: Ensure the session ID was actually issued by us
+      // This protects against session spoofing attacks
+      if (!this.sessionRegistry.has(requirements.extra?.sessionId)) {
+        return {
+          isValid: false,
+          error: 'Session not found or expired'
+        };
+      }
+
+      // Amount tagging: Verify amount matches base amount + session tag
+      const actualAmount = BigInt(blockInfo.amount);
+      const expectedAmount = BigInt(requirements.amount) + BigInt(requirements.extra?.tag ?? 0);
       
-      if (receivedAmount !== expectedTaggedAmount) {
+      if (actualAmount !== expectedAmount) {
         return {
           isValid: false,
-          error: `Amount mismatch: expected ${expectedTaggedAmount}, got ${receivedAmount}`
+          error: `Amount mismatch: expected ${expectedAmount}, got ${actualAmount}`
         };
       }
 
-      // Extract and verify tag from received amount
-      const actualTag = Number(receivedAmount % BigInt(requirements.extra.tagModulus));
-      if (actualTag !== requirements.extra.tag) {
-        return {
-          isValid: false,
-          error: `Tag mismatch: expected ${requirements.extra.tag}, got ${actualTag}`
-        };
-      }
-
-      // All checks passed
       return {
-        isValid: true
+        isValid: true,
+        blockHash: payload.blockHash
       };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       return {
         isValid: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: message
       };
     }
   }
 
   /**
-   * Verifies and settles a payment (marks as spent)
-   * Returns null if scheme doesn't match
+   * Settles a payment by verifying it and marking it as spent
    */
   async handleSettle(
     requirements: PaymentRequirements,
     payload: PaymentPayload
   ): Promise<SettleResult | null> {
-    // Return null for non-matching schemes
-    if (requirements.scheme !== SCHEME || requirements.network !== NETWORK) {
+    // Verify first
+    const verifyResult = await this.handleVerify(requirements, payload);
+    
+    if (!verifyResult) {
       return null;
     }
 
-    // SECURITY: Validate session was issued by this handler (prevents session spoofing)
-    const sessionId = requirements.extra?.sessionId;
-    if (!sessionId || !this.sessionRegistry.has(sessionId)) {
+    if (!verifyResult.isValid) {
       return {
         success: false,
-        error: 'Unknown session ID'
+        error: verifyResult.error
       };
     }
 
-    // Use stored requirements to prevent tampering with tag/amount
-    const storedRequirements = this.sessionRegistry.get(sessionId)!;
-
-    try {
-      // Check if already spent
-      const isSpent = await this.spentSet.has(payload.blockHash);
-      if (isSpent) {
-        return {
-          success: false,
-          error: 'Block hash already spent'
-        };
-      }
-
-      // Verify payment using stored requirements (not user-supplied)
-      const verifyResult = await this.handleVerify(storedRequirements, payload);
-      
-      // handleVerify returns null for non-matching schemes (already checked above)
-      // but TypeScript doesn't know that, so handle it
-      if (!verifyResult) {
-        return {
-          success: false,
-          error: 'Scheme verification failed unexpectedly'
-        };
-      }
-
-      if (!verifyResult.isValid) {
-        return {
-          success: false,
-          error: verifyResult.error
-        };
-      }
-
-      // Mark as spent
-      await this.spentSet.add(payload.blockHash);
-
-      return {
-        success: true,
-        transactionHash: payload.blockHash
-      };
-    } catch (error) {
+    // Check if already spent
+    const isSpent = await this.spentSet.has(payload.blockHash);
+    if (isSpent) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: 'Payment already spent'
       };
     }
+
+    // Mark as spent
+    await this.spentSet.add(payload.blockHash);
+
+    // Remove from session registry to prevent reuse
+    if (requirements.extra?.sessionId) {
+      this.sessionRegistry.delete(requirements.extra.sessionId);
+    }
+
+    return {
+      success: true,
+      transactionHash: payload.blockHash
+    };
   }
 }

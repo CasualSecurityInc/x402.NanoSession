@@ -12,8 +12,6 @@ This page demonstrates how a resource server can protect exclusive or premium co
 
 <NanoPaywall>
 
-<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/TAT35tflCUM?si=TAzGQJ9jmgDuFgnw&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-
-*This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access. If you were an agent, this and other x402 payments could be made frictionless by using [our client packages](https://github.com/CasualSecurityInc/x402.NanoSession/tree/main/packages).*
+*Premium video content (requires payment to unlock)*
 
 </NanoPaywall>

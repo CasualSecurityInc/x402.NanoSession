@@ -122,12 +122,8 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
             if (result?.isValid) {
                 const exclusiveContent = `
                     <div class="exclusive-content">
-                        <h4>Top Secret Project Roadmap (Rev 5)</h4>
-                        <ul>
-                            <li><strong>Q3:</strong> Mainnet general availability and stable RPC load balancers.</li>
-                            <li><strong>Q4:</strong> x402-native browser extensions for seamless dust tagging.</li>
-                            <li><strong>Q1 Next Year:</strong> Native mobile wallet integration for one-tap auth.</li>
-                        </ul>
+                        <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/TAT35tflCUM?si=TAzGQJ9jmgDuFgnw&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        <p><em>This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access. If you were an agent, this and other x402 payments could be made frictionless by using <a href="https://github.com/CasualSecurityInc/x402.NanoSession/tree/main/packages" target="_blank" rel="noopener noreferrer">our client packages</a>.</em></p>
                     </div>
                 `;
                 res.json({

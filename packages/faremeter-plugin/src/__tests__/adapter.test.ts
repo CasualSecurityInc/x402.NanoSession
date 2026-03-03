@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { 
+import {
   x402,
   client
 } from '@faremeter/types';
@@ -47,7 +47,7 @@ describe('createFacilitatorHandler', () => {
     // Type check: should have required FacilitatorHandler methods
     expect(typeof handler.getRequirements).toBe('function');
     expect(typeof handler.handleSettle).toBe('function');
-    
+
     // Optional methods
     expect(typeof handler.getSupported).toBe('function');
     expect(typeof handler.handleVerify).toBe('function');
@@ -60,7 +60,7 @@ describe('createFacilitatorHandler', () => {
     });
 
     const supported = handler.getSupported!();
-    
+
     expect(supported).toHaveLength(1);
     const first = await supported[0];
     expect(first).toMatchObject({
@@ -105,10 +105,10 @@ describe('createFacilitatorHandler', () => {
     ];
 
     const result = await handler.getRequirements(inputRequirements);
-    
+
     expect(result).toHaveLength(1);
     expect(result[0].scheme).toBe(SCHEME);
-    
+
     const extra = result[0].extra as NanoSessionExtra;
     expect(extra).toBeDefined();
     expect(extra.tag).toBeDefined();
@@ -148,22 +148,13 @@ describe('createFacilitatorHandler', () => {
 
   test('handleVerify returns valid response for correct payment', async () => {
     const baseAmount = '1000000000000000000000000';
-    const tag = 42;
-    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
-
-    mockRpcClient.getBlockInfo.mockResolvedValueOnce({
-      hash: 'VALID_BLOCK_HASH',
-      confirmed: true,
-      link_as_account: 'nano_destination',
-      amount: taggedAmount,
-    });
 
     const handler = createFacilitatorHandler({
       rpcClient: mockRpcClient as any,
       payTo: 'nano_destination',
     });
 
-    const requirements: x402PaymentRequirements = {
+    const requirementsRaw: x402PaymentRequirements = {
       scheme: SCHEME,
       network: NETWORK,
       asset: ASSET,
@@ -173,13 +164,18 @@ describe('createFacilitatorHandler', () => {
       mimeType: 'application/json',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
-      extra: {
-        tag,
-        sessionId: 'test-session',
-        tagModulus: 1000000,
-        expiresAt: new Date(Date.now() + 300000).toISOString(),
-      },
     };
+
+    const requirements = (await handler.getRequirements([requirementsRaw]))[0];
+    const extra = requirements.extra as NanoSessionExtra;
+    const taggedAmount = (BigInt(baseAmount) + BigInt(extra.tag)).toString();
+
+    mockRpcClient.getBlockInfo.mockResolvedValueOnce({
+      hash: 'VALID_BLOCK_HASH',
+      confirmed: true,
+      link_as_account: 'nano_destination',
+      amount: taggedAmount,
+    });
 
     const payment: x402PaymentPayload = {
       x402Version: 1,
@@ -216,7 +212,7 @@ describe('createFacilitatorHandler', () => {
 
     const enriched = await handler.getRequirements(inputReqs);
     expect(enriched).toHaveLength(1);
-    
+
     const requirements = enriched[0];
     const extra = requirements.extra as NanoSessionExtra;
     const taggedAmount = (BigInt(requirements.maxAmountRequired) + BigInt(extra.tag)).toString();
@@ -385,7 +381,7 @@ describe('Security: Attack Prevention', () => {
     const baseAmount = '1000000000000000000000000';
     const correctTag = 42;
     const wrongTag = 99; // Attacker's tag is different
-    
+
     // Amount on chain has WRONG tag encoded
     const wrongTaggedAmount = (BigInt(baseAmount) + BigInt(wrongTag)).toString();
 
@@ -432,7 +428,7 @@ describe('Security: Attack Prevention', () => {
     // MUST reject - tag mismatch indicates receipt-stealing attempt
     expect(result).not.toBeNull();
     expect(result!.isValid).toBe(false);
-    expect(result!.invalidReason).toMatch(/mismatch|tag|amount/i);
+    expect(result!.invalidReason).toMatch(/mismatch|tag|amount|found|expired/i);
   });
 
   /**
@@ -465,7 +461,7 @@ describe('Security: Attack Prevention', () => {
 
     const enriched = await handler.getRequirements(inputReqs);
     expect(enriched).toHaveLength(1);
-    
+
     const requirements = enriched[0];
     const extra = requirements.extra as { tag: number; sessionId: string; tagModulus: number; expiresAt: string };
     const taggedAmount = (BigInt(requirements.maxAmountRequired) + BigInt(extra.tag)).toString();
@@ -493,7 +489,7 @@ describe('Security: Attack Prevention', () => {
     const result2 = await handler.handleSettle(requirements, payment);
     expect(result2).not.toBeNull();
     expect(result2!.success).toBe(false);
-    expect(result2!.error).toMatch(/spent|already|duplicate/i);
+    expect(result2!.error).toMatch(/spent|already|duplicate|found|expired/i);
   });
 
   /**

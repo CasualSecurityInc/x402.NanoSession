@@ -11,7 +11,7 @@ export interface SpentSetStorage {
    * Check if a block hash has been spent
    */
   has(blockHash: string): Promise<boolean>;
-  
+
   /**
    * Mark a block hash as spent
    */
@@ -24,18 +24,31 @@ export interface SpentSetStorage {
  * For production, use a persistent storage implementation
  */
 export class InMemorySpentSet implements SpentSetStorage {
-  private spentHashes: Set<string>;
+  private spentHashes: Map<string, number>;
+  private readonly ttlMs: number;
 
-  constructor() {
-    this.spentHashes = new Set();
+  /**
+   * @param ttlMs Time-to-live in milliseconds (default: 30 days)
+   */
+  constructor(ttlMs: number = 30 * 24 * 60 * 60 * 1000) {
+    this.spentHashes = new Map();
+    this.ttlMs = ttlMs;
   }
 
   async has(blockHash: string): Promise<boolean> {
-    return this.spentHashes.has(blockHash);
+    const expiry = this.spentHashes.get(blockHash);
+    if (!expiry) return false;
+
+    if (expiry < Date.now()) {
+      this.spentHashes.delete(blockHash);
+      return false;
+    }
+
+    return true;
   }
 
   async add(blockHash: string): Promise<void> {
-    this.spentHashes.add(blockHash);
+    this.spentHashes.set(blockHash, Date.now() + this.ttlMs);
   }
 
   /**
@@ -50,5 +63,17 @@ export class InMemorySpentSet implements SpentSetStorage {
    */
   clear(): void {
     this.spentHashes.clear();
+  }
+
+  /**
+   * Manual prune of expired entries
+   */
+  prune(): void {
+    const now = Date.now();
+    for (const [hash, expiry] of this.spentHashes.entries()) {
+      if (expiry < now) {
+        this.spentHashes.delete(hash);
+      }
+    }
   }
 }

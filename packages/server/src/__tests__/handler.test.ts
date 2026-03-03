@@ -32,9 +32,9 @@ describe('NanoSessionFacilitatorHandler', () => {
     const handler = new NanoSessionFacilitatorHandler({
       rpcClient: mockRpcClient as any
     });
-    
+
     const supported = await handler.getSupported!();
-    
+
     expect(supported).toHaveLength(1);
     expect(supported[0].scheme).toBe(SCHEME);
     expect(supported[0].network).toBe('nano:mainnet');
@@ -44,7 +44,7 @@ describe('NanoSessionFacilitatorHandler', () => {
     const handler = new NanoSessionFacilitatorHandler({
       rpcClient: mockRpcClient as any
     });
-    
+
     const requirements: PaymentRequirements = {
       scheme: 'evm-exact',
       network: 'eip155:1',
@@ -59,16 +59,25 @@ describe('NanoSessionFacilitatorHandler', () => {
         expiresAt: new Date().toISOString()
       }
     };
-    
+
     const result = await handler.handleVerify!(requirements, { blockHash: '0xabc' });
     expect(result).toBeNull();
   });
 
   test('handleVerify returns valid for confirmed block', async () => {
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any
+    });
+
     const baseAmount = '10000000';
-    const tag = 42;
-    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
-    
+    const requirements = handler.getRequirements({
+      amount: baseAmount,
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300
+    });
+
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '0000002A',
       confirmed: true,
@@ -78,35 +87,26 @@ describe('NanoSessionFacilitatorHandler', () => {
       height: 100
     });
 
-    const handler = new NanoSessionFacilitatorHandler({
-      rpcClient: mockRpcClient as any
-    });
-    
-    const requirements: PaymentRequirements = {
-      scheme: SCHEME,
-      network: 'nano:mainnet',
-      asset: 'XNO',
-      amount: baseAmount,
-      payTo: 'nano_destination',
-      maxTimeoutSeconds: 300,
-      extra: {
-        tag,
-        sessionId: 'test',
-        tagModulus: 10000000,
-        expiresAt: new Date().toISOString()
-      }
-    };
     const result = await handler.handleVerify!(requirements, { blockHash: '0000002A' });
-    
+
     expect(result).not.toBeNull();
     expect(result!.isValid).toBe(true);
   });
 
   test('handleVerify returns invalid for unconfirmed block', async () => {
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any
+    });
+
     const baseAmount = '10000000';
-    const tag = 42;
-    const taggedAmount = (BigInt(baseAmount) + BigInt(tag)).toString();
-    
+    const requirements = handler.getRequirements({
+      amount: baseAmount,
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300
+    });
+
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '00000029',
       confirmed: false,
@@ -115,26 +115,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       amount: taggedAmount
     });
 
-    const handler = new NanoSessionFacilitatorHandler({
-      rpcClient: mockRpcClient as any
-    });
-    
-    const requirements: PaymentRequirements = {
-      scheme: SCHEME,
-      network: 'nano:mainnet',
-      asset: 'XNO',
-      amount: baseAmount,
-      payTo: 'nano_destination',
-      maxTimeoutSeconds: 300,
-      extra: {
-        tag,
-        sessionId: 'test',
-        tagModulus: 10000000,
-        expiresAt: new Date().toISOString()
-      }
-    };
     const result = await handler.handleVerify!(requirements, { blockHash: '00000029' });
-    
+
     expect(result).not.toBeNull();
     expect(result!.isValid).toBe(false);
   });
@@ -145,15 +127,15 @@ describe('NanoSessionFacilitatorHandler', () => {
       rpcClient: mockRpcClient as any,
       spentSet
     });
-    
+
     const requirements = handler.getRequirements({
       amount: '10000000',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300
     });
-    
+
     const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
-    
+
     mockRpcClient.getBlockInfo.mockResolvedValue({
       hash: '0000002A',
       confirmed: true,
@@ -161,12 +143,12 @@ describe('NanoSessionFacilitatorHandler', () => {
       link_as_account: 'nano_destination',
       amount: taggedAmount
     });
-    
+
     // First settlement should succeed
     const result1 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
     expect(result1).not.toBeNull();
     expect(result1!.success).toBe(true);
-    
+
     // Second settlement should fail (double spend)
     const result2 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
     expect(result2).not.toBeNull();
@@ -177,7 +159,7 @@ describe('NanoSessionFacilitatorHandler', () => {
     const handler = new NanoSessionFacilitatorHandler({
       rpcClient: mockRpcClient as any
     });
-    
+
     const fakeRequirements: PaymentRequirements = {
       scheme: SCHEME,
       network: 'nano:mainnet',
@@ -192,11 +174,11 @@ describe('NanoSessionFacilitatorHandler', () => {
         expiresAt: new Date().toISOString()
       }
     };
-    
+
     const result = await handler.handleSettle!(fakeRequirements, { blockHash: '0000002A' });
-    
+
     expect(result).not.toBeNull();
     expect(result!.success).toBe(false);
-    expect(result!.error).toBe('Unknown session ID');
+    expect(result!.error).toBe('Session not found or expired');
   });
 });

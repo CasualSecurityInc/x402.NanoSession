@@ -9,7 +9,7 @@
     "demo:server": "tsx watch protected-resource-demo-server/index.ts",
     "demo:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet pnpm demo:server",
     "demo:testnet": "DOTENV_CONFIG_PATH=../.env.testnet pnpm demo:server",
-    "dev:demo": "concurrently --kill-others -n site,mainnet,testnet \"pnpm site:dev\" \"pnpm demo:mainnet\" \"pnpm demo:testnet\"",
+    "dev:demo": "./scripts/dev-demo.sh",
     "test:server": "vitest run protected-resource-demo-server/",
     "deploy:fly:mainnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.mainnet.toml .",
     "deploy:fly:testnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.testnet.toml ."

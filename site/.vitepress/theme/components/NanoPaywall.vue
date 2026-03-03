@@ -48,7 +48,7 @@ const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
 const { isMetaMaskInstalled, isXnapInstalled, isPending: xnapPending, error: xnapError, installXnap, payWithXnap, reset: xnapReset } = useXnapSnap()
 
 let eventSource: EventSource | null = null
-const paymentStatus = ref<'pending' | 'confirmed' | 'failed' | 'expired'>('pending')
+const paymentStatus = ref<'pending' | 'verifying' | 'confirmed' | 'failed' | 'expired'>('pending')
 const finalBlockHash = ref<string | null>(null)
 const globalError = ref<string | null>(null)
 const serverProvidedContent = ref<string | null>(null)
@@ -174,50 +174,7 @@ function connectSSE() {
 
                 if (data.status === 'confirmed') {
                     httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
-
-                    // Log verification request for debugging
-                    console.warn('[NanoPaywall] Sending verification request:', {
-                        blockHash: data.blockHash,
-                        sessionId: session.value?.sessionId,
-                        expectedAmountRaw: session.value?.amountRaw
-                    })
-
-                    // Fetch the protected content using the newly confirmed block hash and session
-                    httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${data.blockHash}\nX-Payment-Session: ${session.value?.sessionId}` })
-
-                    fetch(`${activeServerUrl.value}/api/protected`, {
-                        headers: {
-                            'X-Payment-Block': data.blockHash,
-                            'X-Payment-Session': session.value?.sessionId
-                        }
-                    })
-                    .then(res => res.json())
-                    .then(protectedData => {
-                        // Always log the response
-                        httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
-                        
-                        // Log verification response for debugging
-                        if (protectedData.error) {
-                            console.warn('[NanoPaywall] Verification failed:', protectedData.error)
-                        } else {
-                            console.warn('[NanoPaywall] Verification successful:', {
-                                success: protectedData.success,
-                                blockHash: finalBlockHash.value,
-                                sessionId: session.value?.sessionId
-                            })
-                        }
-                        
-                        if (protectedData.success && protectedData.html) {
-                            serverProvidedContent.value = protectedData.html;
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Failed to fetch protected content via verify route', err);
-                        httpLog.value.push({ type: 'res', content: `Error: ${err.message}` })
-                    })
-
-                    eventSource?.close();
-                    clearInterval(timerInterval);
+                    verifyPayment(data.blockHash)
                 }
             }
         } catch (e) {
@@ -229,6 +186,54 @@ function connectSSE() {
         globalError.value = "Live connection lost. Checking manually..."
         // In a real app we'd trigger a manual verification poll here
     }
+}
+
+async function verifyPayment(hash: string) {
+    if (!session.value?.sessionId) return
+    
+    // Set status immediately to avoid flickering back to the button
+    paymentStatus.value = 'verifying'
+    finalBlockHash.value = hash
+
+    // Log verification request for debugging
+    console.warn('[NanoPaywall] Verifying block:', hash)
+
+    // Fetch the protected content using the newly confirmed block hash and session
+    httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
+
+    try {
+        const res = await fetch(`${activeServerUrl.value}/api/protected`, {
+            headers: {
+                'X-Payment-Block': hash,
+                'X-Payment-Session': session.value?.sessionId
+            }
+        })
+        const protectedData = await res.json()
+        
+        // Always log the response
+        httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
+        
+        if (protectedData.success) {
+            console.warn('[NanoPaywall] Verification successful:', hash)
+            paymentStatus.value = 'confirmed'
+            if (protectedData.html) {
+                serverProvidedContent.value = protectedData.html;
+            }
+        } else {
+            console.warn('[NanoPaywall] Verification failed:', protectedData.error)
+            paymentStatus.value = 'failed'
+            globalError.value = protectedData.error || "Payment verification failed"
+        }
+    } catch (err: any) {
+        console.error('Failed to fetch protected content via verify route', err);
+        httpLog.value.push({ type: 'res', content: `Error: ${err.message}` })
+        paymentStatus.value = 'failed'
+        globalError.value = "Failed to communicate with verification server."
+    }
+
+    eventSource?.close();
+    eventSource = null;
+    clearInterval(timerInterval);
 }
 
 async function generateQRCode() {
@@ -326,7 +331,12 @@ async function handleXnapClick() {
         await installXnap()
     } else if (session.value) {
         try {
-            await payWithXnap(session.value.payTo, session.value.amountRaw)
+            const result = await payWithXnap(session.value.payTo, session.value.amountRaw)
+            if (result && result.hash) {
+                console.log('[NanoPaywall] Received hash from Xnap:', result.hash)
+                // Proactively verify the payment with the server
+                await verifyPayment(result.hash)
+            }
         } catch (e) {
             // Error mapped in composable
         }
@@ -383,24 +393,31 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
       </div>
     </div>
 
-    <!-- SUCCESS STATE -->
-    <div v-if="paymentStatus === 'confirmed'" class="success-container">
-        <div class="success-banner">
-            <h2>🎉 Payment successful!</h2>
+        <!-- SUCCESS STATE -->
+        <div v-if="paymentStatus === 'confirmed'" class="success-container">
+            <div class="success-banner">
+                <h2>🎉 Payment successful!</h2>
+            </div>
+            <div data-testid="protected-content">
+               <slot></slot>
+               <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
+            </div>
+             <div class="block-info">
+                Block: <a :href="`https://nanexplorer.com/nano/blocks/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
+            </div>
         </div>
-        <div data-testid="protected-content">
-           <slot></slot>
 
-           <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
+        <!-- VERIFYING STATE -->
+        <div v-else-if="paymentStatus === 'verifying'" class="success-container verifying-container">
+            <div class="success-banner verifying-banner">
+                <div class="spinner-small"></div>
+                <h2>Verifying payment...</h2>
+            </div>
+            <p>We've received your block hash from the wallet and are now confirming its validity with the Nano network.</p>
         </div>
 
-         <div class="block-info">
-            Block: <a :href="`https://nanexplorer.com/nano/blocks/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
-        </div>
-    </div>
-
-    <!-- MAIN PAYWALL CONTAINER -->
-    <div v-else class="paywall-container" data-testid="payment-required">
+        <!-- MAIN PAYWALL CONTAINER -->
+        <div v-else class="paywall-container" data-testid="payment-required">
 
         <!-- Header -->
         <div class="paywall-header">
@@ -415,8 +432,8 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         </div>
 
         <!-- Fetch Error State -->
-        <div v-else-if="fetchError" class="error-state">
-            <p>{{ fetchError }}</p>
+        <div v-else-if="fetchError || globalError" class="error-state">
+            <p>{{ fetchError || globalError }}</p>
             <button @click="fetchPaymentRequirements" class="retry-btn">
                 Retry
             </button>
@@ -711,6 +728,24 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 16px;
+}
+
+.success-container.verifying-container {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.success-banner.verifying-banner {
+    color: var(--vp-c-brand);
+}
+
+.spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--vp-c-brand);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {

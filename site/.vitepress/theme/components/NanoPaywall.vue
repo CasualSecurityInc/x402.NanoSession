@@ -82,9 +82,9 @@ async function fetchPaymentRequirements() {
   finalBlockHash.value = null
   serverProvidedContent.value = null
   activePaymentTab.value = 'qr' // Reset to QR tab
-
   isLoading.value = true
   fetchError.value = null
+  globalError.value = null // Clear any global verification errors
   httpLog.value = [] // Reset log
   try {
     const targetHost = new URL(activeServerUrl.value).host

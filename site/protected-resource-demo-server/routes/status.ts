@@ -4,29 +4,11 @@ import path from 'path';
 
 export const statusRoute = Router();
 
-// Simple file-based persistence for SSE state
-const SSE_DB_PATH = path.resolve(__dirname, '../../.sse_state.json');
+// In-memory state storage (no longer persistent to avoid ghost confirms after server restart)
+let sessionStates: Record<string, any> = {};
+let amountToSessionMap: Record<string, string> = {};
 
-function loadState(): { sessionStates: Record<string, any>, amountToSessionMap: Record<string, string> } {
-    try {
-        if (fs.existsSync(SSE_DB_PATH)) {
-            return JSON.parse(fs.readFileSync(SSE_DB_PATH, 'utf8'));
-        }
-    } catch (e) {
-        console.warn('Failed to load SSE state from disk:', e);
-    }
-    return { sessionStates: {}, amountToSessionMap: {} };
-}
-
-function saveState(sessionStates: Record<string, any>, amountToSessionMap: Record<string, string>) {
-    try {
-        fs.writeFileSync(SSE_DB_PATH, JSON.stringify({ sessionStates, amountToSessionMap }, null, 2));
-    } catch (e) {
-        console.warn('Failed to save SSE state to disk:', e);
-    }
-}
-
-// Store active connections (in-memory only, cannot be persisted)
+// Store active connections (in-memory only)
 // Key: sessionId, Value: Response object
 const activeClients = new Map<string, Response>();
 
@@ -34,23 +16,19 @@ const activeClients = new Map<string, Response>();
  * Register a new session to be tracked
  */
 export function registerSession(sessionId: string, expectedAmountRaw: string) {
-    const { sessionStates, amountToSessionMap } = loadState();
     sessionStates[sessionId] = { status: 'pending' };
     amountToSessionMap[expectedAmountRaw] = sessionId;
-    saveState(sessionStates, amountToSessionMap);
 }
 
 /**
  * Called by the WebSocket service when a payment arrives
  */
 export function updateSessionStatus(amountRaw: string, blockHash: string, status: 'confirmed' | 'failed') {
-    const { sessionStates, amountToSessionMap } = loadState();
     const sessionId = amountToSessionMap[amountRaw];
     if (!sessionId) return; // Not our payment
 
     const state = { status, blockHash, amountRaw };
     sessionStates[sessionId] = state;
-    saveState(sessionStates, amountToSessionMap);
 
     // Notify the connected client if they are currently listening
     const clientResponse = activeClients.get(sessionId);
@@ -60,10 +38,8 @@ export function updateSessionStatus(amountRaw: string, blockHash: string, status
 
     // Cleanup map after a while to prevent memory leaks
     setTimeout(() => {
-        const { sessionStates: currentStates, amountToSessionMap: currentMap } = loadState();
-        delete currentStates[sessionId];
-        delete currentMap[amountRaw];
-        saveState(currentStates, currentMap);
+        delete sessionStates[sessionId];
+        delete amountToSessionMap[amountRaw];
     }, 1000 * 60 * 10); // 10 minutes
 }
 
@@ -79,7 +55,6 @@ statusRoute.get('/:sessionId', (req: Request, res: Response) => {
     activeClients.set(sessionId, res);
 
     // Send current buffered state immediately on connect
-    const { sessionStates } = loadState();
     const currentState = sessionStates[sessionId] || { status: 'pending' };
     res.write(`data: ${JSON.stringify(currentState)}\n\n`);
 

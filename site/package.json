@@ -5,6 +5,7 @@
   "scripts": {
     "site:dev": "node scripts/prepare-rev.js && concurrently --kill-others -n source,vitepress \"chokidar \\\"../docs/*.md\\\" \\\"protected.md\\\" -c \\\"node scripts/prepare-rev.js\\\"\" \"vitepress dev .\"",
     "site:build": "node scripts/prepare-rev.js && vitepress build .",
+    "docs:build": "pnpm run site:build",
     "site:preview": "vitepress preview .",
     "demo:server": "tsx watch protected-resource-demo-server/index.ts",
     "demo:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet pnpm demo:server",

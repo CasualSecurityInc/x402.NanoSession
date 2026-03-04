@@ -1,6 +1,4 @@
 import { Request, Response, Router } from 'express';
-import fs from 'fs';
-import path from 'path';
 
 export const statusRoute = Router();
 
@@ -26,6 +24,10 @@ export function registerSession(sessionId: string, expectedAmountRaw: string) {
 export function updateSessionStatus(amountRaw: string, blockHash: string, status: 'confirmed' | 'failed') {
     const sessionId = amountToSessionMap[amountRaw];
     if (!sessionId) return; // Not our payment
+
+    // Guard against duplicate pushes (WebSocket reconnection can replay recent confirmations)
+    const existing = sessionStates[sessionId];
+    if (existing?.status === 'confirmed') return;
 
     const state = { status, blockHash, amountRaw };
     sessionStates[sessionId] = state;

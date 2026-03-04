@@ -3,32 +3,48 @@ import { updateSessionStatus } from '../routes/status';
 
 let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
+let pingInterval: NodeJS.Timeout | null = null;
+let pongTimeout: NodeJS.Timeout | null = null;
 let subscribedAccount = '';
-let wssUrl = '';
+
+const PING_INTERVAL_MS = 30_000;  // Send ping every 30s
+const PONG_TIMEOUT_MS = 10_000;   // Expect pong within 10s
 
 export function initNanoWebSocket(accountParam: string) {
     subscribedAccount = accountParam;
     connect();
 }
 
+function cleanupTimers() {
+    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+    if (pongTimeout) { clearTimeout(pongTimeout); pongTimeout = null; }
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+}
+
 function connect() {
+    cleanupTimers();
+
     if (ws) {
-        ws.close();
+        try { ws.removeAllListeners(); ws.close(); } catch { }
+        ws = null;
     }
 
     const wsUrl = process.env.NANO_WS_URL || 'wss://ws.nano.to';
-    console.log(`Connecting to Nano WebSocket (${wsUrl})...`);
+    console.log(`[WS] Connecting to Nano WebSocket (${wsUrl})...`);
     ws = new WebSocket(wsUrl);
 
     ws.on('open', () => {
-        console.log('Nano WebSocket connected.');
+        console.log('[WS] Connected.');
         // Subscribe to new blocks for the server address
         const subscribeMsg = {
             action: 'subscribe',
             topic: 'confirmation'
         };
         ws?.send(JSON.stringify(subscribeMsg));
-        console.log(`Subscribed to confirmations for: ${subscribedAccount}`);
+        console.log(`[WS] Subscribed to confirmations for: ${subscribedAccount}`);
+
+        // Start ping/pong keepalive
+        startPingPong();
     });
 
     ws.on('message', (data) => {
@@ -44,26 +60,48 @@ function connect() {
                 // For a 'receive' block, the destination is the block account itself
                 // In NanoSession Rev5, what we actually see on the network first is the sender's SEND block
                 if (block.link_as_account === subscribedAccount || block.account === subscribedAccount) {
-                    console.log(`Incoming payment detected! Hash: ${blockHash}, Amount: ${amountRaw}`);
+                    console.log(`[WS] Incoming payment detected! Hash: ${blockHash}, Amount: ${amountRaw}`);
 
                     // Route the found block hash and raw amount to the active SSE Sessions
                     updateSessionStatus(amountRaw, blockHash, 'confirmed');
                 }
             }
         } catch (e) {
-            console.error('Error parsing WebSocket message:', e);
+            console.error('[WS] Error parsing message:', e);
         }
     });
 
+    ws.on('pong', () => {
+        // Pong received — connection is alive, cancel the timeout
+        if (pongTimeout) { clearTimeout(pongTimeout); pongTimeout = null; }
+    });
+
     ws.on('close', () => {
-        console.log('Nano WebSocket disconnected. Reconnecting in 5s...');
+        console.log('[WS] Disconnected. Reconnecting in 5s...');
+        cleanupTimers();
         scheduleReconnect();
     });
 
     ws.on('error', (err) => {
-        console.error('Nano WebSocket error:', err);
-        ws?.close();
+        console.error('[WS] Error:', err.message);
+        cleanupTimers();
+        try { ws?.close(); } catch { }
     });
+}
+
+function startPingPong() {
+    pingInterval = setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        ws.ping();
+
+        // If no pong received within PONG_TIMEOUT_MS, consider connection dead
+        pongTimeout = setTimeout(() => {
+            console.warn('[WS] Pong timeout — connection stale. Reconnecting...');
+            try { ws?.terminate(); } catch { }
+            connect();
+        }, PONG_TIMEOUT_MS);
+    }, PING_INTERVAL_MS);
 }
 
 function scheduleReconnect() {
@@ -72,3 +110,4 @@ function scheduleReconnect() {
         connect();
     }, 5000);
 }
+

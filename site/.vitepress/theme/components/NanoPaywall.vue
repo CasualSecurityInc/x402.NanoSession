@@ -40,6 +40,7 @@ const httpLog = ref<LogEntry[]>([])
 
 // Payment State
 const session = ref<any>(null)
+const originalRequirements = ref<any>(null) // Store raw 402 requirements for POST fallback
 const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
   '', ''
 )
@@ -79,6 +80,7 @@ async function fetchPaymentRequirements() {
   }
   xnapReset() // Clear any pending Xnap states
   session.value = null
+  originalRequirements.value = null
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
   serverProvidedContent.value = null
@@ -123,6 +125,9 @@ async function fetchPaymentRequirements() {
             tagModulus: reqs.extra?.tagModulus,
             calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.tag || 0)).toString()
         })
+        
+        // Store the raw requirements for POST fallback if server loses session
+        originalRequirements.value = reqs
         
         session.value = {
           payTo: reqs.payTo,
@@ -202,19 +207,36 @@ async function verifyPayment(hash: string) {
         // Log verification request for debugging
         console.warn('[NanoPaywall] Verifying block:', hash)
 
-        // Fetch the protected content using the newly confirmed block hash and session
+        // First try GET with stored session headers
         httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
 
-        const res = await fetch(`${activeServerUrl.value}/api/protected`, {
+        let res = await fetch(`${activeServerUrl.value}/api/protected`, {
             headers: {
                 'X-Payment-Block': hash,
                 'X-Payment-Session': session.value?.sessionId
             }
         })
-        const protectedData = await res.json()
+        let protectedData = await res.json()
         
-        // Always log the response
-        httpLog.value.push({ type: 'res', content: `HTTP/1.1 200 OK\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
+        // If server lost the session (e.g. restart), retry with POST fallback
+        if (protectedData.code === 'SESSION_LOST' && originalRequirements.value) {
+            console.warn('[NanoPaywall] Server session lost, retrying with POST fallback')
+            httpLog.value.push({ type: 'info', content: '(Server session expired, retrying with stored requirements...)' })
+            httpLog.value.push({ type: 'req', content: `POST /api/protected\n{blockHash: "${hash}", requirements: {...}}` })
+
+            res = await fetch(`${activeServerUrl.value}/api/protected`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    blockHash: hash,
+                    requirements: originalRequirements.value
+                })
+            })
+            protectedData = await res.json()
+        }
+        
+        // Log the final response
+        httpLog.value.push({ type: 'res', content: `HTTP/1.1 ${res.status}\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
         
         if (protectedData.success) {
             console.warn('[NanoPaywall] Verification successful:', hash)
@@ -372,6 +394,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
       eventSource = null
   }
   session.value = null
+  originalRequirements.value = null
   paymentStatus.value = 'pending'
   finalBlockHash.value = null
   serverProvidedContent.value = null

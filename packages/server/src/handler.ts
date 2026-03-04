@@ -173,6 +173,19 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
+   * Re-register a session from externally-supplied requirements.
+   * Used for recovery when the in-memory registry is lost (e.g. server restart)
+   * but the client still holds the original 402 requirements.
+   * 
+   * SECURITY: The caller must validate requirements.payTo matches the expected
+   * server address before calling this. handleSettle still independently verifies
+   * the block against the RPC node.
+   */
+  registerSessionFromRequirements(sessionId: string, requirements: PaymentRequirements): void {
+    this.sessionRegistry.set(sessionId, requirements);
+  }
+
+  /**
    * Verifies a payment without marking it as spent
    * Returns null if scheme doesn't match
    */

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
-import { testApp, testRegisterSession } from './app';
+import { testApp } from './app';
 import crypto from 'crypto';
 
 // Mock process.env for the tests
+process.env.NANO_RPC_URL = 'http://localhost:7076';
 process.env.NANO_SERVER_ADDRESS = 'nano_3demo1something2something3something4something5something6';
 
 // Mock the SSE module's session registration to ensure isolation
@@ -19,7 +20,7 @@ describe('Demo Server Routes', () => {
 
     describe('GET /api/protected', () => {
 
-        it('should return 402 Payment Required when access is denied', async () => {
+        it('should return 402 Payment Required when no proof is provided', async () => {
             const response = await request(testApp).get('/api/protected');
 
             expect(response.status).toBe(402);
@@ -37,15 +38,15 @@ describe('Demo Server Routes', () => {
             expect(response.body.x402Version).toBe(5);
         });
 
-        it('should reject invalid payment proofs with a 402', async () => {
+        it('should return 410 SESSION_LOST for unknown session IDs', async () => {
             const fakeSessionId = crypto.randomUUID();
-            // In our mock, submitting a fake hash without a real confirmed Nano block should fail
             const response = await request(testApp)
                 .get('/api/protected')
                 .set('X-Payment-Block', 'A1B2C3D4A1B2C3D4A1B2C3D4A1B2C3D4')
                 .set('X-Payment-Session', fakeSessionId);
 
-            expect(response.status).toBe(402);
+            expect(response.status).toBe(410);
+            expect(response.body.code).toBe('SESSION_LOST');
         });
     });
 

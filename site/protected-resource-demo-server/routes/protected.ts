@@ -53,6 +53,49 @@ function getResourceBaseUrl(req: Request): string {
 
 export const protectedRoute = Router();
 
+/**
+ * The exclusive content returned after successful payment.
+ */
+const EXCLUSIVE_CONTENT_HTML = `
+    <div class="exclusive-content">
+        <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/TAT35tflCUM?si=TAzGQJ9jmgDuFgnw&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <p><em>This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access. If you were an agent, this and other x402 payments could be made frictionless by using <a href="https://github.com/CasualSecurityInc/x402.NanoSession/tree/main/packages" target="_blank" rel="noopener noreferrer">our client packages</a>.</em></p>
+    </div>
+`;
+
+/**
+ * Settle a payment proof and return the protected content on success.
+ * Shared by both GET (with stored session) and POST (with client-supplied requirements).
+ */
+async function settleAndRespond(
+    facilitator: NanoSessionFacilitatorHandler,
+    requirements: any,
+    blockHash: string,
+    res: Response
+) {
+    try {
+        const result = await facilitator.handleSettle(requirements, { blockHash });
+
+        if (result?.success) {
+            res.json({
+                success: true,
+                message: "Payment accepted! You have access to the protected demo content.",
+                html: EXCLUSIVE_CONTENT_HTML
+            });
+        } else {
+            res.status(402).json({ error: result?.error || "Invalid payment proof" });
+        }
+    } catch (e) {
+        console.error('Settlement error:', e);
+        res.status(500).json({ error: "Verification error on server" });
+    }
+}
+
+/**
+ * GET /api/protected
+ * - Without proof headers: returns 402 with payment requirements
+ * - With X-Payment-Block + X-Payment-Session: verifies stored session
+ */
 protectedRoute.get('/', async (req: Request, res: Response) => {
     const paymentProof = req.header('X-Payment-Block');
     const incomingSessionId = req.header('X-Payment-Session');
@@ -60,40 +103,21 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
 
     // If the client provided a block hash, verify it
     if (paymentProof && incomingSessionId) {
-        // Retrieve the stored requirements for this session
         const storedReqs = facilitator.getStoredRequirements(incomingSessionId);
 
         if (!storedReqs) {
-            res.status(402).json({ error: "Session not found or expired. Please request a new payment." });
+            // Session was lost (server restart, expiry, etc.)
+            // Return a specific status so the client knows to retry with POST
+            console.warn(`[protected] Session not found: ${incomingSessionId} (in-memory registry lost, likely server restart)`);
+            res.status(410).json({
+                error: "Payment session expired from server memory. Retrying verification...",
+                code: 'SESSION_LOST'
+            });
             return;
         }
 
-        try {
-            // Settle the payment (verifies AND marks as spent)
-            const result = await facilitator.handleSettle(storedReqs, { blockHash: paymentProof });
-
-            if (result?.success) {
-                const exclusiveContent = `
-                    <div class="exclusive-content">
-                        <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/TAT35tflCUM?si=TAzGQJ9jmgDuFgnw&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-                        <p><em>This content was protected by a real Nano payment. No accounts, no sign-ups, no tracking. Just pay and access. If you were an agent, this and other x402 payments could be made frictionless by using <a href="https://github.com/CasualSecurityInc/x402.NanoSession/tree/main/packages" target="_blank" rel="noopener noreferrer">our client packages</a>.</em></p>
-                    </div>
-                `;
-                res.json({
-                    success: true,
-                    message: "Payment accepted! You have access to the protected demo content.",
-                    html: exclusiveContent
-                });
-                return;
-            } else {
-                res.status(402).json({ error: result?.error || "Invalid payment proof" });
-                return;
-            }
-        } catch (e) {
-            console.error('Settlement error:', e);
-            res.status(500).json({ error: "Verification error on server" });
-            return;
-        }
+        await settleAndRespond(facilitator, storedReqs, paymentProof, res);
+        return;
     }
 
     // No proof provided, demand payment
@@ -133,4 +157,44 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
             },
             accepts: [reqs]
         });
+});
+
+/**
+ * POST /api/protected
+ * Fallback verification: the client sends back the original 402 requirements
+ * in the body along with the block hash. Used when the GET verification fails
+ * because the server lost its in-memory session (e.g. after restart).
+ *
+ * SECURITY: This is safe because handleSettle independently verifies:
+ *   - Block exists and is confirmed on the Nano network (RPC check)
+ *   - Destination address matches requirements.payTo
+ *   - Amount matches requirements.amount + tag
+ *   - Block hasn't been spent before (spent set)
+ * The client cannot forge a valid block hash.
+ */
+protectedRoute.post('/', async (req: Request, res: Response) => {
+    const { blockHash, requirements } = req.body;
+
+    if (!blockHash || !requirements) {
+        res.status(400).json({ error: "Missing blockHash or requirements in request body" });
+        return;
+    }
+
+    // Validate that payTo matches our server address (prevent redirecting payments)
+    if (requirements.payTo !== process.env.NANO_SERVER_ADDRESS) {
+        console.warn(`[protected] POST verify: payTo mismatch. Expected ${process.env.NANO_SERVER_ADDRESS}, got ${requirements.payTo}`);
+        res.status(400).json({ error: "Invalid payment destination" });
+        return;
+    }
+
+    const facilitator = getFacilitator();
+
+    // Re-register the session so handleVerify's sessionRegistry.has() check passes
+    const sessionId = requirements.extra?.sessionId;
+    if (sessionId) {
+        console.info(`[protected] Re-registering lost session ${sessionId} from client-supplied requirements`);
+        facilitator.registerSessionFromRequirements(sessionId, requirements);
+    }
+
+    await settleAndRespond(facilitator, requirements, blockHash, res);
 });

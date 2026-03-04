@@ -86,20 +86,3 @@ Machine-to-machine payments require a frictionless way for software to compensat
 
 The Base Specification focuses on the simplest secure implementation: a single server address receiving session-bound, tagged payments from multiple clients.
 
-## 🗺️ Specification Overview
-
-Use the links below to navigate the full specification:
-
-### Core Specification
-- **[Protocol Definition](./x402_NanoSession_rev5_Protocol.md)**: The base protocol, security model, and implementation requirements.
-
-### Extensions
-- **[Extension A: Sharded Pools](./x402_NanoSession_rev5_Extension_A_Pools.md)**: High-concurrency support using multiple server addresses.
-- **[Extension B: Stochastic Rotation](./x402_NanoSession_rev5_Extension_B_Stochastic.md)**: Probabilistic security for high-frequency low-value payments.
-
-### Appendix
-- **[Wallet UX Guidelines](./x402_NanoSession_rev5_Appendix_Wallet_UX.md)**: Best practices for implementing NanoSession in wallets.
-- **[Glossary](./x402_NanoSession_rev5_Glossary.md)**: Definitions of key terms used throughout the spec.
-
-### Demo
-- **[Protected Resource Demo](./protected.md)**: A live interactive demonstration of the protocol.

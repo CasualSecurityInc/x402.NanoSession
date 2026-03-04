@@ -12,6 +12,8 @@ While the x402 v2 specification and CAIP standards claim to be chain-agnostic, p
 | **[CAIP-19: Asset ID](#caip-19-asset-identification)** | `asset: "XNO"` | `asset: "slip44:165"` |
 | **[CAIP-122: SIWx](#caip-122-sign-in-with-x-siwx)** | Per-request payments only. | Requires a formal "Sign-In with Nano" (SIW-N) specification. |
 
+To achieve full interoperability, the following adaptations are required:
+
 ## Addressing the Gaps
 
 ### Signatures vs. State

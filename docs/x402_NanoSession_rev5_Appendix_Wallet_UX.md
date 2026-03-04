@@ -12,8 +12,6 @@ The x402 specification is designed for **Machine-to-Machine (M2M)** and **User-A
 **This note exists solely to help developers during manual testing with consumer wallet apps.**
 :::
 
----
-
 ## Wallet Compatibility Matrix
 
 | Wallet | Manual Entry | QR Scan (`amount=`) | Compatible |
@@ -22,8 +20,6 @@ The x402 specification is designed for **Machine-to-Machine (M2M)** and **User-A
 | **Nautilus** | 6 decimals max | Full precision (1 raw) | **Yes** |
 | **Cake Wallet** | 6 decimals max | Truncates to 6 decimals | **No** |
 | **Nault** | ~16 decimals | Ignores `amount=` entirely | **No** |
-
----
 
 ## Detailed Observations
 
@@ -55,15 +51,11 @@ The x402 specification is designed for **Machine-to-Machine (M2M)** and **User-A
 - **Impact**: User must manually enter the exact amount (impractical for dust tags)
 - **Verdict**: Not compatible for QR-based payments
 
----
-
 ## Recommendations for Human Users
 
 1. **Use Natrium or Nautilus** — Scan the QR code; exact amount is preserved
 2. **Avoid Cake Wallet and Nault** — Dust tags will be lost or ignored
 3. **For developers** — Integrate x402 client libraries for programmatic payments
-
----
 
 ## Future Considerations: Left-Shift Strategy
 

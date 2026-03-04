@@ -4,7 +4,7 @@ title: Notes on Raw-Dust UX
 
 # Notes on Raw-Dust UX
 
-The NanoSession protocol encodes session identifiers into the least significant digits of payment amounts ("raw dust"). This requires wallets to send the **exact** amount specified in the `nano:` URI. However, human-facing wallet applications have varying levels of support for exact amounts.
+NanoSession encodes session identifiers into the least significant digits of payment amounts ("raw dust"). This strictly requires sending the exact amount specified in the `nano:` URI, which human-facing wallets often support inconsistently.
 
 ::: tip For Developers Only
 The x402 specification is designed for **Machine-to-Machine (M2M)** and **User-Agent-to-Machine** transactions. End users are not expected to deal with raw amounts or dust tags directly — client libraries handle this automatically.

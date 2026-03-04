@@ -4,7 +4,7 @@ title: Glossary
 
 # Glossary
 
-This glossary defines terms specific to the x402.NanoSession protocol. For general Nano terminology, see the [Nano documentation](https://docs.nano.org/).
+This glossary defines technical terms, concepts, and architectural patterns specific to the x402.NanoSession protocol. For general Nano network terminology, core node mechanics, or consensus details, please refer to the official [Nano documentation](https://docs.nano.org/).
 
 ---
 
@@ -121,7 +121,7 @@ The Janitor operates asynchronously and does not block payment verification.
 
 The hash of the most recent block in a Nano account's chain.
 
-**Why it matters:** Creating a valid send block requires the current frontier. If another transaction occurs first, the frontier changes and previously-prepared blocks become invalid. This **frontier dependency** prevents pre-signed authorization schemes (like EIP-712) from working with Nano.
+**Why it matters:** Creating a valid send block requires the current frontier. If another transaction occurs first, the frontier changes and previously-prepared blocks become invalid. This **frontier dependency** prevents pre-signed authorization schemes (like EIP-3009) from working with Nano.
 
 ---
 

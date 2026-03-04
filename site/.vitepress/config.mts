@@ -18,7 +18,8 @@ export default defineConfig({
             {
                 text: 'Appendix', items: [
                     { text: 'Raw-Dust UX', link: '/appendix/wallet-ux' },
-                    { text: 'Glossary', link: '/appendix/glossary' }
+                    { text: 'Glossary', link: '/appendix/glossary' },
+                    { text: 'Interoperability Matrix (CAIP & x402 v2)', link: '/appendix/interoperability-matrix' }
                 ]
             }
         ],
@@ -43,7 +44,8 @@ export default defineConfig({
                 text: 'Appendix',
                 items: [
                     { text: 'Notes on Raw-Dust UX', link: '/appendix/wallet-ux' },
-                    { text: 'Glossary', link: '/appendix/glossary' }
+                    { text: 'Glossary', link: '/appendix/glossary' },
+                    { text: 'Interoperability Matrix (CAIP & x402 v2)', link: '/appendix/interoperability-matrix' }
                 ]
             },
             {

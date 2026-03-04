@@ -24,7 +24,7 @@ The x402 standard provides a uniform way to request and verify payments over HTT
 
 The original x402 "exact" scheme uses **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. NanoSession cannot use this approach due to Nano's architecture:
 
-### The Frontier Problem
+### The Frontier Tradeoff
 
 Creating a valid Nano send block requires knowing the account's current **frontier** (the hash of the most recent block). This creates a fundamental incompatibility with pre-signed authorizations:
 

@@ -8,10 +8,10 @@ x402.NanoSession defines a per-request HTTP 402 payment scheme for access to web
 
 | Feature | Original x402 (x402.org) | x402.NanoSession Rev 5 |
 | --- | --- | --- |
-| Transport | HTTP 402 with JSON payment details | HTTP 402 with X-PAYMENT headers |
+| Transport | HTTP 402 with payment headers | HTTP 402 with X-PAYMENT headers |
 | Payment rail | Onchain stablecoins (e.g., USDC on Base) | Nano (XNO): feeless, sub-second finality |
-| Client proof | Wallet-signed authorization (EIP-712) | Session-bound block hash |
-| Request binding | Signature over request context | Mandatory session ID |
+| Client proof | Transfer authorization (EIP-3009) | Session-bound block hash |
+| Request binding | Payment parameters signed via EIP-712 | Mandatory session ID |
 | Concurrency | Per-request wallet signature | Multiplexed via unique session + tag per address |
 
 ## Why "NanoSession"?
@@ -52,7 +52,7 @@ Client                          Server                      Nano
   │<──────────────────────────────│                           │
 ```
 
-The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is cryptographically tied to a specific request. See the [Protocol Specification](./protocol.md) for security model details.
+The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is tied to a specific session and verified server-side. See the [Protocol Specification](./protocol.md) for security model details.
 
 ## Why Not Stateless?
 
@@ -66,15 +66,14 @@ See [Protocol Specification § Security Model](./protocol.md#1-security-model) f
 
 ## Why Not "Exact" x402?
 
-The original x402 "exact" scheme uses EIP-3009 `transferWithAuthorization` (or Permit2) with EIP-712 signatures to bind payments to requests. This works on EVM chains because tokens can verify off-chain signatures and execute transfers in a single on-chain call.
+The original x402 "exact" scheme uses EIP-3009 `transferWithAuthorization` with EIP-712 typed signatures to bind payments to requests. Permit2 offers a similar mechanism via Uniswap's universal approval contract. Both work on EVM chains because token contracts can verify off-chain signatures and execute conditional transfers atomically.
 
-Nano's architecture prevents this:
+Nano's architecture prevents this approach:
 
-- **No memo field** in blocks
-- **Frontier dependency**: valid blocks require the current account state, which changes with every transaction
-- Pre-signed authorizations become invalid if any other transaction occurs first
+- **No memo field** in blocks — there is no place to embed request context
+- **Frontier dependency** — valid blocks require the current account frontier, which changes with every transaction, invalidating any pre-signed authorization
 
-These **frontier issues** make "exact" x402-style pre-authorization unviable for Nano. NanoSession's session-based approach is the practical alternative.
+These architectural tradeoffs make "exact" x402-style pre-authorization unviable for Nano. NanoSession's session-based approach is the practical alternative.
 
 ## The Agent Economy
 

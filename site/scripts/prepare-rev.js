@@ -16,7 +16,6 @@ if (fs.existsSync(TARGET_DIR)) {
 fs.mkdirSync(TARGET_DIR, { recursive: true });
 fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
 fs.mkdirSync(APPENDIX_DIR, { recursive: true });
-
 // Filter and classify files
 const files = fs.readdirSync(SOURCE_DIR);
 let introFile = null;
@@ -41,121 +40,97 @@ files.forEach(file => {
   }
 });
 
-if (!introFile) {
-  console.error(`ERROR: No Intro file found for revision ${SPEC_REV}!`);
+if (!introFile || !protocolFile) {
+  console.error(`ERROR: Missing core files for revision ${SPEC_REV}!`);
   process.exit(1);
 }
 
-if (!protocolFile) {
-  console.error(`ERROR: No Protocol file found for revision ${SPEC_REV}!`);
-  process.exit(1);
-}
+// Pass 1: Build comprehensive file mapping
+const fileMapping = {};
+fileMapping[introFile] = '/';
+fileMapping[protocolFile] = '/protocol';
+if (glossaryFile) fileMapping[glossaryFile] = '/appendix/glossary';
 
-// Process Extension Files first to build the list
-const extensionLinks = [];
-const fileMapping = {}; // Map source filename -> target web path
-
-extensionFiles.sort().forEach(file => {
-  const content = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
-
-  // Clean up extension filenames for URL friendliness
-  // x402_NanoSession_rev3_Extension_A_Pools.md -> extension-a-pools.md
-  // Remove the prefix dynamically based on the known format
+extensionFiles.forEach(file => {
   const simpleName = file
-    .replace(/^x402_NanoSession_rev\d+_/, '') // Remove prefix like "x402_NanoSession_rev3_"
-    .replace(/_/g, '-') // Convert underscores to dashes
-    .toLowerCase(); // Lowercase
-
-  const targetFilename = `${simpleName}`;
-  const targetPath = path.join(EXTENSIONS_DIR, targetFilename);
-  const webPath = `/extensions/${simpleName.replace('.md', '')}`;
-
-  fileMapping[file] = webPath;
-
-  // Hack: Also map the "non-rev" version of the filename in case the source markdown uses it
-  // e.g. x402_NanoSession_rev3_Extension_A_Pools.md -> Map x402_NanoSession_Extension_A_Pools.md too
-  const nonRevName = file.replace(/_rev\d+/, '');
-  fileMapping[nonRevName] = webPath;
-
-  // Extract Title for link text (simplistic approach: first H1 or filename)
-  const titleMatch = content.match(/^#\s+(.*)$/m);
-  const title = titleMatch ? titleMatch[1] : simpleName;
-
-  extensionLinks.push({ text: title, link: webPath });
-
-  // Inject "Back to Protocol" link at the top
-  const backLink = `\n[← Back to Protocol](/protocol)\n\n`;
-  const newContent = backLink + content;
-
-  fs.writeFileSync(targetPath, newContent);
-  console.log(`Processed Extension: ${file} -> extensions/${targetFilename}`);
+    .replace(/^x402_NanoSession_rev\d+_/, '')
+    .replace(/_/g, '-')
+    .toLowerCase()
+    .replace('.md', '');
+  fileMapping[file] = `/extensions/${simpleName}`;
+  // Also map versions without rev for robustness
+  fileMapping[file.replace(/_rev\d+/, '')] = `/extensions/${simpleName}`;
 });
 
-// Process Protocol File
-let protocolContent = fs.readFileSync(path.join(SOURCE_DIR, protocolFile), 'utf8');
-
-// Replace links to extensions with their new Web Paths
-Object.keys(fileMapping).forEach(sourceName => {
-  // Replace [Link Text](sourceName) with [Link Text](targetPath)
-  // We escape the sourceName for regex use
-  const escapedName = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`\\(${escapedName}\\)`, 'g');
-  protocolContent = protocolContent.replace(regex, `(${fileMapping[sourceName]})`);
-});
-
-// Tree View injection removed
-
-// Inject "See Also" at the bottom
-let seeAlso = `\n\n## 📚 Related Extensions\n`;
-if (extensionLinks.length > 0) {
-  extensionLinks.forEach(ext => {
-    seeAlso += `- [${ext.text}](${ext.link})\n`;
-  });
-} else {
-  seeAlso += `*No extensions found for this revision.*\n`;
-}
-
-// Prepend Tree View, Append See Also
-const finalProtocolContent = protocolContent + seeAlso;
-
-fs.writeFileSync(path.join(TARGET_DIR, 'protocol.md'), finalProtocolContent);
-console.log(`Processed Protocol: ${protocolFile} -> protocol.md`);
-
-// Process Intro File - now the homepage
-const introContent = fs.readFileSync(path.join(SOURCE_DIR, introFile), 'utf8');
-fs.writeFileSync(path.join(TARGET_DIR, 'index.md'), introContent);
-console.log(`Processed Intro: ${introFile} -> index.md`);
-
-// Process Glossary File (if exists)
-if (glossaryFile) {
-  const glossaryContent = fs.readFileSync(path.join(SOURCE_DIR, glossaryFile), 'utf8');
-  fs.writeFileSync(path.join(APPENDIX_DIR, 'glossary.md'), glossaryContent);
-  console.log(`Processed Glossary: ${glossaryFile} -> appendix/glossary.md`);
-} else {
-  console.log(`Note: No Glossary file found for revision ${SPEC_REV}`);
-}
-
-// Process Appendix Files
-appendixFiles.sort().forEach(file => {
-  const content = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
-
-  // Clean up appendix filenames for URL friendliness
-  // x402_NanoSession_rev5_Appendix_Wallet_UX.md -> wallet-ux.md
+appendixFiles.forEach(file => {
   const simpleName = file
     .replace(/^x402_NanoSession_rev\d+_Appendix_/, '')
     .replace(/_/g, '-')
-    .toLowerCase();
-
-  const targetFilename = `${simpleName}`;
-  const targetPath = path.join(APPENDIX_DIR, targetFilename);
-
-  fs.writeFileSync(targetPath, content);
-  console.log(`Processed Appendix: ${file} -> appendix/${targetFilename}`);
+    .toLowerCase()
+    .replace('.md', '');
+  fileMapping[file] = `/appendix/${simpleName}`;
+  fileMapping[file.replace(/_rev\d+/, '')] = `/appendix/${simpleName}`;
 });
 
-// Copy Demo page into docs so VitePress finds it
+// Helper to replace links in content
+function replaceLinks(content) {
+  let newContent = content;
+  Object.keys(fileMapping).forEach(sourceName => {
+    const escapedName = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match both [text](file.md) and [text](./file.md)
+    const regex = new RegExp(`\\((?:\\.\\/)?${escapedName}\\)`, 'g');
+    newContent = newContent.replace(regex, `(${fileMapping[sourceName]})`);
+  });
+  return newContent;
+}
+
+// Pass 2: Process and write files
+const extensionLinks = [];
+
+// Extensions
+extensionFiles.sort().forEach(file => {
+  const content = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
+  const targetPath = path.join(EXTENSIONS_DIR, fileMapping[file].split('/').pop() + '.md');
+
+  // Extract Title
+  const titleMatch = content.match(/^#\s+(.*)$/m);
+  const title = titleMatch ? titleMatch[1] : file;
+  extensionLinks.push({ text: title, link: fileMapping[file] });
+
+  let newContent = `\n[← Back to Protocol](/protocol)\n\n` + replaceLinks(content);
+  fs.writeFileSync(targetPath, newContent);
+  console.log(`Processed Extension: ${file} -> ${targetPath}`);
+});
+
+// Protocol
+const protocolContent = fs.readFileSync(path.join(SOURCE_DIR, protocolFile), 'utf8');
+let seeAlso = `\n\n## 📚 Related Extensions\n`;
+extensionLinks.forEach(ext => { seeAlso += `- [${ext.text}](${ext.link})\n`; });
+
+const finalProtocolContent = replaceLinks(protocolContent) + seeAlso;
+fs.writeFileSync(path.join(TARGET_DIR, 'protocol.md'), finalProtocolContent);
+console.log(`Processed Protocol: ${protocolFile} -> protocol.md`);
+
+// Intro (index.md)
+const introContent = fs.readFileSync(path.join(SOURCE_DIR, introFile), 'utf8');
+fs.writeFileSync(path.join(TARGET_DIR, 'index.md'), replaceLinks(introContent));
+console.log(`Processed Intro: ${introFile} -> index.md`);
+
+// Glossary
+if (glossaryFile) {
+  const glossaryContent = fs.readFileSync(path.join(SOURCE_DIR, glossaryFile), 'utf8');
+  fs.writeFileSync(path.join(APPENDIX_DIR, 'glossary.md'), replaceLinks(glossaryContent));
+}
+
+// Other Appendix
+appendixFiles.forEach(file => {
+  const content = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
+  const targetPath = path.join(APPENDIX_DIR, fileMapping[file].split('/').pop() + '.md');
+  fs.writeFileSync(targetPath, replaceLinks(content));
+});
+
+// Copy Demo
 const demoSource = path.join(__dirname, '../protected.md');
 if (fs.existsSync(demoSource)) {
   fs.copyFileSync(demoSource, path.join(TARGET_DIR, 'protected.md'));
-  console.log(`Copied Demo: protected.md -> protected.md`);
 }

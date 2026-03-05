@@ -82,6 +82,13 @@ export function getAmountToSessionMap(): Record<string, string> {
 statusRoute.get('/:sessionId', (req: Request, res: Response) => {
     const sessionId = req.params.sessionId as string;
 
+    // If client wants JSON (polling fallback), return current state directly
+    if (req.accepts('json') && !req.accepts('text/event-stream')) {
+        const currentState = sessionStates[sessionId] || { status: 'unknown' };
+        res.json(currentState);
+        return;
+    }
+
     // Set headers for Server-Sent Events
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -89,15 +96,17 @@ statusRoute.get('/:sessionId', (req: Request, res: Response) => {
 
     // Add to active clients
     activeClients.set(sessionId, res);
+    console.log(`[SSE] Client connected: session=${sessionId.slice(0, 8)}... (${activeClients.size} active)`);
 
     // Send current buffered state immediately on connect
     const currentState = sessionStates[sessionId] || { status: 'pending' };
     res.write(`data: ${JSON.stringify(currentState)}\n\n`);
 
-    // Send heartbeat every 30 seconds to keep connection alive
+    // Send heartbeat every 15 seconds to keep connection alive
+    // (Fly.io proxy kills idle connections; 30s was too slow — SSE died before first heartbeat)
     const heartbeatInterval = setInterval(() => {
         res.write(': heartbeat\n\n');
-    }, 30000);
+    }, 15000);
 
     // Cleanup on disconnect
     req.on('close', () => {

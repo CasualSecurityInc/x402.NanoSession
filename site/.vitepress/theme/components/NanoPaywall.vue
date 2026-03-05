@@ -69,6 +69,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
+  if (statusPollTimer) clearInterval(statusPollTimer)
   if (eventSource) eventSource.close()
 })
 
@@ -79,6 +80,7 @@ async function fetchPaymentRequirements() {
       eventSource.close()
       eventSource = null
   }
+  if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null }
   xnapReset() // Clear any pending Xnap states
   // Clear QR immediately so stale QR doesn't flash on restart
   isRestarting.value = !!session.value // Only show restart overlay if we had a prior session
@@ -166,6 +168,8 @@ async function fetchPaymentRequirements() {
   }
 }
 
+let statusPollTimer: any = null
+
 function connectSSE() {
    if (!session.value?.sessionId) return
 
@@ -195,15 +199,39 @@ function connectSSE() {
 
     eventSource.onerror = () => {
         console.warn('[NanoPaywall] SSE connection error, will auto-reconnect...')
-        // EventSource auto-reconnects by default.
-        // On reconnect, the server sends the current buffered state immediately,
-        // so if a payment arrived while disconnected, we'll get it.
-        // Only show error if the connection is fully closed (readyState === 2)
         if (eventSource?.readyState === EventSource.CLOSED) {
             console.error('[NanoPaywall] SSE connection permanently closed')
             globalError.value = "Live connection lost. Payment detection may be delayed."
         }
     }
+
+    // Polling fallback: if SSE silently dies, this catches payments the server already detected
+    startStatusPolling()
+}
+
+function startStatusPolling() {
+    if (statusPollTimer) clearInterval(statusPollTimer)
+    statusPollTimer = setInterval(async () => {
+        if (!session.value?.sessionId || paymentStatus.value === 'confirmed' || paymentStatus.value === 'verifying') {
+            if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null }
+            return
+        }
+        try {
+            const res = await fetch(`${activeServerUrl.value}/api/status/${session.value.sessionId}`, {
+                headers: { 'Accept': 'application/json' }
+            })
+            if (res.ok) {
+                const data = await res.json()
+                if (data.status === 'confirmed' && data.blockHash) {
+                    console.log('[NanoPaywall] Poll fallback caught payment:', data.blockHash)
+                    httpLog.value.push({ type: 'info', content: `(Payment received via poll: ${data.blockHash})` })
+                    paymentStatus.value = 'confirmed'
+                    finalBlockHash.value = data.blockHash
+                    verifyPayment(data.blockHash)
+                }
+            }
+        } catch { /* silent — polling is best-effort */ }
+    }, 10000)
 }
 
 async function verifyPayment(hash: string) {

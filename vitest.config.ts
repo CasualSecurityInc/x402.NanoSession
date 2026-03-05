@@ -6,7 +6,7 @@ export default defineConfig({
     alias: {
       '@nanosession/core': resolve(__dirname, './packages/core/src'),
       '@nanosession/client': resolve(__dirname, './packages/client/src'),
-      '@nanosession/server': resolve(__dirname, './packages/server/src'),
+      '@nanosession/facilitator': resolve(__dirname, './packages/facilitator/src'),
       '@nanosession/rpc': resolve(__dirname, './packages/rpc/src'),
       '@nanosession/faremeter': resolve(__dirname, './packages/faremeter-plugin/src'),
     },
@@ -17,7 +17,7 @@ export default defineConfig({
     alias: {
       '@nanosession/core': resolve(__dirname, './packages/core/src'),
       '@nanosession/client': resolve(__dirname, './packages/client/src'),
-      '@nanosession/server': resolve(__dirname, './packages/server/src'),
+      '@nanosession/facilitator': resolve(__dirname, './packages/facilitator/src'),
       '@nanosession/rpc': resolve(__dirname, './packages/rpc/src'),
       '@nanosession/faremeter': resolve(__dirname, './packages/faremeter-plugin/src'),
     },

@@ -35,11 +35,11 @@ jobs:
       - name: Build site
         working-directory: site
         env:
-          SPEC_REV: ${{ vars.SPEC_REV }}
+          SPEC_REV: ${{ vars.SPEC_REV || 'rev6' }}
           VITE_MAINNET_DEMO_URL: ${{ vars.VITE_MAINNET_DEMO_URL }}
           VITE_ENABLE_TESTNET_TAB: ${{ vars.VITE_ENABLE_TESTNET_TAB }}
           VITE_ENABLE_XNAP: ${{ vars.VITE_ENABLE_XNAP }}
-        run: pnpm run docs:build
+        run: pnpm run site:build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

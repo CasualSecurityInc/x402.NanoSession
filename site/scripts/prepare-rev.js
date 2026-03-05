@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const SPEC_REV = process.env.SPEC_REV || 'rev5';
+const SPEC_REV = process.env.SPEC_REV;
+if (!SPEC_REV) {
+  console.error('ERROR: SPEC_REV environment variable is required. ("revX")');
+  process.exit(1);
+}
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
 const TARGET_DIR = path.resolve(__dirname, '../docs');
 const EXTENSIONS_DIR = path.join(TARGET_DIR, 'extensions');

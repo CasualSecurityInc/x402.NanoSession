@@ -1,5 +1,5 @@
 /**
- * @nanosession/server
+ * @nanosession/facilitator
  * FacilitatorHandler and spent set for NanoSession x402 server
  */
 

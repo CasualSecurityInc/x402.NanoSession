@@ -15,14 +15,28 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@nanosession/core": ["./packages/core/src/index.ts"],
-      "@nanosession/client": ["./packages/client/src/index.ts"],
-      "@nanosession/server": ["./packages/server/src/index.ts"],
-      "@nanosession/rpc": ["./packages/rpc/src/index.ts"],
-      "@nanosession/faremeter": ["./packages/faremeter-plugin/src/index.ts"]
+      "@nanosession/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@nanosession/client": [
+        "./packages/client/src/index.ts"
+      ],
+      "@nanosession/facilitator": [
+        "./packages/facilitator/src/index.ts"
+      ],
+      "@nanosession/rpc": [
+        "./packages/rpc/src/index.ts"
+      ],
+      "@nanosession/faremeter": [
+        "./packages/faremeter-plugin/src/index.ts"
+      ]
     }
   },
-  "include": ["packages/*/src/**/*", "examples/*/src/**/*", "test/**/*.ts"],
+  "include": [
+    "packages/*/src/**/*",
+    "examples/*/src/**/*",
+    "test/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
@@ -30,10 +44,20 @@
     "examples/*/src/**/*.test.ts"
   ],
   "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/rpc" },
-    { "path": "./packages/client" },
-    { "path": "./packages/server" },
-    { "path": "./packages/faremeter-plugin" }
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/rpc"
+    },
+    {
+      "path": "./packages/client"
+    },
+    {
+      "path": "./packages/server"
+    },
+    {
+      "path": "./packages/faremeter-plugin"
+    }
   ]
 }

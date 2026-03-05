@@ -1,8 +1,8 @@
 import { facilitator, x402 } from '@faremeter/types';
 import { SCHEME, NETWORK } from '@nanosession/core';
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
-import { NanoSessionFacilitatorHandler, type HandlerOptions } from '@nanosession/server';
-import type { SpentSetStorage } from '@nanosession/server';
+import { NanoSessionFacilitatorHandler, type HandlerOptions } from '@nanosession/facilitator';
+import type { SpentSetStorage } from '@nanosession/facilitator';
 
 type FacilitatorHandler = facilitator.FacilitatorHandler;
 type x402PaymentRequirements = x402.x402PaymentRequirements;
@@ -85,7 +85,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
 
   const toNanoRequirements = (req: x402PaymentRequirements): PaymentRequirements | null => {
     if (!req.extra) return null;
-    
+
     const extra = req.extra as {
       tag?: number;
       sessionId?: string;
@@ -93,8 +93,8 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       expiresAt?: string;
     };
 
-    if (extra.sessionId === undefined || extra.tag === undefined || 
-        extra.tagModulus === undefined || extra.expiresAt === undefined) {
+    if (extra.sessionId === undefined || extra.tag === undefined ||
+      extra.tagModulus === undefined || extra.expiresAt === undefined) {
       return null;
     }
 
@@ -139,7 +139,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     }
 
     const result = await underlying.handleVerify(nanoReq, nanoPayload);
-    
+
     if (!result) return null;
 
     return {
@@ -169,7 +169,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     }
 
     const result = await underlying.handleSettle(nanoReq, nanoPayload);
-    
+
     if (!result) return null;
 
     return {

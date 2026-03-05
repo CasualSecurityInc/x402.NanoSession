@@ -12,7 +12,7 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 
 **Goals:**
 - **x402 Compatible**: Implements the [coinbase/x402](https://docs.x402.org/) specification for HTTP 402 Payment Required flows
-- **Direct Integration**: `@nanosession/server` (FacilitatorHandler) and `@nanosession/client` (PaymentHandler) packages for direct use in Node.js applications
+- **Direct Integration**: `@nanosession/facilitator` (FacilitatorHandler) and `@nanosession/client` (PaymentHandler) packages for direct use in Node.js applications
 - **Faremeter Integration**: `@nanosession/faremeter` plugin for [Faremeter](https://github.com/faremeter/faremeter) middleware (experimental)
 
 **⚠️ Handles real financial transactions — security is mandatory.**
@@ -58,7 +58,7 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 
 | Symbol | Type | Package | Location |
 |--------|------|---------|----------|
-| `NanoSessionFacilitatorHandler` | Class | @nanosession/server | `server/src/handler.ts` |
+| `NanoSessionFacilitatorHandler` | Class | @nanosession/facilitator | `server/src/handler.ts` |
 | `NanoSessionPaymentHandler` | Class | @nanosession/client | `client/src/handler.ts` |
 | `NanoRpcClient` | Class | @nanosession/rpc | `rpc/src/client.ts` |
 | `SCHEME`, `NETWORK` | Constants | @nanosession/core | `core/src/constants.ts` |
@@ -178,8 +178,8 @@ pnpm clean                # Remove dist folders
 
 # Docs + Demo
 pnpm dev:demo             # Docs + demo servers concurrently
-pnpm docs:dev             # VitePress dev server
-pnpm docs:build           # Build static site (set SPEC_REV=rev5)
+pnpm site:dev             # VitePress dev server (set SPEC_REV=rev6)
+pnpm site:build           # Build static site (set SPEC_REV=rev6)
 
 # Single package
 cd packages/core

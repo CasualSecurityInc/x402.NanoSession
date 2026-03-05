@@ -28,7 +28,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Build the required internal packages (core, rpc, server)
-RUN pnpm --filter '@nanosession/core' --filter '@nanosession/rpc' --filter '@nanosession/server' build
+RUN pnpm --filter '@nanosession/core' --filter '@nanosession/rpc' --filter '@nanosession/facilitator' build
 
 # Expose the API port
 EXPOSE 3001

@@ -12,7 +12,7 @@ npm install @nanosession/faremeter
 pnpm add @nanosession/faremeter
 ```
 
-**Peer dependencies:** This package requires `@nanosession/core`, `@nanosession/server`, `@nanosession/client`, and `@nanosession/rpc` to be installed.
+**Peer dependencies:** This package requires `@nanosession/core`, `@nanosession/facilitator`, `@nanosession/client`, and `@nanosession/rpc` to be installed.
 
 ## Usage
 

@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { NanoSessionFacilitatorHandler } from '@nanosession/server';
+import { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
 import { NanoRpcClient } from '@nanosession/rpc';
 import { registerSession } from './status';
 

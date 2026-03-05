@@ -5,7 +5,6 @@
   "scripts": {
     "site:dev": "node scripts/prepare-rev.js && concurrently --kill-others -n source,vitepress \"chokidar \\\"../docs/*.md\\\" \\\"protected.md\\\" -c \\\"node scripts/prepare-rev.js\\\"\" \"vitepress dev .\"",
     "site:build": "node scripts/prepare-rev.js && vitepress build .",
-    "docs:build": "pnpm run site:build",
     "site:preview": "vitepress preview .",
     "demo:server": "tsx watch protected-resource-demo-server/index.ts",
     "demo:mainnet": "DOTENV_CONFIG_PATH=../.env.mainnet pnpm demo:server",
@@ -31,7 +30,7 @@
   "dependencies": {
     "@nanosession/core": "workspace:*",
     "@nanosession/rpc": "workspace:*",
-    "@nanosession/server": "workspace:*",
+    "@nanosession/facilitator": "workspace:*",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from 'http';
 import * as dotenv from 'dotenv';
 import { deriveSecretKey, derivePublicKey, createBlock, signBlock, computeWork, validateWork, type BlockData } from 'nanocurrency';
-import { NanoSessionFacilitatorHandler } from '@nanosession/server';
+import { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
 

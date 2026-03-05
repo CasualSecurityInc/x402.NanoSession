@@ -54,7 +54,7 @@ The demo server is a live backend Node.js server that acts as an x402 Facilitato
 - Testnet: `pnpm deploy:fly:testnet`
 
 **Core Mechanics:**
-1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/server`, and returns the `HTTP 402 Payment Required` payload.
+1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/facilitator`, and returns the `HTTP 402 Payment Required` payload.
 2. **WebSocket Bridge**: `services/nano-websocket.ts` listens to the public Nano network (`wss://ws.nano.to`) for incoming SEND or RECEIVE blocks hitting the `NANO_SERVER_ADDRESS`, extracting the dust tag.
 3. **Server-Sent Events (SSE)**: `routes/status.ts` pipes verified block hashes back to the Vue `<NanoPaywall>` client in real-time, instantly unlocking the UI.
 

@@ -272,7 +272,7 @@ Note: Official CAIP-2 registration for Nano is pending.
 
 Reference implementations:
 
-- `@nanosession/server` - FacilitatorHandler implementation
+- `@nanosession/facilitator` - FacilitatorHandler implementation
 - `@nanosession/client` - PaymentHandler implementation
 - `@nanosession/core` - Types and schema mapping
 - `@nanosession/rpc` - Nano RPC client

@@ -5,4 +5,4 @@
 
 export { NanoRpcClient } from './client.js';
 export type { NanoRpcClientOptions } from './client.js';
-export type { BlockInfo, AccountInfo, RpcError, RpcResponse } from './types.js';
+export type { BlockInfo, AccountInfo, AccountHistoryEntry, RpcError, RpcResponse } from './types.js';

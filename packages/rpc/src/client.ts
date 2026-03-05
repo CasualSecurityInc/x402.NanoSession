@@ -1,4 +1,4 @@
-import type { BlockInfo, AccountInfo } from './types.js';
+import type { BlockInfo, AccountInfo, AccountHistoryEntry } from './types.js';
 
 export interface NanoRpcClientOptions {
   /** RPC endpoint URLs to try in order */
@@ -35,10 +35,10 @@ export class NanoRpcClient {
       json_block: true,
       hash
     });
-    
+
     // Block data is nested in the contents object
     const contents = response.contents as Record<string, unknown>;
-    
+
     return {
       hash: (response.hash as string | undefined) ?? hash,
       type: (contents.type as string | undefined) ?? 'state',
@@ -69,9 +69,9 @@ export class NanoRpcClient {
         const msg = err.message.toLowerCase();
         return msg.includes('unsupported') && msg.includes('rpc');
       };
-      
+
       if (error instanceof AggregateError) {
-        const allUnsupported = error.errors.every(e => 
+        const allUnsupported = error.errors.every(e =>
           e instanceof Error && isUnsupported(e)
         );
         if (allUnsupported) {
@@ -80,7 +80,7 @@ export class NanoRpcClient {
       } else if (error instanceof Error && isUnsupported(error)) {
         return;
       }
-      
+
       throw error;
     }
   }
@@ -93,21 +93,45 @@ export class NanoRpcClient {
       account: address,
       representative: true
     });
-    
+
     return {
       frontier: response.frontier as string,
       representative: response.representative as string,
       balance: response.balance as string,
-      block_count: typeof response.block_count === 'string' 
-        ? parseInt(response.block_count, 10) 
+      block_count: typeof response.block_count === 'string'
+        ? parseInt(response.block_count, 10)
         : response.block_count as number,
-      confirmation_height: response.confirmation_height 
+      confirmation_height: response.confirmation_height
         ? (typeof response.confirmation_height === 'string'
-            ? parseInt(response.confirmation_height, 10)
-            : response.confirmation_height as number)
+          ? parseInt(response.confirmation_height, 10)
+          : response.confirmation_height as number)
         : undefined,
       account_version: response.account_version as number | undefined
     };
+  }
+
+  /**
+   * Get recent transaction history for an account
+   */
+  async getAccountHistory(account: string, count: number = 10): Promise<AccountHistoryEntry[]> {
+    const response = await this.callRpc('account_history', {
+      account,
+      count: count.toString(),
+      raw: true
+    });
+
+    const history = response.history as Record<string, unknown>[] | undefined;
+    if (!Array.isArray(history)) return [];
+
+    return history.map(entry => ({
+      type: entry.type as string,
+      account: entry.account as string,
+      amount: entry.amount as string,
+      hash: entry.hash as string,
+      local_timestamp: entry.local_timestamp as string,
+      height: entry.height as string,
+      confirmed: entry.confirmed as string,
+    }));
   }
 
   /**
@@ -116,7 +140,7 @@ export class NanoRpcClient {
   private async callRpc(action: string, params: Record<string, unknown>, options?: { silent?: boolean }): Promise<Record<string, unknown>> {
     const silent = options?.silent ?? false;
     const errors: Error[] = [];
-    
+
     for (const endpoint of this.endpoints) {
       try {
         return await this.callEndpointWithRetry(endpoint, action, params);
@@ -128,7 +152,7 @@ export class NanoRpcClient {
         errors.push(err);
       }
     }
-    
+
     if (!silent) {
       console.error(`[RPC] All endpoints failed for action: ${action}`, errors.map(e => e.message));
     }
@@ -136,17 +160,17 @@ export class NanoRpcClient {
   }
 
   private async callEndpointWithRetry(
-    endpoint: string, 
-    action: string, 
+    endpoint: string,
+    action: string,
     params: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     let lastError: Error | undefined;
     let delay = this.retryDelayMs;
-    
+
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
-      
+
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -156,18 +180,18 @@ export class NanoRpcClient {
           body: JSON.stringify({ action, ...params }),
           signal: controller.signal
         });
-        
+
         if (!response.ok) {
           const bodyText = await response.text().catch(() => '');
           throw new Error(`HTTP ${response.status}: ${response.statusText}${bodyText ? ` - ${bodyText.slice(0, 200)}` : ''}`);
         }
-        
+
         const data = await response.json() as Record<string, unknown>;
-        
+
         if (data.error) {
           throw new Error(`RPC error: ${data.error}`);
         }
-        
+
         return data;
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -175,7 +199,7 @@ export class NanoRpcClient {
         } else {
           lastError = error instanceof Error ? error : new Error(String(error));
         }
-        
+
         if (attempt < this.maxRetries - 1) {
           await this.sleep(delay);
           delay *= 2;
@@ -184,7 +208,7 @@ export class NanoRpcClient {
         clearTimeout(timeoutId);
       }
     }
-    
+
     throw lastError ?? new Error('Unknown error');
   }
 

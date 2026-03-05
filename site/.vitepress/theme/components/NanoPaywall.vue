@@ -25,6 +25,7 @@ const activeServerUrl = ref(props.demoServerUrl)
 const isLoading = ref(true)
 const fetchError = ref<string | null>(null)
 const qrcodeDataUrl = ref('')
+const isRestarting = ref(false)
 const countdown = ref(0)
 let timerInterval: any = null
 
@@ -79,6 +80,9 @@ async function fetchPaymentRequirements() {
       eventSource = null
   }
   xnapReset() // Clear any pending Xnap states
+  // Clear QR immediately so stale QR doesn't flash on restart
+  isRestarting.value = !!session.value // Only show restart overlay if we had a prior session
+  qrcodeDataUrl.value = ''
   session.value = null
   originalRequirements.value = null
   paymentStatus.value = 'pending'
@@ -136,8 +140,8 @@ async function fetchPaymentRequirements() {
           expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000
         }
 
-        // Generate QR
-        generateQRCode()
+        // Generate QR (await so spinner stays until QR is ready)
+        await generateQRCode()
 
         // Start countdown
         startCountdown()
@@ -158,6 +162,7 @@ async function fetchPaymentRequirements() {
     fetchError.value = err.message || "Could not connect to payment server. Ensure it is running."
   } finally {
     isLoading.value = false
+    isRestarting.value = false
   }
 }
 
@@ -189,8 +194,15 @@ function connectSSE() {
     };
 
     eventSource.onerror = () => {
-        globalError.value = "Live connection lost. Checking manually..."
-        // In a real app we'd trigger a manual verification poll here
+        console.warn('[NanoPaywall] SSE connection error, will auto-reconnect...')
+        // EventSource auto-reconnects by default.
+        // On reconnect, the server sends the current buffered state immediately,
+        // so if a payment arrived while disconnected, we'll get it.
+        // Only show error if the connection is fully closed (readyState === 2)
+        if (eventSource?.readyState === EventSource.CLOSED) {
+            console.error('[NanoPaywall] SSE connection permanently closed')
+            globalError.value = "Live connection lost. Payment detection may be delayed."
+        }
     }
 }
 
@@ -207,6 +219,9 @@ async function verifyPayment(hash: string) {
         // Log verification request for debugging
         console.warn('[NanoPaywall] Verifying block:', hash)
 
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 20000)
+
         // First try GET with stored session headers
         httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
 
@@ -214,7 +229,8 @@ async function verifyPayment(hash: string) {
             headers: {
                 'X-Payment-Block': hash,
                 'X-Payment-Session': session.value?.sessionId
-            }
+            },
+            signal: controller.signal
         })
         let protectedData = await res.json()
         
@@ -230,10 +246,12 @@ async function verifyPayment(hash: string) {
                 body: JSON.stringify({
                     blockHash: hash,
                     requirements: originalRequirements.value
-                })
+                }),
+                signal: controller.signal
             })
             protectedData = await res.json()
         }
+        clearTimeout(timeoutId)
         
         // Log the final response
         httpLog.value.push({ type: 'res', content: `HTTP/1.1 ${res.status}\nContent-Type: application/json\n\n${JSON.stringify(protectedData, null, 2)}` })
@@ -460,8 +478,14 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
             <p>Access to protected content.</p>
         </div>
 
+        <!-- Restarting State (shows overlay during restart to prevent stale QR flash) -->
+        <div v-if="isRestarting" class="loading-state">
+            <div class="spinner"></div>
+            <p>Restarting NanoSession...</p>
+        </div>
+
         <!-- Loading State -->
-        <div v-if="isLoading" class="loading-state">
+        <div v-else-if="isLoading" class="loading-state">
             <div class="spinner"></div>
             <p>Generating session...</p>
         </div>

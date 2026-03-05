@@ -73,20 +73,26 @@ async function settleAndRespond(
     blockHash: string,
     res: Response
 ) {
+    const sessionId = requirements.extra?.sessionId || 'unknown';
+    const tag = requirements.extra?.tag || 'unknown';
+
     try {
         const result = await facilitator.handleSettle(requirements, { blockHash });
 
         if (result?.success) {
+            console.log(`[AUDIT] Tag spent: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`);
             res.json({
                 success: true,
                 message: "Payment accepted! You have access to the protected demo content.",
                 html: EXCLUSIVE_CONTENT_HTML
             });
+            console.log(`[AUDIT] Protected content served: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`);
         } else {
+            console.warn(`[AUDIT] Payment rejected: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}... error=${result?.error}`);
             res.status(402).json({ error: result?.error || "Invalid payment proof" });
         }
     } catch (e) {
-        console.error('Settlement error:', e);
+        console.error(`[AUDIT] Settlement error: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`, e);
         res.status(500).json({ error: "Verification error on server" });
     }
 }
@@ -97,18 +103,20 @@ async function settleAndRespond(
  * - With X-Payment-Block + X-Payment-Session: verifies stored session
  */
 protectedRoute.get('/', async (req: Request, res: Response) => {
+    const t0 = Date.now();
     const paymentProof = req.header('X-Payment-Block');
     const incomingSessionId = req.header('X-Payment-Session');
     const facilitator = getFacilitator();
 
     // If the client provided a block hash, verify it
     if (paymentProof && incomingSessionId) {
+        console.log(`[API] GET /api/protected with proof block=${paymentProof.slice(0, 8)}... session=${incomingSessionId.slice(0, 8)}...`);
         const storedReqs = facilitator.getStoredRequirements(incomingSessionId);
 
         if (!storedReqs) {
             // Session was lost (server restart, expiry, etc.)
             // Return a specific status so the client knows to retry with POST
-            console.warn(`[protected] Session not found: ${incomingSessionId} (in-memory registry lost, likely server restart)`);
+            console.warn(`[protected] Session not found: ${incomingSessionId} (in-memory registry lost, likely server restart) [${Date.now() - t0}ms]`);
             res.status(410).json({
                 error: "Payment session expired from server memory. Retrying verification...",
                 code: 'SESSION_LOST'
@@ -117,6 +125,7 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
         }
 
         await settleAndRespond(facilitator, storedReqs, paymentProof, res);
+        console.log(`[API] GET /api/protected settle completed [${Date.now() - t0}ms]`);
         return;
     }
 
@@ -173,7 +182,9 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
  * The client cannot forge a valid block hash.
  */
 protectedRoute.post('/', async (req: Request, res: Response) => {
+    const t0 = Date.now();
     const { blockHash, requirements } = req.body;
+    console.log(`[API] POST /api/protected block=${blockHash?.slice(0, 8)}...`);
 
     if (!blockHash || !requirements) {
         res.status(400).json({ error: "Missing blockHash or requirements in request body" });
@@ -197,4 +208,5 @@ protectedRoute.post('/', async (req: Request, res: Response) => {
     }
 
     await settleAndRespond(facilitator, requirements, blockHash, res);
+    console.log(`[API] POST /api/protected settle completed [${Date.now() - t0}ms]`);
 });

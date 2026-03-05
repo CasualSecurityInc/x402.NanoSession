@@ -12,6 +12,8 @@ config({ path: envPath });
 import { protectedRoute } from './routes/protected';
 import { statusRoute } from './routes/status';
 import { initNanoWebSocket } from './services/nano-websocket';
+import { startRpcPoller } from './services/rpc-poller';
+import { NanoRpcClient } from '@nanosession/rpc';
 
 // Load environment variables strictly
 const NANO_RPC_URL = process.env.NANO_RPC_URL;
@@ -60,6 +62,22 @@ server.listen(PORT, HOST, () => {
 
     // Initialize WebSocket connection to Nano network
     initNanoWebSocket(NANO_SERVER_ADDRESS);
+
+    // Initialize RPC polling fallback (catches payments missed by WebSocket)
+    const rpcClient = new NanoRpcClient({
+        endpoints: [NANO_RPC_URL],
+        timeoutMs: 10000
+    });
+    startRpcPoller(rpcClient, NANO_SERVER_ADDRESS);
+
+    // Event loop lag monitor — detect if something is blocking the event loop
+    setInterval(() => {
+        const start = Date.now();
+        setImmediate(() => {
+            const lag = Date.now() - start;
+            if (lag > 50) console.warn(`[PERF] Event loop lag: ${lag}ms`);
+        });
+    }, 2000);
 });
 
 // Setup graceful shutdown

@@ -51,6 +51,24 @@ export interface AccountInfo {
   account_version?: number;
 }
 
+/** Single entry from account_history RPC */
+export interface AccountHistoryEntry {
+  /** Block type (send, receive, etc.) */
+  type: string;
+  /** Sending/receiving account */
+  account: string;
+  /** Amount in raw */
+  amount: string;
+  /** Block hash */
+  hash: string;
+  /** Local timestamp */
+  local_timestamp: string;
+  /** Block height */
+  height: string;
+  /** Whether block is confirmed */
+  confirmed: string;
+}
+
 /** RPC error response */
 export interface RpcError {
   error: string;

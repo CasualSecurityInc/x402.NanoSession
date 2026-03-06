@@ -25,6 +25,13 @@ interface SessionRequirements {
   x402Requirements: x402PaymentRequirements;
 }
 
+/**
+ * Creates a Faremeter-compatible FacilitatorHandler for NanoSession.
+ * Implements x402 V2 support for NanoSession/exact scheme.
+ * 
+ * @param options Configuration for the facilitator (RPC, addresses, etc)
+ * @returns A Faremeter FacilitatorHandler object
+ */
 export function createFacilitatorHandler(options: FacilitatorOptions): FacilitatorHandler {
   const underlying = new NanoSessionFacilitatorHandler({
     rpcClient: options.rpcClient,
@@ -86,14 +93,8 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
   };
 
   const toNanoRequirements = (req: x402PaymentRequirements): PaymentRequirements | null => {
-    if (!req.extra || !req.extra.nanoSession) return null;
-
-    const extra = req.extra.nanoSession as {
-      tag?: number;
-      id?: string;
-      tagModulus?: number;
-      expiresAt?: string;
-    };
+    const extra = (req.extra as any)?.nanoSession;
+    if (!extra) return null;
 
     if (extra.id === undefined || extra.tag === undefined ||
       extra.tagModulus === undefined || extra.expiresAt === undefined) {

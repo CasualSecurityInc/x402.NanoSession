@@ -14,6 +14,13 @@ export interface PaymentHandlerOptions {
   maxSpend?: string;
 }
 
+/**
+ * Creates a Faremeter-compatible Client PaymentHandler for NanoSession.
+ * Automatically wraps the NanoSessionPaymentHandler for use in Faremeter middleware.
+ * 
+ * @param options Configuration options for the underlying handler
+ * @returns A Faremeter PaymentHandler function
+ */
 export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHandler {
   const underlying = new NanoSessionPaymentHandler({
     rpcClient: options.rpcClient,
@@ -29,12 +36,7 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
         continue;
       }
 
-      const extra = req.extra?.nanoSession as {
-        tag?: number;
-        id?: string;
-        tagModulus?: number;
-        expiresAt?: string;
-      } | undefined;
+      const extra = (req.extra as any)?.nanoSession;
 
       if (!extra || extra.tag === undefined || !extra.id ||
         !extra.tagModulus || !extra.expiresAt) {

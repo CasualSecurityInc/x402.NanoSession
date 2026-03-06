@@ -100,7 +100,8 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
-   * Returns list of supported payment schemes
+   * Returns the list of payment schemes supported by this facilitator.
+   * @returns Array of supported protocol versions, schemes, and networks
    */
   getSupported(): SupportedScheme[] {
     return [
@@ -113,13 +114,22 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
-   * Generates payment requirements with unique tag and session ID
+   * Generates new payment requirements for a session.
+   * Internally generates a unique session ID and reserved payment tag.
+   * 
+   * @param args Configuration for the requirements
+   * @returns Standard x402 PaymentRequirements object
    */
   getRequirements(args: {
+    /** Base amount in raw */
     amount: string;
+    /** Destination account address */
     payTo: string;
+    /** How long before session expires */
     maxTimeoutSeconds?: number;
+    /** The modulus for tag calculation (default: 10M) */
     tagModulus?: number;
+    /** The multiplier to shift tag into higher decimals (default: 1) */
     tagMultiplier?: string;
   }): PaymentRequirements {
     // Generate unique tag (random number mod tagModulus)
@@ -158,8 +168,9 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
-   * Retrieves stored requirements for a session ID
-   * Returns undefined if session not found or expired
+   * Retrieves previously generated requirements for a session.
+   * @param sessionId Hexadecimal session identifier
+   * @returns The stored requirements, or undefined if not found or expired
    */
   getStoredRequirements(sessionId: string): PaymentRequirements | undefined {
     const requirements = this.sessionRegistry.get(sessionId);
@@ -178,21 +189,27 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
-   * Re-register a session from externally-supplied requirements.
+   * Re-registers a session from externally-supplied requirements.
    * Used for recovery when the in-memory registry is lost (e.g. server restart)
    * but the client still holds the original 402 requirements.
    * 
-   * SECURITY: The caller must validate requirements.payTo matches the expected
-   * server address before calling this. handleSettle still independently verifies
-   * the block against the RPC node.
+   * @WARNING: This skips session ID verification. Ensure you trust the
+   * requirements if you use this to recover state.
+   * 
+   * @param sessionId Hexadecimal session identifier
+   * @param requirements The requirements to register
    */
   registerSessionFromRequirements(sessionId: string, requirements: PaymentRequirements): void {
     this.sessionRegistry.set(sessionId, requirements);
   }
 
   /**
-   * Verifies a payment without marking it as spent
-   * Returns null if scheme doesn't match
+   * Verifies that a payment proof (block hash) satisfies the given requirements.
+   * Performs cryptographic validation, balance checks, and tag verification.
+   * 
+   * @param requirements The requirements the payment must satisfy
+   * @param payload The payment response containing the proof (hash)
+   * @returns Verification result with validity status and optional error
    */
   async handleVerify(
     requirements: PaymentRequirements,
@@ -285,7 +302,12 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
-   * Settles a payment by verifying it and marking it as spent
+   * Verifies and finalizes a payment (settlement).
+   * Unlike verify, this marks the proof as spent to prevent double-spending.
+   * 
+   * @param requirements The requirements the payment must satisfy
+   * @param payload The payment response containing the proof (hash)
+   * @returns Settlement result with success status
    */
   async handleSettle(
     requirements: PaymentRequirements,

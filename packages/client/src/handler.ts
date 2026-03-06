@@ -51,22 +51,26 @@ export class NanoSessionPaymentHandler {
 
   private async executePayment(requirements: PaymentRequirements): Promise<{ payload: PaymentPayload }> {
     const keyPair = deriveKeyPair(this.seed);
-    
+
     // Get account info for previous block
     const accountInfo = await this.rpcClient.getAccountInfo(
       Buffer.from(keyPair.publicKey).toString('hex')
     );
 
+    const tagValue = BigInt(requirements.extra?.tag ?? 0);
+    const tagMultiplier = BigInt(requirements.extra?.tagMultiplier ?? '1');
+    const totalAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
+
     const block = createSendBlock({
       account: '', // Would derive from public key
       previous: accountInfo.frontier,
       representative: accountInfo.representative,
-      balance: (BigInt(accountInfo.balance) - BigInt(requirements.amount)).toString(),
+      balance: (BigInt(accountInfo.balance) - totalAmount).toString(),
       link: requirements.payTo
     });
 
     const signature = signBlock(block, keyPair.secretKey);
-    
+
     // Broadcast would happen here via RPC process
     // For now, return mock hash
     const blockHash = 'mock_hash_' + Date.now();

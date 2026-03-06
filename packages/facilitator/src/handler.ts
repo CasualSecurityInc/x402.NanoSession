@@ -120,9 +120,11 @@ export class NanoSessionFacilitatorHandler {
     payTo: string;
     maxTimeoutSeconds?: number;
     tagModulus?: number;
+    tagMultiplier?: string;
   }): PaymentRequirements {
     // Generate unique tag (random number mod tagModulus)
     const tagModulus = args.tagModulus ?? 1_000_000;
+    const tagMultiplier = args.tagMultiplier ?? '1';
     const randomValue = randomBytes(4).readUInt32BE(0);
     const tag = randomValue % tagModulus;
 
@@ -142,6 +144,7 @@ export class NanoSessionFacilitatorHandler {
         tag,
         sessionId,
         tagModulus,
+        tagMultiplier,
         expiresAt
       }
     };
@@ -252,7 +255,9 @@ export class NanoSessionFacilitatorHandler {
 
       // Amount tagging: Verify amount matches base amount + session tag
       const actualAmount = BigInt(blockInfo.amount);
-      const expectedAmount = BigInt(requirements.amount) + BigInt(requirements.extra?.tag ?? 0);
+      const tagValue = BigInt(requirements.extra?.tag ?? 0);
+      const tagMultiplier = BigInt(requirements.extra?.tagMultiplier ?? '1');
+      const expectedAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
 
       if (actualAmount !== expectedAmount) {
         return {

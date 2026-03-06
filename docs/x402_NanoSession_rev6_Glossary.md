@@ -95,6 +95,16 @@ A protocol constant defining the range of possible tags.
 
 ---
 
+## TAG_MULTIPLIER
+
+A protocol configuration that shifts the decimal starting point of the tag.
+
+- **Purpose:** Prevents the tag from becoming overly small "dust" (e.g. 1.000000000000000000000000000999) that standard desktop or mobile wallets (like Cake Wallet or Nault) cannot process.
+- **Value:** Expressed as a multiplier (e.g., `100000000000000000000000` to shift by 24 zeroes).
+- **Effect:** A base price of `1.000` XNO and a tag of `999` with a large multiplier can render a final amount of `1.000999` XNO.
+
+---
+
 ## Spent Set
 
 A durable, server-side record of all Nano block hashes accepted as payment.

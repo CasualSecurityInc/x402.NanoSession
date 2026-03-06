@@ -149,6 +149,7 @@ NanoSession Rev5 avoids this accidental self-invalidation entirely by mandating 
 | `X-PAYMENT-SESSION` | ✓ | Unique session identifier |
 | `X-PAYMENT-EXPIRES` | ✓ | ISO 8601 expiration timestamp |
 | `X-PAYMENT-TAG-MODULUS` | | Tag modulus (default: 10000000) |
+| `X-PAYMENT-TAG-MULTIPLIER` | | Tag decimal shift multiplier (default: "1") |
 
 #### Retry Request (Client → Server)
 

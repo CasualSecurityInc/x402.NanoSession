@@ -61,6 +61,7 @@ NanoSession maps its protocol-specific fields to x402 PaymentRequirements:
 | `extra.tag` | `X-PAYMENT-TAG` header | Payment tag |
 | `extra.sessionId` | `X-PAYMENT-SESSION` header | **Mandatory** session identifier |
 | `extra.tagModulus` | `X-PAYMENT-TAG-MODULUS` or default | Tag modulus (default: 10000000) |
+| `extra.tagMultiplier` | `X-PAYMENT-TAG-MULTIPLIER` or default | Tag decimal shift multiplier (default: "1") |
 | `extra.expiresAt` | `X-PAYMENT-EXPIRES` header | ISO 8601 expiration |
 
 ### PaymentPayload Mapping
@@ -87,6 +88,7 @@ interface PaymentRequirements {
     tag: number;               // Payment tag (0 to TAG_MODULUS-1)
     sessionId: string;         // Mandatory session identifier
     tagModulus: number;        // Tag modulus (default: 10000000)
+    tagMultiplier?: string;    // Multiplier for tag location adjustment
     expiresAt: string;         // ISO 8601 timestamp
   };
 }
@@ -115,6 +117,7 @@ function toX402Requirements(headers: NanoSessionHeaders): PaymentRequirements {
       tag: headers.tag,
       sessionId: headers.sessionId,  // Mandatory
       tagModulus: headers.tagModulus ?? 10000000,
+      tagMultiplier: headers.tagMultiplier ?? '1',
       expiresAt: headers.expiresAt
     }
   };

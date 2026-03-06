@@ -35,7 +35,7 @@ We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we gene
     *   Adds "Back to Protocol" link to Extensions.
 
 **⚠️ AGENT POLICY: Hardcoded Revisions**
-Because the build script does not perform magic string replacement for document bodies, **you must manually grep and update any hardcoded string matches** (e.g. `using the **Rev 5** protocol flow` or `Rev. 5`) across `site/*.md` whenever you bump the protocol revision (e.g., from Rev 5 to Rev 6).
+Because the build script does not perform magic string replacement for document bodies, **you must manually grep and update any hardcoded string matches** (e.g. `using the **Rev 6** protocol flow` or `Rev. 6`) across `site/*.md` whenever you bump the protocol revision (e.g., from Rev 6 to Rev 7).
 
 ### 🎨 Theme & Config
 

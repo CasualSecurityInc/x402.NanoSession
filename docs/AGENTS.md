@@ -4,6 +4,8 @@
 
 This directory contains the **Canonical Source of Truth** for the x402.NanoSession protocol. All changes to the protocol must happen here.
 
+**🚨 CRITICAL RULE:** **NEVER modify files under `docs/old/`**. The maintainer will gradually move previous versions of the spec in under there for archival purposes only.
+
 ## 📚 Reference Materials
 
 ### Upstream x402 Specification (PRIMARY)

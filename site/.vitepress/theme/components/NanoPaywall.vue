@@ -1133,17 +1133,25 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 }
 
 .restart-link {
-    font-size: 0.75rem;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--vp-c-brand);
     cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 0;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    padding: 6px 16px;
     text-decoration: none;
+    transition: background-color 0.2s;
 }
 
 .restart-link:hover {
-    text-decoration: underline;
+    background: rgba(59, 130, 246, 0.2);
+    text-decoration: none;
+}
+
+.restart-link:active {
+    background: rgba(59, 130, 246, 0.3);
 }
 
 /* Protocol Terminal */

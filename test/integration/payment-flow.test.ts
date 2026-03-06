@@ -201,7 +201,9 @@ describe('Integration: Full Payment Flow', () => {
       }
     });
 
-    return processResult.hash as string;
+    const hash = processResult.hash as string;
+    await waitForConfirmation(hash);
+    return hash;
   };
 
   const receivePendingAll = async (address: string, secretKeyHex: string, representativeFallback: string) => {
@@ -270,9 +272,13 @@ describe('Integration: Full Payment Flow', () => {
         block: { ...receiveBlock.block, signature: receiveSignature }
       });
 
-      previous = (processResult.hash as string | undefined)
-        ?? (receiveBlock.hash as string | undefined)
-        ?? previous;
+      const hash = (processResult.hash as string | undefined)
+        ?? (receiveBlock.hash as string | undefined);
+
+      if (hash) {
+        await waitForConfirmation(hash);
+        previous = hash;
+      }
 
       accountInfo = await getAccountInfoSafe(address);
       if (accountInfo) {
@@ -549,9 +555,9 @@ describe('Integration: Full Payment Flow', () => {
         return;
       }
 
-      const blockInfo = await waitForConfirmation(paymentHash);
+      const blockInfoAfter = await rpcClient.getBlockInfo(paymentHash!);
       console.log(`   ✅ Payment confirmed: ${paymentHash}`);
-      console.log(`   🔗 Destination: ${blockInfo.link_as_account ?? blockInfo.link}`);
+      console.log(`   🔗 Destination: ${blockInfoAfter.link_as_account ?? blockInfoAfter.link}`);
 
       console.log('\n🔐 Step 3: Retrying with payment...');
       const response2 = await fetch(`${baseUrl}/protected`, {
@@ -648,7 +654,6 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(victimBlockHash);
     console.log(`   ✅ Victim payment confirmed: ${victimBlockHash}`);
 
     // ATTACK: Attacker tries to use victim's hash with attacker's session
@@ -706,7 +711,6 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
 
     // First submission - should succeed
@@ -767,7 +771,6 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
 
     // ATTACK: Submit with a FAKE session ID that was never issued

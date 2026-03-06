@@ -11,6 +11,8 @@ export interface NanoSessionHeaders {
   priceRaw: string;
   /** Unique tag for this payment (0 to TAG_MODULUS-1) */
   tag: number;
+  /** Optional multiplier to shift the tag into higher decimals */
+  tagMultiplier?: string;
   /** ISO timestamp when tag expires */
   expires: string;
 }
@@ -22,6 +24,8 @@ export interface NanoSessionExtra {
   sessionId: string;
   /** Tag modulus used for calculation */
   tagModulus: number;
+  /** Multiplier to shift the tag into higher decimals */
+  tagMultiplier?: string;
   /** ISO timestamp when tag reservation expires */
   expiresAt: string;
 }

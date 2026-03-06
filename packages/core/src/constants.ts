@@ -5,6 +5,9 @@
 /** Tag modulus for raw tagging (10 million) */
 export const TAG_MODULUS = 10_000_000;
 
+/** Default tag multiplier for shifting decimal precision */
+export const DEFAULT_TAG_MULTIPLIER = '1';
+
 /** Scheme identifier for NanoSession */
 export const SCHEME = 'nano-session';
 

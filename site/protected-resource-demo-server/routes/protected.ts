@@ -137,7 +137,8 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
     const reqs = facilitator.getRequirements({
         amount: amountToCharge,
         payTo: payToAddress,
-        maxTimeoutSeconds: 600, // 10 minute timeout
+        maxTimeoutSeconds: 180, // 3 minute timeout
+        tagModulus: 10000,      // Limits tags to 0-9999 to fit into 0.019999 headroom
         tagMultiplier: process.env.NANO_TAG_MULTIPLIER
     });
 

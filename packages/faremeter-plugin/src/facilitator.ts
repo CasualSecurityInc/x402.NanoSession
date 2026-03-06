@@ -35,7 +35,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
 
   const getSupported = (): Promise<x402SupportedKind>[] => {
     return [Promise.resolve({
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
     })];
@@ -65,14 +65,16 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
         payTo: nanoReq.payTo,
         maxTimeoutSeconds: nanoReq.maxTimeoutSeconds,
         extra: {
-          tag: nanoReq.extra.tag,
-          sessionId: nanoReq.extra.sessionId,
-          tagModulus: nanoReq.extra.tagModulus,
-          expiresAt: nanoReq.extra.expiresAt,
+          nanoSession: {
+            tag: nanoReq.extra.nanoSession.tag,
+            id: nanoReq.extra.nanoSession.id,
+            tagModulus: nanoReq.extra.nanoSession.tagModulus,
+            expiresAt: nanoReq.extra.nanoSession.expiresAt,
+          }
         },
       };
 
-      sessionMap.set(nanoReq.extra.sessionId, {
+      sessionMap.set(nanoReq.extra.nanoSession.id, {
         requirements: nanoReq,
         x402Requirements: enriched,
       });
@@ -84,16 +86,16 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
   };
 
   const toNanoRequirements = (req: x402PaymentRequirements): PaymentRequirements | null => {
-    if (!req.extra) return null;
+    if (!req.extra || !req.extra.nanoSession) return null;
 
-    const extra = req.extra as {
+    const extra = req.extra.nanoSession as {
       tag?: number;
-      sessionId?: string;
+      id?: string;
       tagModulus?: number;
       expiresAt?: string;
     };
 
-    if (extra.sessionId === undefined || extra.tag === undefined ||
+    if (extra.id === undefined || extra.tag === undefined ||
       extra.tagModulus === undefined || extra.expiresAt === undefined) {
       return null;
     }
@@ -106,18 +108,24 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       payTo: req.payTo,
       maxTimeoutSeconds: req.maxTimeoutSeconds,
       extra: {
-        tag: extra.tag,
-        sessionId: extra.sessionId,
-        tagModulus: extra.tagModulus,
-        expiresAt: extra.expiresAt,
+        nanoSession: {
+          tag: extra.tag,
+          id: extra.id,
+          tagModulus: extra.tagModulus,
+          expiresAt: extra.expiresAt,
+        }
       },
     };
   };
 
-  const toNanoPayload = (payment: x402PaymentPayload): PaymentPayload | null => {
+  const toNanoPayload = (payment: x402PaymentPayload, req: PaymentRequirements): PaymentPayload | null => {
     const payload = payment.payload as { blockHash?: string };
     if (!payload.blockHash) return null;
-    return { blockHash: payload.blockHash };
+    return {
+      x402Version: 2,
+      accepted: req,
+      payload: { proof: payload.blockHash }
+    };
   };
 
   const handleVerify = async (
@@ -129,9 +137,16 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     }
 
     const nanoReq = toNanoRequirements(req);
-    const nanoPayload = toNanoPayload(payment);
+    if (!nanoReq) {
+      return {
+        isValid: false,
+        invalidReason: 'Invalid requirements format',
+      };
+    }
 
-    if (!nanoReq || !nanoPayload) {
+    const nanoPayload = toNanoPayload(payment, nanoReq);
+
+    if (!nanoPayload) {
       return {
         isValid: false,
         invalidReason: 'Invalid payment format',
@@ -157,9 +172,18 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     }
 
     const nanoReq = toNanoRequirements(req);
-    const nanoPayload = toNanoPayload(payment);
+    if (!nanoReq) {
+      return {
+        success: false,
+        txHash: null,
+        networkId: null,
+        error: 'Invalid requirements format',
+      };
+    }
 
-    if (!nanoReq || !nanoPayload) {
+    const nanoPayload = toNanoPayload(payment, nanoReq);
+
+    if (!nanoPayload) {
       return {
         success: false,
         txHash: null,

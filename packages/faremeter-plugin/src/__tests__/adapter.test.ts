@@ -18,9 +18,13 @@ type RequestContext = client.RequestContext;
 
 interface NanoSessionExtra {
   tag: number;
-  sessionId: string;
+  id: string;
   tagModulus: number;
   expiresAt: string;
+}
+
+interface EnrichedExtra {
+  nanoSession: NanoSessionExtra;
 }
 
 import { createFacilitatorHandler, createPaymentHandler } from '../index.js';
@@ -64,7 +68,7 @@ describe('createFacilitatorHandler', () => {
     expect(supported).toHaveLength(1);
     const first = await supported[0];
     expect(first).toMatchObject({
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
     });
@@ -109,10 +113,10 @@ describe('createFacilitatorHandler', () => {
     expect(result).toHaveLength(1);
     expect(result[0].scheme).toBe(SCHEME);
 
-    const extra = result[0].extra as NanoSessionExtra;
+    const extra = (result[0].extra as EnrichedExtra).nanoSession;
     expect(extra).toBeDefined();
     expect(extra.tag).toBeDefined();
-    expect(extra.sessionId).toBeDefined();
+    expect(extra.id).toBeDefined();
     expect(extra.tagModulus).toBeDefined();
     expect(extra.expiresAt).toBeDefined();
   });
@@ -136,7 +140,7 @@ describe('createFacilitatorHandler', () => {
     };
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: 'exact',
       network: 'eip155:1',
       payload: { txHash: '0xabc' },
@@ -167,7 +171,7 @@ describe('createFacilitatorHandler', () => {
     };
 
     const requirements = (await handler.getRequirements([requirementsRaw]))[0];
-    const extra = requirements.extra as NanoSessionExtra;
+    const extra = (requirements.extra as EnrichedExtra).nanoSession;
     const taggedAmount = (BigInt(baseAmount) + BigInt(extra.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
@@ -178,7 +182,7 @@ describe('createFacilitatorHandler', () => {
     });
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
       payload: { blockHash: 'VALID_BLOCK_HASH' },
@@ -214,7 +218,7 @@ describe('createFacilitatorHandler', () => {
     expect(enriched).toHaveLength(1);
 
     const requirements = enriched[0];
-    const extra = requirements.extra as NanoSessionExtra;
+    const extra = (requirements.extra as EnrichedExtra).nanoSession;
     const taggedAmount = (BigInt(requirements.maxAmountRequired) + BigInt(extra.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValue({
@@ -225,7 +229,7 @@ describe('createFacilitatorHandler', () => {
     });
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
       payload: { blockHash: 'SETTLE_BLOCK_HASH' },
@@ -285,10 +289,12 @@ describe('createPaymentHandler', () => {
         payTo: 'nano_destination',
         maxTimeoutSeconds: 300,
         extra: {
-          tag: 42,
-          sessionId: 'test-session',
-          tagModulus: 1000000,
-          expiresAt: new Date(Date.now() + 300000).toISOString(),
+          nanoSession: {
+            tag: 42,
+            id: 'test-session',
+            tagModulus: 1000000,
+            expiresAt: new Date(Date.now() + 300000).toISOString(),
+          }
         },
       },
       // Should NOT match
@@ -334,10 +340,12 @@ describe('createPaymentHandler', () => {
         payTo: 'nano_destination',
         maxTimeoutSeconds: 300,
         extra: {
-          tag: 42,
-          sessionId: 'test-session',
-          tagModulus: 1000000,
-          expiresAt: new Date(Date.now() + 300000).toISOString(),
+          nanoSession: {
+            tag: 42,
+            id: 'test-session',
+            tagModulus: 1000000,
+            expiresAt: new Date(Date.now() + 300000).toISOString(),
+          }
         },
       },
     ];
@@ -409,15 +417,17 @@ describe('Security: Attack Prevention', () => {
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
-        tag: correctTag, // Server expects THIS tag
-        sessionId: 'victim-session',
-        tagModulus: 1000000,
-        expiresAt: new Date(Date.now() + 300000).toISOString(),
+        nanoSession: {
+          tag: correctTag, // Server expects THIS tag
+          id: 'victim-session',
+          tagModulus: 1000000,
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+        }
       },
     };
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
       payload: { blockHash: 'STOLEN_BLOCK_HASH' },
@@ -463,7 +473,7 @@ describe('Security: Attack Prevention', () => {
     expect(enriched).toHaveLength(1);
 
     const requirements = enriched[0];
-    const extra = requirements.extra as { tag: number; sessionId: string; tagModulus: number; expiresAt: string };
+    const extra = (requirements.extra as EnrichedExtra).nanoSession;
     const taggedAmount = (BigInt(requirements.maxAmountRequired) + BigInt(extra.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValue({
@@ -474,7 +484,7 @@ describe('Security: Attack Prevention', () => {
     });
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: SCHEME,
       network: NETWORK,
       payload: { blockHash: 'ONCE_VALID_BLOCK_HASH' },
@@ -517,7 +527,7 @@ describe('Security: Attack Prevention', () => {
     };
 
     const payment: x402PaymentPayload = {
-      x402Version: 1,
+      x402Version: 2,
       scheme: 'exact',
       network: 'eip155:1',
       payload: { txHash: '0xabc' },

@@ -29,15 +29,15 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
         continue;
       }
 
-      const extra = req.extra as {
+      const extra = req.extra?.nanoSession as {
         tag?: number;
-        sessionId?: string;
+        id?: string;
         tagModulus?: number;
         expiresAt?: string;
       } | undefined;
 
-      if (!extra || extra.tag === undefined || !extra.sessionId || 
-          !extra.tagModulus || !extra.expiresAt) {
+      if (!extra || extra.tag === undefined || !extra.id ||
+        !extra.tagModulus || !extra.expiresAt) {
         continue;
       }
 
@@ -49,10 +49,12 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
         payTo: req.payTo,
         maxTimeoutSeconds: req.maxTimeoutSeconds,
         extra: {
-          tag: extra.tag,
-          sessionId: extra.sessionId,
-          tagModulus: extra.tagModulus,
-          expiresAt: extra.expiresAt,
+          nanoSession: {
+            tag: extra.tag,
+            id: extra.id,
+            tagModulus: extra.tagModulus,
+            expiresAt: extra.expiresAt,
+          }
         },
       });
     }
@@ -60,8 +62,8 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
     const underlyingExecers = await underlying.handle(context, nanoAccepts);
 
     return underlyingExecers.map((execer): PaymentExecer => ({
-      requirements: accepts.find(r => 
-        r.scheme === execer.requirements.scheme && 
+      requirements: accepts.find(r =>
+        r.scheme === execer.requirements.scheme &&
         r.network === execer.requirements.network
       )!,
       exec: async () => {

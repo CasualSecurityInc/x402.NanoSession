@@ -54,7 +54,7 @@
       "path": "./packages/client"
     },
     {
-      "path": "./packages/server"
+      "path": "./packages/facilitator"
     },
     {
       "path": "./packages/faremeter-plugin"

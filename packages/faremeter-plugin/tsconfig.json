@@ -5,11 +5,22 @@
     "rootDir": "./src",
     "composite": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "**/*.test.ts"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "**/*.test.ts"
+  ],
   "references": [
-    { "path": "../core" },
-    { "path": "../server" },
-    { "path": "../client" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../facilitator"
+    },
+    {
+      "path": "../client"
+    }
   ]
 }

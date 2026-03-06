@@ -26,7 +26,7 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 ├── packages/          # Library packages (@nanosession/*)
 │   ├── core/          # Types, constants, schema mapping
 │   ├── rpc/           # Nano RPC client with failover
-│   ├── server/        # FacilitatorHandler for servers
+│   ├── facilitator/   # FacilitatorHandler for servers
 │   ├── client/        # PaymentHandler for clients
 │   └── faremeter-plugin/  # Faremeter middleware adapter
 ├── examples/          # Working demos (server, client, faremeter)
@@ -43,13 +43,13 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 |------|----------|-------|
 | **Protocol specs** | `docs/x402_NanoSession_rev5_Protocol.md` | Current active revision |
 | **Core types** | `packages/core/src/index.ts` | Exports all public types |
-| **Server handler** | `packages/server/src/handler.ts` | FacilitatorHandler implementation |
+| **Server handler** | `packages/facilitator/src/handler.ts` | FacilitatorHandler implementation |
 | **Client handler** | `packages/client/src/handler.ts` | PaymentHandler implementation |
 | **RPC client** | `packages/rpc/src/client.ts` | NanoRpcClient with failover |
 | **Unit tests** | `packages/*/src/__tests__/*.test.ts` | Vitest, per-package |
 | **E2E tests** | `test/integration/payment-flow.test.ts` | Real Nano transactions |
 | **Faremeter adapter** | `packages/faremeter-plugin/src/` | Middleware bridge |
-| **Example server** | `examples/server/src/index.ts` | Reference implementation |
+| **Example server** | `examples/standalone-facilitator/src/index.ts` | Reference implementation |
 | **Demo server** | `site/protected-resource-demo-server/` | Live x402 facilitator |
 
 ---
@@ -58,7 +58,7 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 
 | Symbol | Type | Package | Location |
 |--------|------|---------|----------|
-| `NanoSessionFacilitatorHandler` | Class | @nanosession/facilitator | `server/src/handler.ts` |
+| `NanoSessionFacilitatorHandler` | Class | @nanosession/facilitator | `facilitator/src/handler.ts` |
 | `NanoSessionPaymentHandler` | Class | @nanosession/client | `client/src/handler.ts` |
 | `NanoRpcClient` | Class | @nanosession/rpc | `rpc/src/client.ts` |
 | `SCHEME`, `NETWORK` | Constants | @nanosession/core | `core/src/constants.ts` |

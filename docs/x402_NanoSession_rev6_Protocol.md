@@ -53,9 +53,9 @@ Several stateless approaches were analyzed and rejected:
 
 **Conclusion:** HTTP is stateless by design. Nano blocks contain no request-binding field. The system MUST maintain state correlating issued requirements to the client that requested them. This state is the **session**, typically tracked by the Facilitator.
 
-### 1.4. Why "Exact" x402 Schemes Are Unviable for Nano
+### 1.4. Why EVM-Style "Exact" Authorizations Are Unviable for Nano
 
-The original x402 "exact" scheme uses **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. This works because:
+The x402 "exact" scheme is intended for one-off payments of a precise amount. However, EVM-based reference implementations of the "exact" scheme typically use **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. This works because:
 
 1. EVM transactions can include arbitrary signed data
 2. The signature proves the wallet owner authorized *this specific* payment
@@ -66,7 +66,7 @@ Nano's architecture prevents this approach:
 - **Signature scope:** The block signature covers block content, not external request context
 - **Frontier dependency:** Creating a valid send block requires knowing the account's current frontier (previous block hash), which changes with every transaction — making pre-signed authorizations impractical
 
-The "exact" scheme approach (as explored in projects like x402nano) encounters these **frontier issues**: a pre-signed block becomes invalid if any other transaction occurs on the account before broadcast.
+The pre-signed authorization approach (as explored in projects like x402nano) encounters these **frontier issues**: a pre-signed block becomes invalid if any other transaction occurs on the account before broadcast.
 
 ### 1.5. The Frontier Dilemma (Why Authorizations Must Be Broadcast)
 Critics of NanoSession sometimes suggest mimicking Ethereum's EIP-3009 by having the client sign a Nano Send block and pass it directly to the server *without broadcasting it*, allowing the server to asynchronously settle. 

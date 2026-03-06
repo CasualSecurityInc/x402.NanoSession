@@ -65,18 +65,20 @@ We analyzed multiple stateless approaches (HMAC from IP, signed requirements, se
 
 See [Protocol Specification § Security Model](./protocol.md#1-security-model) for detailed analysis.
 
-## Why Not "Exact" x402?
+## How NanoSession Implements the "exact" Scheme
 
-The original x402 "exact" scheme uses EIP-3009 `transferWithAuthorization` with EIP-712 typed signatures to bind payments to requests. Permit2 offers a similar mechanism via Uniswap's universal approval contract. Both work on EVM chains because token contracts can verify off-chain signatures and execute conditional transfers atomically.
+The x402 standard defines the "exact" scheme for one-off payments of a precise, upfront cost (unlike subscriptions or shopping carts). NanoSession directly implements this (`"scheme": "exact"`, combined with `"network": "nano:mainnet"` and `extra.nanoSession`).
 
-Nano's architecture prevents this approach:
+However, the original EVM reference implementations of the "exact" scheme typically use EIP-3009 `transferWithAuthorization` with EIP-712 typed signatures to bind payments to requests. Permit2 offers a similar mechanism via Uniswap's universal approval contract. Both work on EVM chains because token contracts can verify off-chain signatures and execute conditional transfers atomically.
+
+Nano's architecture prevents this pre-signed authorization approach:
 
 - **No memo field** in blocks — there is no place to embed request context
 - **Frontier dependency** — valid blocks require the current account frontier, which changes with every transaction, invalidating any pre-signed authorization
 
-These architectural tradeoffs make "exact" x402-style pre-authorization unviable for Nano. NanoSession's session-based approach is the practical alternative.
+These architectural tradeoffs make EVM-style pre-authorizations unviable for Nano. Instead, NanoSession achieves the "exact" payment scheme using a **session-bound block hash** natively provided by the Nano network.
 
-## 2. Core Architecture
+## Core Architecture
 
 Unlike many complex Web3 protocols, NanoSession builds exactly on the `HTTP 402` mechanics described by the `x402` spec, leveraging Nano's feeless and near-instant properties.
 

@@ -4,13 +4,8 @@
  */
 
 // Export handler
-export { NanoSessionFacilitatorHandler } from './handler.js';
-export type {
-  HandlerOptions,
-  SupportedScheme,
-  VerifyResult,
-  SettleResult
-} from './handler.js';
+export { NanoSessionFacilitatorHandler, type HandlerOptions, type SupportedScheme, type VerifyResult, type SettleResult } from './handler.js';
+export { StandardAccountPool, type AddressPool } from './address-pool.js';
 
 // Export spent set
 export type { SpentSetStorage } from './spent-set.js';

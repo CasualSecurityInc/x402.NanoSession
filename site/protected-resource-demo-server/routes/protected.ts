@@ -138,7 +138,7 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
         amount: amountToCharge,
         payTo: payToAddress,
         maxTimeoutSeconds: 180, // 3 minute timeout
-        tagModulus: 10000,      // Limits tags to 0-9999 to fit into 0.019999 headroom
+        tagModulus: process.env.NANO_TAG_MODULUS ? parseInt(process.env.NANO_TAG_MODULUS, 10) : 10000,
         tagMultiplier: process.env.NANO_TAG_MULTIPLIER
     });
 

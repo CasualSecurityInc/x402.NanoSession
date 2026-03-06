@@ -23,9 +23,10 @@ export type {
 
 // Re-export from mapping
 export {
-  toX402Requirements,
-  fromX402Requirements,
-  toX402Payload
+  encodePaymentRequired,
+  decodePaymentRequired,
+  encodePaymentSignature,
+  decodePaymentSignature
 } from './mapping.js';
 
 export { StandardAccountPool } from './address-pool.js';

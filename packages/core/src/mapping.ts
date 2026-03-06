@@ -1,74 +1,51 @@
 /**
- * Bidirectional mapping between NanoSession headers and x402 PaymentRequirements
+ * Utilities for encoding and decoding standard x402 V2 JSON payloads
  */
 
-import type { NanoSessionHeaders, PaymentRequirements } from './types.js';
-import { TAG_MODULUS, DEFAULT_TAG_MULTIPLIER, SCHEME, NETWORK, ASSET } from './constants.js';
+import type { PaymentRequired, PaymentPayload } from './types.js';
 
 /**
- * Converts NanoSessionHeaders to x402 PaymentRequirements
- * @throws Error if tag is >= TAG_MODULUS
+ * Encodes a PaymentRequired object into a Base64 string for the PAYMENT-REQUIRED header
  */
-export function toX402Requirements(headers: NanoSessionHeaders): PaymentRequirements {
-  // Validate tag is within valid range
-  if (headers.tag < 0 || headers.tag >= TAG_MODULUS) {
-    throw new Error(`Tag must be between 0 and ${TAG_MODULUS - 1}, got ${headers.tag}`);
-  }
-
-  const tagMultiplierStr = headers.tagMultiplier ?? DEFAULT_TAG_MULTIPLIER;
-  const tagMultiplier = BigInt(tagMultiplierStr);
-
-  // Validate amount is multiple of TAG_MODULUS * tagMultiplier (prices should be aligned)
-  const alignmentFactor = BigInt(TAG_MODULUS) * tagMultiplier;
-  const amount = BigInt(headers.priceRaw);
-  if (amount % alignmentFactor !== BigInt(0)) {
-    throw new Error(`Amount must be a multiple of TAG_MODULUS * tagMultiplier (${alignmentFactor.toString()})`);
-  }
-
-  // Calculate expiration
-  const expiresAt = headers.expires;
-  const now = new Date().toISOString();
-  const maxTimeoutSeconds = Math.ceil(
-    (new Date(expiresAt).getTime() - new Date(now).getTime()) / 1000
-  );
-
-  return {
-    scheme: SCHEME,
-    network: NETWORK,
-    asset: ASSET,
-    amount: headers.priceRaw,
-    payTo: headers.address,
-    maxTimeoutSeconds: Math.max(60, maxTimeoutSeconds), // Minimum 60 seconds
-    extra: {
-      tag: headers.tag,
-      sessionId: headers.sessionId,
-      tagModulus: TAG_MODULUS,
-      tagMultiplier: tagMultiplierStr,
-      expiresAt
-    }
-  };
+export function encodePaymentRequired(payload: PaymentRequired): string {
+  // Ensure the object has the correct x402Version
+  const standardPayload = { ...payload, x402Version: 2 };
+  return Buffer.from(JSON.stringify(standardPayload)).toString('base64');
 }
 
 /**
- * Converts x402 PaymentRequirements to NanoSession headers
+ * Decodes a Base64 string from the PAYMENT-REQUIRED header into a PaymentRequired object
  */
-export function fromX402Requirements(requirements: PaymentRequirements): NanoSessionHeaders {
-  const headers: NanoSessionHeaders = {
-    sessionId: requirements.extra.sessionId,
-    address: requirements.payTo,
-    priceRaw: requirements.amount,
-    tag: requirements.extra.tag,
-    expires: requirements.extra.expiresAt
-  };
-  if (requirements.extra.tagMultiplier && requirements.extra.tagMultiplier !== DEFAULT_TAG_MULTIPLIER) {
-    headers.tagMultiplier = requirements.extra.tagMultiplier;
+export function decodePaymentRequired(base64Str: string): PaymentRequired {
+  const jsonStr = Buffer.from(base64Str, 'base64').toString('utf-8');
+  const payload = JSON.parse(jsonStr) as PaymentRequired;
+
+  if (payload.x402Version !== 2) {
+    throw new Error(`Unsupported x402 version: ${payload.x402Version}. Expected 2.`);
   }
-  return headers;
+
+  return payload;
 }
 
 /**
- * Creates an x402 PaymentPayload from a block hash
+ * Encodes a PaymentPayload object into a Base64 string for the PAYMENT-SIGNATURE header
  */
-export function toX402Payload(blockHash: string): { blockHash: string } {
-  return { blockHash };
+export function encodePaymentSignature(payload: PaymentPayload): string {
+  // Ensure the object has the correct x402Version
+  const standardPayload = { ...payload, x402Version: 2 };
+  return Buffer.from(JSON.stringify(standardPayload)).toString('base64');
+}
+
+/**
+ * Decodes a Base64 string from the PAYMENT-SIGNATURE header into a PaymentPayload object
+ */
+export function decodePaymentSignature(base64Str: string): PaymentPayload {
+  const jsonStr = Buffer.from(base64Str, 'base64').toString('utf-8');
+  const payload = JSON.parse(jsonStr) as PaymentPayload;
+
+  if (payload.x402Version !== 2) {
+    throw new Error(`Unsupported x402 version: ${payload.x402Version}. Expected 2.`);
+  }
+
+  return payload;
 }

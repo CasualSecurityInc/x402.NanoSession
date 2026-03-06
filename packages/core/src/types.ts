@@ -1,57 +1,61 @@
 /**
- * NanoSession-specific types
+ * NanoSession x402 V2 standard types
  */
 
-export interface NanoSessionHeaders {
-  /** Session identifier */
-  sessionId: string;
-  /** Nano address to pay to */
-  address: string;
-  /** Price in raw (smallest Nano unit) */
-  priceRaw: string;
-  /** Unique tag for this payment (0 to TAG_MODULUS-1) */
-  tag: number;
-  /** Optional multiplier to shift the tag into higher decimals */
-  tagMultiplier?: string;
-  /** ISO timestamp when tag expires */
-  expires: string;
+export interface ResourceInfo {
+  url: string;
+  description?: string;
+  mimeType?: string;
 }
 
 export interface NanoSessionExtra {
   /** Unique tag for request identification */
   tag: number;
   /** Session identifier */
-  sessionId: string;
+  id: string;
   /** Tag modulus used for calculation */
   tagModulus: number;
   /** Multiplier to shift the tag into higher decimals */
   tagMultiplier?: string;
   /** ISO timestamp when tag reservation expires */
-  expiresAt: string;
+  expiresAt?: string;
 }
 
-/**
- * x402-compatible types
- */
-
 export interface PaymentRequirements {
-  /** Payment scheme identifier */
+  /** Payment scheme identifier (must be "exact") */
   scheme: string;
-  /** Network identifier (CAIP-2 format) */
+  /** Network identifier (e.g. "nano:mainnet") */
   network: string;
-  /** Asset identifier */
+  /** Asset identifier (e.g. "XNO") */
   asset: string;
-  /** Amount in smallest unit */
+  /** Base amount in raw (smallest Nano unit) */
   amount: string;
-  /** Address to pay to */
+  /** Address to pay the base amount + tag to */
   payTo: string;
   /** Maximum time in seconds to complete payment */
   maxTimeoutSeconds: number;
-  /** Scheme-specific extra data */
-  extra: NanoSessionExtra;
+  /** Scheme-specific NanoSession extra data, now namespaced */
+  extra: {
+    nanoSession: NanoSessionExtra;
+    [key: string]: unknown;
+  };
+}
+
+export interface PaymentRequired {
+  x402Version: 2;
+  error?: string;
+  resource: ResourceInfo;
+  accepts: PaymentRequirements[];
+  extensions?: Record<string, unknown>;
 }
 
 export interface PaymentPayload {
-  /** Block hash as payment proof */
-  blockHash: string;
+  x402Version: 2;
+  resource?: ResourceInfo;
+  accepted: PaymentRequirements;
+  payload: {
+    /** The Nano block hash serving as the proof of payment */
+    proof: string;
+  };
+  extensions?: Record<string, unknown>;
 }

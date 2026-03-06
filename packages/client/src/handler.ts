@@ -1,6 +1,7 @@
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import type { NanoRpcClient } from '@nanosession/rpc';
 import { deriveKeyPair, createSendBlock, signBlock } from './signing.js';
+import { SCHEME } from '@nanosession/core';
 
 export interface PaymentExecer {
   requirements: PaymentRequirements;
@@ -32,12 +33,17 @@ export class NanoSessionPaymentHandler {
     const execers: PaymentExecer[] = [];
 
     for (const requirements of accepts) {
-      if (requirements.scheme !== 'nano-session') {
+      if (requirements.scheme !== SCHEME || requirements.network !== 'nano:mainnet') {
         continue;
       }
 
-      if (this.maxSpend && BigInt(requirements.amount) > BigInt(this.maxSpend)) {
-        throw new Error(`Payment exceeds max spend: ${requirements.amount} > ${this.maxSpend}`);
+      const nanoSession = requirements.extra?.nanoSession;
+      const tagValue = BigInt(nanoSession?.tag ?? 0);
+      const tagMultiplier = BigInt(nanoSession?.tagMultiplier ?? '1');
+      const totalAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
+
+      if (this.maxSpend && totalAmount > BigInt(this.maxSpend)) {
+        throw new Error(`Payment exceeds max spend: ${totalAmount} > ${this.maxSpend}`);
       }
 
       execers.push({
@@ -57,8 +63,9 @@ export class NanoSessionPaymentHandler {
       Buffer.from(keyPair.publicKey).toString('hex')
     );
 
-    const tagValue = BigInt(requirements.extra?.tag ?? 0);
-    const tagMultiplier = BigInt(requirements.extra?.tagMultiplier ?? '1');
+    const nanoSession = requirements.extra?.nanoSession;
+    const tagValue = BigInt(nanoSession?.tag ?? 0);
+    const tagMultiplier = BigInt(nanoSession?.tagMultiplier ?? '1');
     const totalAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
 
     const block = createSendBlock({
@@ -76,7 +83,13 @@ export class NanoSessionPaymentHandler {
     const blockHash = 'mock_hash_' + Date.now();
 
     return {
-      payload: { blockHash }
+      payload: {
+        x402Version: 2,
+        accepted: requirements,
+        payload: {
+          proof: blockHash
+        }
+      }
     };
   }
 }

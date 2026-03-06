@@ -22,11 +22,18 @@ describe('NanoSessionPaymentHandler', () => {
       amount: '1000000',
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
-      extra: { tag: 42, sessionId: 'test', tagModulus: 10000000, expiresAt: new Date().toISOString() }
+      extra: {
+        nanoSession: {
+          tag: 42,
+          id: 'test',
+          tagModulus: 10000000,
+          expiresAt: new Date().toISOString()
+        }
+      }
     };
 
     const execers = await handler.handle({}, [requirements]);
-    
+
     expect(execers).toHaveLength(1);
     expect(execers[0].requirements).toBe(requirements);
     expect(typeof execers[0].exec).toBe('function');
@@ -45,11 +52,17 @@ describe('NanoSessionPaymentHandler', () => {
       amount: '1000000',
       payTo: '0x123',
       maxTimeoutSeconds: 300,
-      extra: {}
+      extra: {
+        nanoSession: {
+          tag: 1,
+          id: 'other',
+          tagModulus: 10
+        }
+      }
     };
 
     const execers = await handler.handle({}, [requirements]);
-    
+
     expect(execers).toHaveLength(0);
   });
 
@@ -67,7 +80,14 @@ describe('NanoSessionPaymentHandler', () => {
       amount: '2000', // Exceeds maxSpend
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
-      extra: { tag: 42, sessionId: 'test', tagModulus: 10000000, expiresAt: new Date().toISOString() }
+      extra: {
+        nanoSession: {
+          tag: 42,
+          id: 'test',
+          tagModulus: 10000000,
+          expiresAt: new Date().toISOString()
+        }
+      }
     };
 
     await expect(handler.handle({}, [requirements])).rejects.toThrow('exceeds max spend');

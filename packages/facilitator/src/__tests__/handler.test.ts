@@ -60,7 +60,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       }
     };
 
-    const result = await handler.handleVerify!(requirements, { blockHash: '0xabc' });
+    const mockPayload: any = { payload: { proof: '0xabc' }, accepted: requirements };
+    const result = await handler.handleVerify!(requirements, mockPayload);
     expect(result).toBeNull();
   });
 
@@ -76,7 +77,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+    const nanoSession = requirements.extra.nanoSession;
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(nanoSession.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '0000002A',
@@ -87,7 +89,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       height: 100
     });
 
-    const result = await handler.handleVerify!(requirements, { blockHash: '0000002A' });
+    const mockPayload: any = { payload: { proof: '0000002A' }, accepted: requirements };
+    const result = await handler.handleVerify!(requirements, mockPayload);
 
     expect(result).not.toBeNull();
     expect(result!.isValid).toBe(true);
@@ -105,7 +108,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+    const nanoSession = requirements.extra.nanoSession;
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(nanoSession.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValueOnce({
       hash: '00000029',
@@ -115,7 +119,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       amount: taggedAmount
     });
 
-    const result = await handler.handleVerify!(requirements, { blockHash: '00000029' });
+    const mockPayload: any = { payload: { proof: '00000029' }, accepted: requirements };
+    const result = await handler.handleVerify!(requirements, mockPayload);
 
     expect(result).not.toBeNull();
     expect(result!.isValid).toBe(false);
@@ -134,7 +139,8 @@ describe('NanoSessionFacilitatorHandler', () => {
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+    const nanoSession = requirements.extra.nanoSession;
+    const taggedAmount = (BigInt(requirements.amount) + BigInt(nanoSession.tag)).toString();
 
     mockRpcClient.getBlockInfo.mockResolvedValue({
       hash: '0000002A',
@@ -145,12 +151,13 @@ describe('NanoSessionFacilitatorHandler', () => {
     });
 
     // First settlement should succeed
-    const result1 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
+    const mockPayload: any = { payload: { proof: '0000002A' }, accepted: requirements };
+    const result1 = await handler.handleSettle!(requirements, mockPayload);
     expect(result1).not.toBeNull();
     expect(result1!.success).toBe(true);
 
     // Second settlement should fail (double spend)
-    const result2 = await handler.handleSettle!(requirements, { blockHash: '0000002A' });
+    const result2 = await handler.handleSettle!(requirements, mockPayload);
     expect(result2).not.toBeNull();
     expect(result2!.success).toBe(false);
   });
@@ -168,14 +175,17 @@ describe('NanoSessionFacilitatorHandler', () => {
       payTo: 'nano_destination',
       maxTimeoutSeconds: 300,
       extra: {
-        tag: 42,
-        sessionId: 'fake-session-never-issued',
-        tagModulus: 1000000,
-        expiresAt: new Date().toISOString()
+        nanoSession: {
+          tag: 42,
+          id: 'fake-session-never-issued',
+          tagModulus: 1000000,
+          expiresAt: new Date().toISOString()
+        }
       }
     };
 
-    const result = await handler.handleSettle!(fakeRequirements, { blockHash: '0000002A' });
+    const mockPayload: any = { payload: { proof: '0000002A' }, accepted: fakeRequirements };
+    const result = await handler.handleSettle!(fakeRequirements, mockPayload);
 
     expect(result).not.toBeNull();
     expect(result!.success).toBe(false);

@@ -141,11 +141,13 @@ export class NanoSessionFacilitatorHandler {
       payTo: args.payTo,
       maxTimeoutSeconds: args.maxTimeoutSeconds ?? 600,
       extra: {
-        tag,
-        sessionId,
-        tagModulus,
-        tagMultiplier,
-        expiresAt
+        nanoSession: {
+          tag,
+          id: sessionId,
+          tagModulus,
+          tagMultiplier,
+          expiresAt
+        }
       }
     };
 
@@ -166,7 +168,7 @@ export class NanoSessionFacilitatorHandler {
     }
 
     // Check if session has expired
-    const expiresAt = requirements.extra?.expiresAt;
+    const expiresAt = requirements.extra?.nanoSession?.expiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
       this.sessionRegistry.delete(sessionId);
       return undefined;
@@ -202,15 +204,17 @@ export class NanoSessionFacilitatorHandler {
     }
 
     try {
+      const blockHash = payload.payload.proof;
+
       // Get block information from Nano RPC
-      let blockInfo = await this.rpcClient.getBlockInfo(payload.blockHash);
+      let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
 
       // Simple retry logic for confirmation propagation delay
       // WebSocket often sees block faster than RPC node marks it as confirmed
       if (!blockInfo.confirmed) {
         for (let i = 0; i < 10; i++) {
           await new Promise(resolve => setTimeout(resolve, 500));
-          blockInfo = await this.rpcClient.getBlockInfo(payload.blockHash);
+          blockInfo = await this.rpcClient.getBlockInfo(blockHash);
           if (blockInfo.confirmed) break;
         }
       }
@@ -235,9 +239,9 @@ export class NanoSessionFacilitatorHandler {
 
       // Session Binding: Verify session ID matches
       // This protects against receipt-stealing attacks
-      // We check if the payload (which can be extended) or the requirements match
-      const payloadSessionId = (payload as any).sessionId ?? requirements.extra?.sessionId;
-      if (payloadSessionId !== requirements.extra?.sessionId) {
+      // Extract from the requirements that the client echoes back in 'accepted' (or the server requirements)
+      const payloadSessionId = payload.accepted?.extra?.nanoSession?.id ?? requirements.extra?.nanoSession?.id;
+      if (payloadSessionId !== requirements.extra?.nanoSession?.id) {
         return {
           isValid: false,
           error: 'Session ID mismatch'
@@ -246,7 +250,7 @@ export class NanoSessionFacilitatorHandler {
 
       // Session Registry Check: Ensure the session ID was actually issued by us
       // This protects against session spoofing attacks
-      if (!this.sessionRegistry.has(requirements.extra?.sessionId)) {
+      if (!this.sessionRegistry.has(requirements.extra?.nanoSession?.id)) {
         return {
           isValid: false,
           error: 'Session not found or expired'
@@ -255,8 +259,9 @@ export class NanoSessionFacilitatorHandler {
 
       // Amount tagging: Verify amount matches base amount + session tag
       const actualAmount = BigInt(blockInfo.amount);
-      const tagValue = BigInt(requirements.extra?.tag ?? 0);
-      const tagMultiplier = BigInt(requirements.extra?.tagMultiplier ?? '1');
+      const nanoSession = requirements.extra?.nanoSession;
+      const tagValue = BigInt(nanoSession?.tag ?? 0);
+      const tagMultiplier = BigInt(nanoSession?.tagMultiplier ?? '1');
       const expectedAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
 
       if (actualAmount !== expectedAmount) {
@@ -268,7 +273,7 @@ export class NanoSessionFacilitatorHandler {
 
       return {
         isValid: true,
-        blockHash: payload.blockHash
+        blockHash: payload.payload.proof
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -301,7 +306,7 @@ export class NanoSessionFacilitatorHandler {
     }
 
     // Check if already spent
-    const isSpent = await this.spentSet.has(payload.blockHash);
+    const isSpent = await this.spentSet.has(payload.payload.proof);
     if (isSpent) {
       return {
         success: false,
@@ -310,16 +315,16 @@ export class NanoSessionFacilitatorHandler {
     }
 
     // Mark as spent
-    await this.spentSet.add(payload.blockHash);
+    await this.spentSet.add(payload.payload.proof);
 
     // Remove from session registry to prevent reuse
-    if (requirements.extra?.sessionId) {
-      this.sessionRegistry.delete(requirements.extra.sessionId);
+    if (requirements.extra?.nanoSession?.id) {
+      this.sessionRegistry.delete(requirements.extra.nanoSession.id);
     }
 
     return {
       success: true,
-      transactionHash: payload.blockHash
+      transactionHash: payload.payload.proof
     };
   }
 }

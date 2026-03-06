@@ -9,7 +9,7 @@ export const TAG_MODULUS = 10_000_000;
 export const DEFAULT_TAG_MULTIPLIER = '1';
 
 /** Scheme identifier for NanoSession */
-export const SCHEME = 'nano-session';
+export const SCHEME = 'exact';
 
 /** Network identifier (CAIP-2 format) - unofficial */
 export const NETWORK = 'nano:mainnet';

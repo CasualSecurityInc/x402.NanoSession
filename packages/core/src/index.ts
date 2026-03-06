@@ -15,7 +15,6 @@ export {
 
 // Re-export from types
 export type {
-  NanoSessionHeaders,
   NanoSessionExtra,
   PaymentRequirements,
   PaymentPayload
@@ -29,5 +28,4 @@ export {
   decodePaymentSignature
 } from './mapping.js';
 
-export { StandardAccountPool } from './address-pool.js';
-export type { AddressPool } from './address-pool.js';
+export { calculateTaggedAmount, deriveAddressFromSeed } from './utils.js';

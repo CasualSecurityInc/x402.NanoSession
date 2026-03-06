@@ -17,9 +17,8 @@ export default defineConfig({
             { text: 'Protocol', link: '/protocol' },
             { text: 'Extension A: Pools', link: '/extensions/extension-a-pools' },
             { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' },
-            { text: 'Extension C: Rebates', link: '/extensions/extension-c-rebates' },
-            { text: 'Extension D: Dust Return', link: '/extensions/extension-d-dustreturn' },
-            { text: 'x402 Compat', link: '/extensions/extension-x402-compat' },
+            { text: 'Extension C: Rebates', link: '/x402_NanoSession_rev6_Extension_C_Rebates' },
+            { text: 'Extension D: Dust Return', link: '/x402_NanoSession_rev6_Extension_D_DustReturn' },
             {
                 text: 'Appendix', items: [
                     { text: 'Raw-Dust UX', link: '/appendix/wallet-ux' },

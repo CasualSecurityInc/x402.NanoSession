@@ -103,22 +103,24 @@ async function fetchPaymentRequirements() {
 
     // Check if it's the expected 402
     if (res.status === 402) {
-      const xPaymentRequired = res.headers.get('x-payment-required')
-      if (xPaymentRequired) {
-        // Pretty print the JSON for the log
-        let prettyJson = ''
+      const paymentRequiredB64 = res.headers.get('payment-required')
+      if (paymentRequiredB64) {
+        let reqPayload;
         try {
-            prettyJson = JSON.stringify(JSON.parse(xPaymentRequired), null, 2)
-        } catch {
-            prettyJson = xPaymentRequired
+            reqPayload = JSON.parse(atob(paymentRequiredB64));
+        } catch (e) {
+            throw new Error("Invalid PAYMENT-REQUIRED header format");
         }
+        
+        const reqs = reqPayload.accepts[0];
+
+        // Pretty print the JSON for the log
+        const prettyJson = JSON.stringify(reqPayload, null, 2);
 
         httpLog.value.push({
             type: 'res',
-            content: `HTTP/1.1 402 Payment Required\nX-Payment-Required: ${prettyJson}`
+            content: `HTTP/1.1 402 Payment Required\nPAYMENT-REQUIRED: ${prettyJson}`
         })
-
-        const reqs = JSON.parse(xPaymentRequired)
         
         // Log 402 response for debugging
         console.warn('[NanoPaywall] 402 Response received:', {
@@ -126,10 +128,10 @@ async function fetchPaymentRequirements() {
             network: reqs.network,
             amount: reqs.amount,
             payTo: reqs.payTo,
-            tag: reqs.extra?.tag,
-            sessionId: reqs.extra?.sessionId,
-            tagModulus: reqs.extra?.tagModulus,
-            calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.tag || 0)).toString()
+            tag: reqs.extra?.nanoSession?.tag,
+            sessionId: reqs.extra?.nanoSession?.id,
+            tagModulus: reqs.extra?.nanoSession?.tagModulus,
+            calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.nanoSession?.tag || 0)).toString()
         })
         
         // Store the raw requirements for POST fallback if server loses session
@@ -137,8 +139,8 @@ async function fetchPaymentRequirements() {
         
         session.value = {
           payTo: reqs.payTo,
-          amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString(),
-          sessionId: reqs.extra.sessionId,
+          amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.nanoSession.tag)).toString(),
+          sessionId: reqs.extra.nanoSession.id,
           expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000
         }
 
@@ -151,7 +153,7 @@ async function fetchPaymentRequirements() {
         // Connect SSE
         connectSSE()
       } else {
-        throw new Error("Missing X-Payment-Required header")
+        throw new Error("Missing PAYMENT-REQUIRED header")
       }
     } else if (res.status === 200) {
         // Technically shouldn't happen on first load without a session
@@ -250,13 +252,19 @@ async function verifyPayment(hash: string) {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 20000)
 
+        const signaturePayload = {
+            x402Version: 2,
+            accepted: originalRequirements.value,
+            payload: { proof: hash }
+        };
+        const signatureB64 = btoa(JSON.stringify(signaturePayload));
+
         // First try GET with stored session headers
-        httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
+        httpLog.value.push({ type: 'req', content: `GET /api/protected\nPAYMENT-SIGNATURE: ${JSON.stringify(signaturePayload, null, 2)}` })
 
         let res = await fetch(`${activeServerUrl.value}/api/protected`, {
             headers: {
-                'X-Payment-Block': hash,
-                'X-Payment-Session': session.value?.sessionId
+                'PAYMENT-SIGNATURE': signatureB64
             },
             signal: controller.signal
         })
@@ -266,14 +274,13 @@ async function verifyPayment(hash: string) {
         if (protectedData.code === 'SESSION_LOST' && originalRequirements.value) {
             console.warn('[NanoPaywall] Server session lost, retrying with POST fallback')
             httpLog.value.push({ type: 'info', content: '(Server session expired, retrying with stored requirements...)' })
-            httpLog.value.push({ type: 'req', content: `POST /api/protected\n{blockHash: "${hash}", requirements: {...}}` })
+            httpLog.value.push({ type: 'req', content: `POST /api/protected\n{paymentSignature: "..."}` })
 
             res = await fetch(`${activeServerUrl.value}/api/protected`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    blockHash: hash,
-                    requirements: originalRequirements.value
+                    paymentSignature: signatureB64
                 }),
                 signal: controller.signal
             })
@@ -848,8 +855,10 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .retry-btn {
     margin-top: 16px;
-    padding: 8px 16px;
-    background-color: var(--vp-c-brand);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: #2563eb;
     color: white;
     border: none;
     border-radius: 6px;
@@ -858,7 +867,11 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 }
 
 .retry-btn:hover {
-    background-color: var(--vp-c-brand-dark);
+    background-color: #1d4ed8;
+}
+
+.retry-btn:active {
+    background-color: #1e40af;
 }
 
 /* Expired State */

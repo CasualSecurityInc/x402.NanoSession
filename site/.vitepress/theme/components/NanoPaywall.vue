@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import QRCode from 'qrcode'
 import { usePaymentStatus } from '../composables/usePaymentStatus'
 import { useXnapSnap } from '../composables/useXnapSnap'
+import { calculateTaggedAmount } from '@nanosession/core'
 
 const props = defineProps({
   demoServerUrl: {
@@ -131,7 +132,7 @@ async function fetchPaymentRequirements() {
             tag: reqs.extra?.nanoSession?.tag,
             sessionId: reqs.extra?.nanoSession?.id,
             tagModulus: reqs.extra?.nanoSession?.tagModulus,
-            calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.nanoSession?.tag || 0)).toString()
+            calculatedAmountRaw: calculateTaggedAmount(reqs)
         })
         
         // Store the raw requirements for POST fallback if server loses session
@@ -139,7 +140,7 @@ async function fetchPaymentRequirements() {
         
         session.value = {
           payTo: reqs.payTo,
-          amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.nanoSession.tag)).toString(),
+          amountRaw: calculateTaggedAmount(reqs),
           sessionId: reqs.extra.nanoSession.id,
           expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000
         }

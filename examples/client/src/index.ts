@@ -7,6 +7,7 @@
 
 import { NanoSessionPaymentHandler } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
+import { decodePaymentRequired, decodePaymentSignature, encodePaymentSignature } from '@nanosession/core';
 import type { PaymentRequirements } from '@nanosession/core';
 
 // Configuration
@@ -48,19 +49,22 @@ async function fetchWithPayment(url: string): Promise<Response> {
     console.log('🔒 Received 402 Payment Required');
 
     // Extract payment requirements from header
-    const paymentRequiredHeader = response.headers.get('X-Payment-Required');
+    const paymentRequiredHeader = response.headers.get('PAYMENT-REQUIRED');
     if (!paymentRequiredHeader) {
       throw new Error('Server returned 402 but no payment requirements');
     }
 
-    const requirements: PaymentRequirements = JSON.parse(paymentRequiredHeader);
+    const paymentRequired = decodePaymentRequired(paymentRequiredHeader);
+    const requirements = paymentRequired.accepts[0];
+    const nanoSession = requirements.extra.nanoSession;
+
     console.log('💳 Payment Requirements:');
     console.log(`   Scheme: ${requirements.scheme}`);
     console.log(`   Network: ${requirements.network}`);
     console.log(`   Amount: ${requirements.amount} raw (${Number(requirements.amount) / 1e30} XNO)`);
     console.log(`   Pay To: ${requirements.payTo}`);
-    console.log(`   Session ID: ${requirements.extra.sessionId}`);
-    console.log(`   Tag: ${requirements.extra.tag}`);
+    console.log(`   Session ID: ${nanoSession.id}`);
+    console.log(`   Tag: ${nanoSession.tag}`);
     console.log('');
 
     // Check if we can afford it
@@ -81,14 +85,14 @@ async function fetchWithPayment(url: string): Promise<Response> {
     const { payload } = await execers[0].exec();
 
     console.log('✅ Payment broadcast!');
-    console.log(`   Block Hash: ${payload.blockHash}`);
+    console.log(`   Block Hash: ${payload.payload.proof}`);
     console.log('');
 
     // Retry the request with payment
     console.log('🔄 Retrying request with payment...');
     response = await fetch(url, {
       headers: {
-        'X-Payment-Response': JSON.stringify(payload)
+        'PAYMENT-SIGNATURE': encodePaymentSignature(payload)
       }
     });
   }

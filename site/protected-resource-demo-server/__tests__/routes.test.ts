@@ -3,7 +3,7 @@ import request from 'supertest';
 import { testApp } from './app';
 import crypto from 'crypto';
 
-import { decodePaymentRequired, encodePaymentSignature } from '@nanosession/core';
+import { decodePaymentRequired } from '@nanosession/core';
 
 // Mock process.env for the tests
 process.env.NANO_RPC_URL = 'http://localhost:7076';
@@ -25,6 +25,9 @@ describe('Demo Server Routes', () => {
         it('should return 402 Payment Required when no proof is provided', async () => {
             const response = await request(testApp).get('/api/protected');
 
+            if (response.status !== 402) {
+                console.error("Test failed: GET /api/protected returned", response.status, response.body, response.text);
+            }
             expect(response.status).toBe(402);
             expect(response.headers['payment-required']).toBeDefined();
 
@@ -43,10 +46,10 @@ describe('Demo Server Routes', () => {
 
         it('should return 410 SESSION_LOST for unknown session IDs', async () => {
             const fakeSessionId = crypto.randomUUID();
-            const mockSignature = encodePaymentSignature({
+            const payload = {
                 x402Version: 2,
                 accepted: {
-                    scheme: 'exact',
+                    scheme: 'nano-session',
                     network: 'nano:mainnet',
                     asset: 'XNO',
                     amount: '1000',
@@ -61,7 +64,8 @@ describe('Demo Server Routes', () => {
                     }
                 },
                 payload: { proof: 'A1B2C3D4A1B2C3D4A1B2C3D4A1B2C3D4' }
-            });
+            };
+            const mockSignature = Buffer.from(JSON.stringify(payload)).toString('base64');
 
             const response = await request(testApp)
                 .get('/api/protected')

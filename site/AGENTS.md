@@ -1,5 +1,15 @@
 # AGENTS.md for `site/`
 
+---
+
+## 🛠️ Environment & Node.js
+
+- **Node.js**: Always use the default system Node version (**v25.7.0+**).
+- **nvm**: Do **NOT** use `nvm` commands (`nvm use`, `nvm ls`, etc.) in this project.
+- **Package Manager**: Always use `pnpm` (v10+).
+
+---
+
 ## 🌐 Documentation Website
 
 This directory contains the VitePress project for the x402.NanoSession documentation.
@@ -34,8 +44,10 @@ We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we gene
     *   Adds "See Also" links to Protocol.
     *   Adds "Back to Protocol" link to Extensions.
 
-**⚠️ AGENT POLICY: Hardcoded Revisions**
-Because the build script does not perform magic string replacement for document bodies, **you must manually grep and update any hardcoded string matches** (e.g. `using the **Rev 6** protocol flow` or `Rev. 6`) across `site/*.md` whenever you bump the protocol revision (e.g., from Rev 6 to Rev 7).
+**⚠️ AGENT POLICY**
+1. **Hardcoded Revisions**: The build script does not perform magic string replacement for document bodies. You must manually grep and update any hardcoded string matches (e.g. `using the **Rev 6** protocol flow` or `Rev. 6`) across `site/*.md` whenever you bump the protocol revision.
+2. **No NVM**: Never attempt to change Node versions using `nvm`. Stick to the system default node.
+3. **Calculation Logic**: Always use the `@nanosession/core` utility `calculateTaggedAmount` for anything involving payment amounts. Never calculate BigInt sums for tagged amounts (base + tag * multiplier) manually in UI or server code.
 
 ### 🎨 Theme & Config
 

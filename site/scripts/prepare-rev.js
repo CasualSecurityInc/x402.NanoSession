@@ -7,7 +7,7 @@ if (!SPEC_REV) {
   process.exit(1);
 }
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
-const TARGET_DIR = path.resolve(__dirname, '../docs');
+const TARGET_DIR = path.resolve(__dirname, '../gen/docs');
 const EXTENSIONS_DIR = path.join(TARGET_DIR, 'extensions');
 const APPENDIX_DIR = path.join(TARGET_DIR, 'appendix');
 

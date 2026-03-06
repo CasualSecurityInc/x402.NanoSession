@@ -21,14 +21,14 @@ This directory contains the VitePress project for the x402.NanoSession documenta
 
 ### 🏗️ Build System (`scripts/prepare-rev.js`)
 
-We do **not** edit markdown files in `site/docs/` directly. Instead, we generate them from `../docs/` at build time.
+We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we generate them from `../docs/` at build time.
 
 **The Script Logic:**
 1.  Reads `SPEC_REV` env var (default: `rev3`).
-2.  **Cleans**: Deletes `site/docs/`.
+2.  **Cleans**: Deletes `site/gen/docs/`.
 3.  **Copies & Renames**:
-    *   `../docs/..._Protocol.md` -> `site/docs/index.md`
-    *   `../docs/..._Extension_Name.md` -> `site/docs/extensions/name.md`
+    *   `../docs/..._Protocol.md` -> `site/gen/docs/index.md`
+    *   `../docs/..._Extension_Name.md` -> `site/gen/docs/extensions/name.md`
 4.  **Injects Navigation**:
     *   Adds "Tree View" to Protocol.
     *   Adds "See Also" links to Protocol.

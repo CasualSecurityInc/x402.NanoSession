@@ -14,7 +14,7 @@ The primary HTTP server that clients interact with. It receives requests for pro
 
 ### Facilitator
 
-The secure backend service responsible for blockchain interactions. The Facilitator holds the destination Nano account addresses, connects to the Nano network (via RPC or WebSockets), handles cryptographic session issuance (`sessionId`), maintains the **Spent Set** to prevent double-spends, and verifies submitted `block_hash` payloads. It can be embedded within the Resource Server or deployed standalone.
+The secure backend service responsible for blockchain interactions. The Facilitator holds the destination Nano account addresses, connects to the Nano network (via RPC or WebSockets), handles cryptographic session issuance (`id`), maintains the **Spent Set** to prevent double-spends, and verifies submitted `block_hash` payloads. It can be embedded within the Resource Server or deployed standalone.
 
 ### Janitor
 
@@ -30,9 +30,9 @@ A server-side binding between a payment request and the client that received it.
 
 **How it works:**
 
-1. Server generates unique `sessionId` when returning 402
-2. Server stores: `sessionId → { payTo, baseAmount, tag, expiresAt }`
-3. Client must return `sessionId` alongside the block hash
+1. Server generates unique session `id` when returning 402
+2. Server stores: `id → { payTo, baseAmount, tag, expiresAt }`
+3. Client must return `id` (nested in `nanoSession`) alongside the block hash
 4. Server verifies block matches requirements for *that specific session*
 5. Session is single-use: deleted after successful verification
 
@@ -56,7 +56,7 @@ A vulnerability in payment protocols with publicly-observable ledgers where an a
 5. Server validates: exists ✓, correct destination ✓, not spent ✓
 6. Attacker receives access; Client A's subsequent claim rejected as "spent"
 
-**Prevention:** Mandatory session binding. The attacker lacks the `sessionId` issued to Client A.
+**Prevention:** Mandatory session binding. The attacker lacks the session `id` issued to Client A.
 
 ---
 
@@ -69,7 +69,7 @@ Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10�
 **How it works:**
 
 1. Server specifies base price aligned to **Tag Modulus** (e.g., `10,000,000`)
-2. Server generates unique **Tag** (0 to 9,999,999) per session
+2. Server generates unique **Tag** (0 to 9,999,999) per session `id`
 3. Client sends: `Tagged Amount = Base Price + Tag`
 4. Server extracts tag via `Amount % TAG_MODULUS`
 
@@ -142,9 +142,9 @@ The hash of the most recent block in a Nano account's chain.
 The client-side component handling x402 payment flows. A "headless purse":
 
 1. Detects HTTP 402 responses
-2. Extracts session ID and payment requirements
+2. Extracts session `id` and payment requirements
 3. Calculates tagged amount
 4. Signs and broadcasts Nano send block
-5. Retries original request with block hash and session ID
+5. Retries original request with block hash and session `id`
 
 Purses typically operate within a **Daily Budget** to prevent runaway spending.

@@ -66,4 +66,4 @@ A potential mitigation for 6-decimal truncation is to "left-shift" the dust tag 
 - Reduces tag modulus (fewer unique session IDs)
 - Weakens session binding security
 
-Current Rev5 implementation prioritizes security (larger tag space) over wallet compatibility. Future protocol revisions may reconsider this balance as the ecosystem evolves.
+Current Rev 6 implementation prioritizes security (larger tag space) over wallet compatibility. Future protocol revisions may reconsider this balance as the ecosystem evolves.

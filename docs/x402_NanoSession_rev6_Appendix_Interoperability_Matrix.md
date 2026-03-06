@@ -6,7 +6,7 @@ While the x402 v2 specification and CAIP standards claim to be chain-agnostic, p
 
 | Interoperability Area | Current NanoSession | Required Standard Alignment |
 | :--- | :--- | :--- |
-| **[Signatures vs. State](#signatures-vs-state)** | Stateful session IDs to handle Nano's frontier. | Generic x402 agents must support stateful verification protocols. |
+| **[Signatures vs. State](#signatures-vs-state)** | Stateful session ids to handle Nano's frontier. | Generic x402 agents must support stateful verification protocols. |
 | **[CAIP-2: Chain ID](#caip-2-chain-identification)** | `network: "nano:mainnet"` | `network: "nano:1"` |
 | **[CAIP-10: Account ID](#caip-10-account-identification)** | `payTo: "nano_39qdd..."` | `payTo: "nano:1:nano_39qdd..."` |
 | **[CAIP-19: Asset ID](#caip-19-asset-identification)** | `asset: "XNO"` | `asset: "slip44:165"` |

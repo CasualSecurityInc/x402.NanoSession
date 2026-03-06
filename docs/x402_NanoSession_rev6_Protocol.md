@@ -85,50 +85,48 @@ NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating
 ### 2.1. Overview
 
 ```
-┌────────┐         ┌─────────────────┐       ┌─────────────┐        ┌──────────┐
-│ Client │         │ Resource Server │       │ Facilitator │        │   Nano   │
-└───┬────┘         └────────┬────────┘       └──────┬──────┘        └────┬─────┘
-    │  GET /resource        │                       │                    │
-    │──────────────────────>│                       │                    │
-    │                       │   Init Session        │                    │
-    │                       │──────────────────────>│                    │
-    │                       │   {sessionId, reqs}   │                    │
-    │                       │<──────────────────────│                    │
-    │  402 + Headers        │                       │                    │
-    │  (incl sessionId)     │                       │                    │
-    │<──────────────────────│                       │                    │
-    │                   Send Block (Broadcast)                           │
-    │───────────────────────────────────────────────────────────────────>│
-    │  GET /resource        │                       │                    │
-    │  + Block Hash         │                       │                    │
-    │  + Session ID         │                       │                    │
-    │──────────────────────>│                       │                    │
-    │                       │   Verify(Hash, ID)    │                    │
-    │                       │──────────────────────>│                    │
-    │                       │                       │   Fetch Block      │
-    │                       │                       │───────────────────>│
-    │                       │                       │   Confirmed?       │
-    │                       │                       │<───────────────────│
-    │                       │ Verify OK (Set Spent) │                    │
-    │                       │<──────────────────────│                    │
-    │  200 OK               │                       │                    │
-    │<──────────────────────│                       │                    │
+┌────────┐          ┌─────────────────┐       ┌─────────────┐        ┌──────────┐
+│ Client │          │ Resource Server │       │ Facilitator │        │   Nano   │
+└───┬────┘          └────────┬────────┘       └──────┬──────┘        └────┬─────┘
+    │  GET /resource         │                       │                    │
+    │───────────────────────>│                       │                    │
+    │                        │   Init Session        │                    │
+    │                        │──────────────────────>│                    │
+    │                        │ {reqs w/ nanoSession} │                    │
+    │                        │<──────────────────────│                    │
+    │ 402 + PAYMENT-REQUIRED │                       │                    │
+    │  (incl nanoSession.id) │                       │                    │
+    │<───────────────────────│                       │                    │
+    │                    Send Block (Broadcast)                           │
+    │────────────────────────────────────────────────────────────────────>│
+    │  GET /resource         │                       │                    │
+    │  + PAYMENT-SIGNATURE   │                       │                    │
+    │───────────────────────>│                       │                    │
+    │                        │ Verify(hash,          │                    │
+    │                        │        nanoSession.id)│                    │
+    │                        │──────────────────────>│                    │
+    │                        │                       │   Fetch Block      │
+    │                        │                       │───────────────────>│
+    │                        │                       │   Confirmed?       │
+    │                        │                       │<───────────────────│
+    │                        │ Verify OK (Set Spent) │                    │
+    │                        │<──────────────────────│                    │
+    │  200 OK                │                       │                    │
+    │<───────────────────────│                       │                    │
 ```
 
 ### 2.2. Payment Flow (Normative)
 
 1. Client requests protected resource from the Resource Server.
 2. Resource Server requests payment requirements from the Facilitator.
-3. Facilitator generates unique `sessionId` and payment requirements (including `tag`).
-4. Facilitator stores mapping: `sessionId → { payTo, baseAmount, tag, expiresAt }`.
-5. Resource Server returns HTTP 402 with requirements including `sessionId`.
+3. Facilitator generates unique session `id` and payment requirements (including `tag`).
+4. Facilitator stores mapping: `id → { payTo, baseAmount, tag, expiresAt }`.
+5. Resource Server returns HTTP 402 with requirements including `nanoSession.id`.
 6. Client calculates tagged amount: `baseAmount + tag`.
 7. Client signs and broadcasts Nano send block to the network.
-8. Client retries request to Resource Server with:
-   - `X-PAYMENT-BLOCK`: block hash
-   - `X-PAYMENT-SESSION`: sessionId
+8. Client retries request to Resource Server with `PAYMENT-SIGNATURE` mapping `proof` to the block hash.
 9. Resource Server forwards the proof to the Facilitator.
-10. Facilitator retrieves stored requirements using `sessionId`.
+10. Facilitator retrieves stored requirements using session `id`.
 11. Facilitator verifies:
     - Block is confirmed on-chain
     - Block destination matches stored `payTo`
@@ -138,26 +136,60 @@ NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating
 13. Facilitator responds "Valid" to Resource Server.
 14. Resource Server grants access to Client.
 
-### 2.3. Required Headers
+### 2.3. Required Headers (x402 V2 Standard)
+
+NanoSession natively adopts the standard Coinbase x402 V2 API definition for payment negotiations, utilizing Base64-encoded JSON objects passed in standard headers.
 
 #### 402 Response (Server → Client)
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-PAYMENT-ADDRESS` | ✓ | Nano destination address |
-| `X-PAYMENT-AMOUNT` | ✓ | Base amount in raw |
-| `X-PAYMENT-TAG` | ✓ | Tag value (0 to TAG_MODULUS-1) |
-| `X-PAYMENT-SESSION` | ✓ | Unique session identifier |
-| `X-PAYMENT-EXPIRES` | ✓ | ISO 8601 expiration timestamp |
-| `X-PAYMENT-TAG-MODULUS` | | Tag modulus (default: 10000000) |
-| `X-PAYMENT-TAG-MULTIPLIER` | | Tag decimal shift multiplier (default: "1") |
+**Header:** `PAYMENT-REQUIRED`
+
+Servers MUST return a Base64-encoded `PaymentRequired` JSON object containing the required price and the session-bound Nano tagging details mapped into the `extra` field:
+
+```json
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://example.com/api/protected"
+  },
+  "accepts": [
+    {
+       "scheme": "exact",
+       "network": "nano:mainnet",
+       "asset": "XNO",
+       "amount": "0.01",
+       "payTo": "nano_123...",
+       "maxTimeoutSeconds": 180,
+       "extra": {
+           "nanoSession": {
+               "tag": 1234,
+               "tagModulus": 10000,
+               "tagMultiplier": "1",
+               "id": "uuid-1234"
+           }
+       }
+    }
+  ]
+}
+```
 
 #### Retry Request (Client → Server)
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-PAYMENT-BLOCK` | ✓ | 64-character hex block hash |
-| `X-PAYMENT-SESSION` | ✓ | Session ID from 402 response |
+**Header:** `PAYMENT-SIGNATURE`
+
+Clients MUST retry the HTTP request with a Base64-encoded `PaymentPayload` JSON object asserting the block proof. The `accepted` block must echo back the exact requirement chosen from the Server response.
+
+*Note: While x402 V2 refers to this header as `PAYMENT-SIGNATURE`, Nano's lattice architecture means the client provides a public network block hash as the `proof` rather than a local cryptographic signature.*
+
+```json
+{
+  "x402Version": 2,
+  "accepted": { /* exact copy of the chosen requirement object above */ },
+  "payload": {
+     "proof": "64_CHARACTER_HEX_BLOCK_HASH"
+  }
+}
+```
 
 ## 3. Technical Specification
 
@@ -167,7 +199,7 @@ NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating
 - **Uniqueness:** MUST be unique per payment request
 - **Lifetime:** Valid until expiration or successful settlement
 - **Single-use:** MUST be invalidated after successful payment verification
-- **Storage:** Facilitator MUST store session→requirements mapping
+- **Storage:** Facilitator MUST store `nanoSession.id`→requirements mapping
 
 ### 3.2. Raw Tagging (Normative)
 
@@ -175,7 +207,7 @@ To distinguish payments sent to the same address:
 
 1. **Tag Modulus:** `TAG_MODULUS = 10,000,000`
 2. **Tag Range:** 0 to 9,999,999
-3. **Tag Generation:** Random or `Hash(sessionId || nonce) % TAG_MODULUS`
+3. **Tag Generation:** Random or `Hash(id || nonce) % TAG_MODULUS`
 4. **Tagged Amount:** `Amount_Final = Price_Raw + Tag`
 5. **Price Constraint:** `Price_Raw % TAG_MODULUS == 0`
 6. **Collision Handling:** If generated tag is already pending, regenerate
@@ -192,7 +224,7 @@ To distinguish payments sent to the same address:
 Facilitators MUST maintain a mapping of active sessions:
 
 ```
-sessions[sessionId] = {
+sessions[id] = {
   payTo: string,        // Destination address
   baseAmount: string,   // Price before tag (raw)
   tag: number,          // Generated tag
@@ -205,22 +237,22 @@ sessions[sessionId] = {
 Session entries MUST be:
 - Created atomically with tag generation
 - Deleted after successful verification OR expiration
-- Indexed for O(1) lookup by sessionId
+- Indexed for O(1) lookup by `id`
 
 ## 4. Security Considerations
 
 ### 4.1. Receipt-Stealing Prevention
 
 The mandatory session binding prevents the receipt-stealing attack by ensuring:
-- Only the client that received a specific sessionId can claim the corresponding payment
-- The attacker cannot forge or guess a valid sessionId
-- Even if the attacker observes the payment on-chain, they lack the sessionId to claim it
+- Only the client that received a specific session `id` can claim the corresponding payment
+- The attacker cannot forge or guess a valid session `id`
+- Even if the attacker observes the payment on-chain, they lack the session `id` to claim it
 
-### 4.2. Session ID Confidentiality
+### 4.2. Session id Confidentiality
 
-- Session IDs SHOULD be transmitted over HTTPS only
-- Session IDs SHOULD NOT be logged in plaintext on client systems
-- Session IDs SHOULD have sufficient entropy (128+ bits)
+- Session ids SHOULD be transmitted over HTTPS only
+- Session ids SHOULD NOT be logged in plaintext on client systems
+- Session ids SHOULD have sufficient entropy (128+ bits)
 
 ### 4.3. Timing Considerations
 
@@ -248,22 +280,24 @@ For high-volume services, privacy-sensitive implementations, or dust lifecycle m
 
 ```
 resource_server_on_request(req):
-  if req.has_payment_proof():
-    verify_resp = facilitator.verify(req.header['X-PAYMENT-BLOCK'], req.header['X-PAYMENT-SESSION'])
+  if req.has_header('PAYMENT-SIGNATURE'):
+    payload = parse_base64_json(req.header['PAYMENT-SIGNATURE'])
+    verify_resp = facilitator.verify(payload.proof, payload.accepted.extra.nanoSession.id)
     if verify_resp.isValid:
       return 200 "Access granted"
     else:
       return 402 verify_resp.error
   else:
     session = facilitator.create_session(price)
-    return 402 with session headers
+    requirements = build_payment_required_json(session)
+    return 402 with PAYMENT-REQUIRED header (base64)
 
-facilitator_verify(block_hash, session_id):
-  session = sessions.get(session_id)
+facilatator_verify(block_hash, id):
+  session = sessions.get(id)
   if not session:
     return false, "Unknown session"
   if session.expired():
-    sessions.delete(session_id)
+    sessions.delete(id)
     return false, "Session expired"
     
   block = nano_rpc.get_block(block_hash)
@@ -279,7 +313,7 @@ facilitator_verify(block_hash, session_id):
     return false, "Not confirmed"
     
   spent_set.add(block.hash)
-  sessions.delete(session_id)
+  sessions.delete(id)
   return true, "Valid"
 ```
 

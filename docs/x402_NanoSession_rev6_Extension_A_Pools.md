@@ -26,14 +26,14 @@ The Facilitator derives addresses using the following path:
 `m / 44' / 165' / <Generation>' / <Pool_Index>'`
 
 *   `Generation = floor(UnixTimestamp / Rotation_Period)` (Default `Rotation_Period`: 1 Week).
-*   `Pool_Index = Hash(Session_ID) % Pool_Size` (Recommended Pool_Size: 20-100).
+*   `Pool_Index = Hash(id) % Pool_Size` (Recommended Pool_Size: 20-100).
 
 ### 2.2. Session Mapping
-When a client requests a resource, the Facilitator uses their `Session_ID` (from `X-PAYMENT-SESSION` header) to determine the correct `Pool_Index`.
+When a client requests a resource, the Facilitator uses their session `id` to determine the correct `Pool_Index`.
 
 **Resource Server Response (402)**:
-*   `X-PAYMENT-ADDRESS`: The specific pool address derived from `Pool_Index`.
-*   `X-PAYMENT-SESSION`: The mandatory session identifier (per Rev 6 security requirements).
+*   `payTo`: The specific pool address derived from `Pool_Index` (in `PAYMENT-REQUIRED`).
+*   `nanoSession.id`: The mandatory session identifier (in `PAYMENT-REQUIRED`).
 
 ### 2.3. The Janitor
 To ensure the Facilitator's pool accounts are always ready to move funds, the "Janitor" process SHOULD pre-compute PoW for the next expected `receive` block for **every address in the pool**. This parallelism allows the Facilitator to settle funds 20-100x faster than a single address.
@@ -46,9 +46,9 @@ Facilitators MUST monitor addresses for both the **Current** and **Previous** Ge
 
 Session binding (per Rev 6 security requirements) works identically in pooled mode:
 
-1. Facilitator generates `sessionId` and determines `Pool_Index` from session
-2. Facilitator stores: `sessionId → { payTo: poolAddress[Pool_Index], baseAmount, tag, expiresAt }`
-3. Client returns `sessionId` with block hash
+1. Facilitator generates `id` and determines `Pool_Index` from session
+2. Facilitator stores: `id → { payTo: poolAddress[Pool_Index], baseAmount, tag, expiresAt }`
+3. Client returns `id` (nested in `nanoSession`) with block hash
 4. Facilitator verifies block matches the pool address in stored requirements
 
 The pool architecture is transparent to the security model.

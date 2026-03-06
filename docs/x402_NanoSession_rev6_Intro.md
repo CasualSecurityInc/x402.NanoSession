@@ -8,10 +8,10 @@ x402.NanoSession defines a per-request HTTP 402 payment scheme for access to web
 
 | Feature | Original x402 (x402.org) | x402.NanoSession Rev 6 |
 | --- | --- | --- |
-| Transport | HTTP 402 with payment headers | HTTP 402 with X-PAYMENT headers |
+| Transport | HTTP 402 with x402 V2 headers | HTTP 402 with x402 V2 headers |
 | Payment rail | Onchain stablecoins (e.g., USDC on Base) | Nano (XNO): feeless, sub-second finality |
 | Client proof | Transfer authorization (EIP-3009) | Session-bound block hash |
-| Request binding | Payment parameters signed via EIP-712 | Mandatory session ID |
+| Request binding | Payment parameters signed via EIP-712 | Mandatory session id |
 | Concurrency | Per-request wallet signature | Multiplexed via unique session + tag per address |
 
 ## Why "NanoSession"?
@@ -22,8 +22,8 @@ Nano's block-lattice is publicly observable in real-time. Anyone can see payment
 
 The **session** provides this binding:
 
-1. Server issues unique `sessionId` with each payment request
-2. Client returns `sessionId` alongside the block hash
+1. Server issues unique session `id` with each payment request
+2. Client returns `id` (nested in `nanoSession`) alongside the block hash
 3. Server verifies the block matches requirements for *that specific session*
 
 ## Protocol Flow
@@ -31,21 +31,22 @@ The **session** provides this binding:
 Four steps. No intermediaries. Zero fees.
 
 ```
-Client                          Server                      Nano
+Client                    Server/Facilitator                Nano
   │                               │                           │
   │  GET /resource                │                           │
   │──────────────────────────────>│                           │
   │                               │                           │
-  │  402 + X-Payment-Required     │                           │
-  │  (sessionId, amount, payTo)   │                           │
+  │  402 + PAYMENT-REQUIRED       │                           │
+  │  (nanoSession.id, amount,     │                           │
+  │   tag, payTo)                 │                           │
   │<──────────────────────────────│                           │
   │                               │                           │
   │  send_block(amount + tag)     │                           │
   │───────────────────────────────────────────────────────────>
   │                               │                           │
   │  GET /resource                │                           │
-  │  + X-Payment (blockHash,      │                           │
-  │    sessionId)                 │  verify block + session   │
+  │  + PAYMENT-SIGNATURE          │                           │
+  │    (blockHash, nanoSession.id)│  verify block + session   │
   │──────────────────────────────>│───────────────────────────>
   │                               │                           │
   │  200 OK                       │                           │

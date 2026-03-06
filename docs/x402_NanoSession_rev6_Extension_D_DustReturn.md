@@ -21,18 +21,20 @@ The Resource Server MUST add the boolean flag `dustRebate: true` to the `extra` 
 ```json
 HTTP/1.1 402 Payment Required
 Content-Type: application/json
-X-PAYMENT-SCHEME: nano:nano-session
+PAYMENT-REQUIRED: [Base64 Encoded JSON]
 
 {
-  "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", // Nano CAIP-2 pending
-  "asset": "slip44:165",
+  "network": "nano:mainnet",
+  "asset": "XNO",
   "amount": "1000000000000000000000000",
   "payTo": "nano_1os1h4tzx...",
   "maxTimeoutSeconds": 600,
   "extra": {
-    "sessionId": "a1b2c3d4e5f6",
-    "tag": 12345,
-    "tagModulus": 1000000,
+    "nanoSession": {
+      "id": "a1b2c3d4e5f6",
+      "tag": 12345,
+      "tagModulus": 1000000
+    },
     "dustRebate": true
   }
 }

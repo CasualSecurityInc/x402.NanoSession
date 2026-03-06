@@ -24,7 +24,7 @@ However, for premium services or Facilitators intending to perfectly respect Nan
 
 ### 2.1 The 402 Requirements Advertisement
 
-A Resource Server opts into this extension by advertising the promise in the `extra` object of the `X-Payment-Required` HTTP 402 response.
+A Resource Server opts into this extension by advertising the promise in the `extra` object of the `PAYMENT-REQUIRED` HTTP 402 response.
 
 ```json
 {
@@ -32,8 +32,10 @@ A Resource Server opts into this extension by advertising the promise in the `ex
   "amount": "10000000000000000000000000000",
   "payTo": "nano_3merchantserveraddress...",
   "extra": {
-    "sessionId": "a1b2c3d4-e5f6-7890",
-    "tag": 42,
+    "nanoSession": {
+       "id": "a1b2c3d4-e5f6-7890",
+       "tag": 42
+    },
     "dustRebate": true
   }
 }
@@ -72,7 +74,7 @@ reboot_rebate_queue_worker():
      )
      
      if already_refunded:
-        db.mark_completed(pending_rebate.session_id)
+        db.mark_completed(pending_rebate.id)
      else:
         execute_refund(pending_rebate)
 ```

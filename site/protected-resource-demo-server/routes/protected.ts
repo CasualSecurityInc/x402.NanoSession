@@ -137,7 +137,8 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
     const reqs = facilitator.getRequirements({
         amount: amountToCharge,
         payTo: payToAddress,
-        maxTimeoutSeconds: 600 // 10 minute timeout
+        maxTimeoutSeconds: 600, // 10 minute timeout
+        tagMultiplier: process.env.NANO_TAG_MULTIPLIER
     });
 
     if (process.env.NANO_RPC_URL?.includes('beta') || process.env.NANO_RPC_URL?.includes('testnet') || process.env.NANO_WS_URL?.includes('peering')) {
@@ -148,7 +149,8 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
     const newSessionId = reqs.extra.sessionId;
 
     // The FacilitatorHandler has likely already added a random tag
-    const taggedAmountRaw = (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString();
+    const tagMultiplier = BigInt(reqs.extra.tagMultiplier || '1');
+    const taggedAmountRaw = (BigInt(reqs.amount) + BigInt(reqs.extra.tag) * tagMultiplier).toString();
 
     // Register the session in our SSE tracker so we can push real-time updates
     registerSession(newSessionId, taggedAmountRaw);

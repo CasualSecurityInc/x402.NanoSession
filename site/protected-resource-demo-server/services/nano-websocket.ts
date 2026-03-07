@@ -5,12 +5,14 @@ let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let pingInterval: NodeJS.Timeout | null = null;
 let pongTimeout: NodeJS.Timeout | null = null;
+let lastPongAt: number | null = null;
 let subscribedAccount = '';
 let reconnectDelay = 1000; // Start at 1s, exponential backoff
 const MAX_RECONNECT_DELAY = 30_000; // Cap at 30s
 
 const PING_INTERVAL_MS = 30_000;  // Send ping every 30s
 const PONG_TIMEOUT_MS = 10_000;   // Expect pong within 10s
+const PONG_STALE_MS = PING_INTERVAL_MS + PONG_TIMEOUT_MS + 5_000;
 
 // Profiling: message rate counter
 let wsMsgCount = 0;
@@ -26,6 +28,12 @@ setInterval(() => {
 export function initNanoWebSocket(accountParam: string) {
     subscribedAccount = accountParam;
     connect();
+}
+
+export function isNanoWebSocketHealthy(): boolean {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    if (lastPongAt === null) return true; // Haven't received a pong yet, but connection is open
+    return (Date.now() - lastPongAt) <= PONG_STALE_MS;
 }
 
 function cleanupTimers() {
@@ -49,6 +57,7 @@ function connect() {
     ws.on('open', () => {
         console.log('[WS] Connected.');
         reconnectDelay = 1000; // Reset backoff on successful connect
+        lastPongAt = Date.now();
         const subscribeMsg = {
             action: 'subscribe',
             topic: 'confirmation',
@@ -99,18 +108,21 @@ function connect() {
 
     ws.on('pong', () => {
         // Pong received — connection is alive, cancel the timeout
+        lastPongAt = Date.now();
         if (pongTimeout) { clearTimeout(pongTimeout); pongTimeout = null; }
     });
 
     ws.on('close', () => {
         console.log(`[WS] Disconnected. Reconnecting in ${reconnectDelay / 1000}s...`);
         cleanupTimers();
+        lastPongAt = null;
         scheduleReconnect();
     });
 
     ws.on('error', (err) => {
         console.error('[WS] Error:', err.message);
         cleanupTimers();
+        lastPongAt = null;
         try { ws?.close(); } catch { }
     });
 }
@@ -138,4 +150,3 @@ function scheduleReconnect() {
     // Exponential backoff, capped
     reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
 }
-

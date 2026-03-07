@@ -1,7 +1,8 @@
 import { NanoRpcClient } from '@nanosession/rpc';
-import { hasActiveSessions, getAmountToSessionMap, updateSessionStatus } from '../routes/status';
+import { hasActiveSessions, getAmountToSessionMap, updateSessionStatus, getActiveSseClientCount } from '../routes/status';
+import { isNanoWebSocketHealthy } from './nano-websocket';
 
-const POLL_INTERVAL_MS = 5_000; // Poll every 5 seconds
+const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds
 const HISTORY_COUNT = 10;       // Check last 10 blocks
 
 let pollTimer: NodeJS.Timeout | null = null;
@@ -16,10 +17,12 @@ let lastSeenHash: string | null = null;
 export function startRpcPoller(rpcClient: NanoRpcClient, account: string) {
     if (pollTimer) return; // Already running
 
-    console.log(`[RPC-POLL] Starting fallback poller (every ${POLL_INTERVAL_MS / 1000}s when sessions active)`);
+    console.log(`[RPC-POLL] Starting fallback poller (every ${POLL_INTERVAL_MS / 1000}s when >1 SSE clients are active or WS is unhealthy)`);
 
     pollTimer = setInterval(async () => {
         if (!hasActiveSessions()) return;
+        const wsHealthy = isNanoWebSocketHealthy();
+        if (wsHealthy && getActiveSseClientCount() <= 1) return;
 
         try {
             const history = await rpcClient.getAccountHistory(account, HISTORY_COUNT);

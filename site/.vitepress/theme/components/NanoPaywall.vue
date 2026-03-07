@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
-import { usePaymentStatus } from '../composables/usePaymentStatus'
 import { useXnapSnap } from '../composables/useXnapSnap'
 import { calculateTaggedAmount } from '@nanosession/core'
 
@@ -43,9 +42,6 @@ const httpLog = ref<LogEntry[]>([])
 // Payment State
 const session = ref<any>(null)
 const originalRequirements = ref<any>(null) // Store raw 402 requirements for POST fallback
-const { status: sseStatus, error: sseError, blockHash } = usePaymentStatus(
-  '', ''
-)
 
 // Xnap Integration
 const { isMetaMaskInstalled, isXnapInstalled, isPending: xnapPending, error: xnapError, installXnap, payWithXnap, reset: xnapReset } = useXnapSnap()
@@ -70,13 +66,31 @@ onMounted(async () => {
     activeServerUrl.value = props.demoServerUrl
   }
   await fetchPaymentRequirements()
+
+  // Handle visibility change for mobile backgrounding
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
   if (statusPollTimer) clearInterval(statusPollTimer)
   if (eventSource) eventSource.close()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
+
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible' && session.value?.sessionId) {
+        console.log('[NanoPaywall] Page visible, checking SSE connection...')
+        // If SSE is dead or we have an error, reconnect
+        if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+            if (paymentStatus.value === 'pending' && !isVerifying.value) {
+                console.log('[NanoPaywall] SSE dead on visibility change, reconnecting')
+                sseReconnectAttempts = 0 // Reset for immediate reconnect
+                doConnectSSE()
+            }
+        }
+    }
+}
 
 async function fetchPaymentRequirements() {
   // Clean up existing state for restart
@@ -176,15 +190,93 @@ async function fetchPaymentRequirements() {
 }
 
 let statusPollTimer: any = null
+let sseReconnectAttempts = 0
+const SSE_MAX_RECONNECT_DELAY = 30000
+
+function reconnectSSE() {
+    if (!session.value?.sessionId) return
+    if (paymentStatus.value === 'confirmed' || paymentStatus.value === 'verifying') return
+
+    // Clear error state - we're retrying
+    globalError.value = null
+
+    // Close existing connection if any
+    if (eventSource) {
+        eventSource.close()
+        eventSource = null
+    }
+
+    // Reset reconnect attempts on manual retry
+    sseReconnectAttempts = 0
+    doConnectSSE()
+}
+
+function doConnectSSE() {
+    if (!session.value?.sessionId) return
+    if (paymentStatus.value === 'confirmed' || paymentStatus.value === 'verifying') return
+
+    // Close existing connection if any
+    if (eventSource) {
+        eventSource.close()
+        eventSource = null
+    }
+
+    eventSource = new EventSource(`${activeServerUrl.value}/api/status/${session.value.sessionId}`);
+
+    eventSource.onopen = () => {
+        httpLog.value.push({ type: 'info', content: `(SSE connection established for session...)` })
+        sseReconnectAttempts = 0 // Reset on successful connection
+    }
+
+    eventSource.onmessage = (event) => {
+         if (event.data === 'heartbeat') return;
+         try {
+             const data = JSON.parse(event.data);
+             if (data.status) {
+                 paymentStatus.value = data.status;
+                 if (data.blockHash) finalBlockHash.value = data.blockHash;
+
+                 if (data.status === 'confirmed') {
+                     httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
+                     verifyPayment(data.blockHash)
+                 }
+             }
+         } catch (e) {
+             console.error('Failed to parse SSE', e);
+         }
+     };
+
+     eventSource.onerror = () => {
+         console.warn('[NanoPaywall] SSE connection error')
+         if (eventSource?.readyState === EventSource.CLOSED) {
+             // Schedule reconnection with exponential backoff
+             sseReconnectAttempts++
+             const delay = Math.min(1000 * Math.pow(2, sseReconnectAttempts - 1), SSE_MAX_RECONNECT_DELAY)
+             console.log(`[NanoPaywall] SSE closed, reconnecting in ${delay}ms (attempt ${sseReconnectAttempts})`)
+
+             setTimeout(() => {
+                 if (session.value?.sessionId && paymentStatus.value !== 'confirmed' && paymentStatus.value !== 'verifying') {
+                     doConnectSSE()
+                 }
+             }, delay)
+
+             // Only show error after multiple failed attempts
+             if (sseReconnectAttempts >= 3) {
+                 globalError.value = "Live connection lost. Click Retry to reconnect."
+             }
+         }
+     }
+}
 
 function connectSSE() {
    if (!session.value?.sessionId) return
 
-   eventSource = new EventSource(`${activeServerUrl.value}/api/status/${session.value.sessionId}`);
+   sseReconnectAttempts = 0
+   doConnectSSE()
 
-   eventSource.onopen = () => {
-       httpLog.value.push({ type: 'info', content: `(SSE connection established for session...)` })
-   }
+     // Polling fallback: if SSE silently dies, this catches payments the server already detected
+     startStatusPolling()
+}
 
    eventSource.onmessage = (event) => {
         if (event.data === 'heartbeat') return;
@@ -534,10 +626,21 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         </div>
 
         <!-- Fetch Error State -->
-        <div v-else-if="fetchError || globalError" class="error-state">
-            <p>{{ fetchError || globalError }}</p>
+        <div v-else-if="fetchError" class="error-state">
+            <p>{{ fetchError }}</p>
             <button @click="fetchPaymentRequirements" class="retry-btn">
                 Retry
+            </button>
+        </div>
+
+        <!-- SSE Connection Error State (session still valid, just reconnect SSE) -->
+        <div v-else-if="globalError" class="error-state sse-error">
+            <p>{{ globalError }}</p>
+            <button @click="reconnectSSE" class="retry-btn">
+                Retry Connection
+            </button>
+            <button @click="fetchPaymentRequirements" class="restart-btn">
+                New Session
             </button>
         </div>
 
@@ -886,6 +989,30 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .retry-btn:active {
     background-color: #1e40af;
+}
+
+.restart-btn {
+    margin-top: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    background-color: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.restart-btn:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.sse-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 /* Expired State */

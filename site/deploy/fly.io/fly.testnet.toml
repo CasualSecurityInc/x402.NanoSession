@@ -10,8 +10,8 @@ PNPM_VERSION = "9.15.4"
 [env]
 VITE_TEST_AND_DEMO_SERVER_URL = "http://0.0.0.0:3001"
 # DOTENV_CONFIG_PATH is omitted so the Express logic falls back to using the injected Fly secrets
-NANO_TAG_MULTIPLIER = "1000000000000000000000000"
-NANO_TAG_MODULUS = "10000"
+TAG_MULTIPLIER = "1000000000000000000000000"
+TAG_MODULUS = "10000"
 
 [http_service]
 internal_port = 3001

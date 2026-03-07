@@ -15,10 +15,12 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/core/package.json ./packages/core/
 COPY packages/rpc/package.json ./packages/rpc/
-COPY packages/server/package.json ./packages/server/
+COPY packages/facilitator/package.json ./packages/facilitator/
+COPY packages/faremeter-plugin/package.json ./packages/faremeter-plugin/
 COPY packages/client/package.json ./packages/client/
 COPY site/package.json ./site/
 COPY examples/client/package.json ./examples/client/
+COPY examples/standalone-facilitator/package.json ./examples/standalone-facilitator/
 COPY examples/faremeter-server/package.json ./examples/faremeter-server/
 
 # Install dependencies (only production deps where possible)

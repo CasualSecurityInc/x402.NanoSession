@@ -634,13 +634,10 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
         </div>
 
         <!-- SSE Connection Error State (session still valid, just reconnect SSE) -->
-        <div v-else-if="globalError" class="error-state sse-error">
+        <div v-else-if="globalError" class="error-state">
             <p>{{ globalError }}</p>
             <button @click="reconnectSSE" class="retry-btn">
-                Retry Connection
-            </button>
-            <button @click="fetchPaymentRequirements" class="restart-btn">
-                New Session
+                Retry
             </button>
         </div>
 
@@ -989,30 +986,6 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .retry-btn:active {
     background-color: #1e40af;
-}
-
-.restart-btn {
-    margin-top: 8px;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 500;
-    background-color: transparent;
-    color: #6b7280;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.restart-btn:hover {
-    background-color: #f3f4f6;
-    color: #374151;
-}
-
-.sse-error {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
 }
 
 /* Expired State */

@@ -18,16 +18,15 @@ export function registerSession(sessionId: string, expectedAmountRaw: string) {
     amountToSessionMap[expectedAmountRaw] = sessionId;
     console.log(`[AUDIT] Session created: session=${sessionId.slice(0, 8)}... amount=${expectedAmountRaw}`);
 
-    // Auto-expire abandoned sessions after 10 minutes (not 2 min - mobile users
-    // may be in wallet app for several minutes. WS/RPC poller still watches for payments)
+    // Auto-expire abandoned sessions (no SSE client connected within 2 minutes)
     setTimeout(() => {
         const state = sessionStates[sessionId];
         if (state?.status === 'pending' && !activeClients.has(sessionId)) {
-            console.log(`[AUDIT] Session expired (no SSE client for 10 min): session=${sessionId.slice(0, 8)}...`);
+            console.log(`[AUDIT] Session expired (no SSE client): session=${sessionId.slice(0, 8)}...`);
             delete sessionStates[sessionId];
             delete amountToSessionMap[expectedAmountRaw];
         }
-    }, 1000 * 60 * 10); // 10 minutes
+    }, 1000 * 60 * 2); // 2 minutes
 }
 
 /**

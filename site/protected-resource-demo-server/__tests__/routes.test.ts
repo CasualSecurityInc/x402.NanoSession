@@ -36,7 +36,12 @@ describe('Demo Server Routes', () => {
 
             expect(requirements.network).toBe('nano:mainnet');
             expect(requirements.payTo).toBe(process.env.NANO_SERVER_ADDRESS);
-            expect(requirements.amount).toBe('10000000000000000000000000000'); // Base 0.01 XNO
+            expect(
+                (
+                    BigInt(requirements.extra.nanoSession.resourceAmountRaw) +
+                    BigInt(requirements.extra.nanoSession.tagAmountRaw)
+                ).toString()
+            ).toBe(requirements.amount);
             expect(requirements.extra.nanoSession).toBeDefined();
             expect(requirements.extra.nanoSession.tag).toBeDefined();
             expect(requirements.extra.nanoSession.id).toBeDefined();
@@ -49,17 +54,18 @@ describe('Demo Server Routes', () => {
             const payload = {
                 x402Version: 2,
                 accepted: {
-                    scheme: 'nano-session',
+                    scheme: 'exact',
                     network: 'nano:mainnet',
                     asset: 'XNO',
-                    amount: '1000',
-                    payTo: 'nano_123',
+                    amount: '1001',
+                    payTo: process.env.NANO_SERVER_ADDRESS!,
                     maxTimeoutSeconds: 60,
                     extra: {
                         nanoSession: {
                             tag: 1,
                             id: fakeSessionId,
-                            tagModulus: 10
+                            resourceAmountRaw: '1000',
+                            tagAmountRaw: '1'
                         }
                     }
                 },

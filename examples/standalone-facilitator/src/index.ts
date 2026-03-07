@@ -95,13 +95,14 @@ app.post('/settle', async (req: Request, res: Response): Promise<void> => {
  * interacting directly with this standalone server).
  */
 app.post('/requirements', (req: Request, res: Response) => {
-    const { amount, payTo, maxTimeoutSeconds } = req.body;
-    if (!amount || !payTo) {
-        return res.status(400).json({ error: 'Missing amount or payTo' });
+    const { resourceAmountRaw, amount, payTo, maxTimeoutSeconds } = req.body;
+    const resolvedResourceAmountRaw = resourceAmountRaw ?? amount;
+    if (!resolvedResourceAmountRaw || !payTo) {
+        return res.status(400).json({ error: 'Missing resourceAmountRaw (or amount) or payTo' });
     }
 
     const requirements = handler.getRequirements({
-        amount,
+        resourceAmountRaw: resolvedResourceAmountRaw,
         payTo,
         maxTimeoutSeconds: maxTimeoutSeconds || 600
     });

@@ -3,7 +3,14 @@
  * Handles nano-session payment verification and settlement
  */
 
-import { SCHEME, NETWORK, ASSET } from '@nanosession/core';
+import {
+  SCHEME,
+  NETWORK,
+  TAG_MODULUS,
+  assertValidPaymentRequirements,
+  assertValidRawAmount,
+  createPaymentRequirements
+} from '@nanosession/core';
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import type { NanoRpcClient } from '@nanosession/rpc';
 import type { SpentSetStorage } from './spent-set.js';
@@ -84,6 +91,7 @@ export class NanoSessionFacilitatorHandler {
    * See: AGENTS.md § Security-First Protocol Development
    */
   private sessionRegistry: SessionRegistry;
+  private activeSessionAmounts: Map<string, string>;
 
   constructor(options: HandlerOptions) {
     this.rpcClient = options.rpcClient;
@@ -97,6 +105,21 @@ export class NanoSessionFacilitatorHandler {
       delete: (id) => { inMemoryRegistry.delete(id); },
       has: (id) => inMemoryRegistry.has(id)
     };
+    this.activeSessionAmounts = new Map();
+  }
+
+  private releaseSession(sessionId: string): void {
+    this.sessionRegistry.delete(sessionId);
+    this.activeSessionAmounts.delete(sessionId);
+  }
+
+  private isAmountInUse(amountRaw: string): boolean {
+    for (const activeAmount of this.activeSessionAmounts.values()) {
+      if (activeAmount === amountRaw) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -121,50 +144,63 @@ export class NanoSessionFacilitatorHandler {
    * @returns Standard x402 PaymentRequirements object
    */
   getRequirements(args: {
-    /** Base amount in raw */
-    amount: string;
+    /** Resource amount in raw, before the tag amount is added */
+    resourceAmountRaw: string;
     /** Destination account address */
     payTo: string;
     /** How long before session expires */
     maxTimeoutSeconds?: number;
-    /** The modulus for tag calculation (default: 10M) */
-    tagModulus?: number;
-    /** The multiplier to shift tag into higher decimals (default: 1) */
-    tagMultiplier?: string;
+    /** Optional deterministic tag value */
+    tag?: number;
+    /** Optional deterministic tag amount in raw */
+    tagAmountRaw?: string;
   }): PaymentRequirements {
-    // Generate unique tag (random number mod tagModulus)
-    const tagModulus = args.tagModulus ?? 1_000_000;
-    const tagMultiplier = args.tagMultiplier ?? '1';
-    const randomValue = randomBytes(4).readUInt32BE(0);
-    const tag = randomValue % tagModulus;
+    assertValidRawAmount(args.resourceAmountRaw, 'resourceAmountRaw');
+    if (args.tagAmountRaw !== undefined) {
+      assertValidRawAmount(args.tagAmountRaw, 'tagAmountRaw');
+    }
 
-    // Generate session ID
-    const sessionId = randomBytes(16).toString('hex');
+    const maxTimeoutSeconds = args.maxTimeoutSeconds ?? 600;
+    const expiresAt = new Date(Date.now() + maxTimeoutSeconds * 1000).toISOString();
+    const deterministicTag = args.tag;
+    const deterministicTagAmountRaw = args.tagAmountRaw;
 
-    const expiresAt = new Date(Date.now() + (args.maxTimeoutSeconds ?? 600) * 1000).toISOString();
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const randomValue = randomBytes(4).readUInt32BE(0);
+      const tag = deterministicTag ?? (randomValue % TAG_MODULUS);
 
-    const requirements: PaymentRequirements = {
-      scheme: SCHEME,
-      network: NETWORK,
-      asset: ASSET,
-      amount: args.amount,
-      payTo: args.payTo,
-      maxTimeoutSeconds: args.maxTimeoutSeconds ?? 600,
-      extra: {
-        nanoSession: {
-          tag,
-          id: sessionId,
-          tagModulus,
-          tagMultiplier,
-          expiresAt
-        }
+      if (!Number.isInteger(tag) || tag < 0) {
+        throw new Error('Invalid tag: must be a non-negative integer');
       }
-    };
 
-    // Register session to prevent session spoofing attacks
-    this.sessionRegistry.set(sessionId, requirements);
+      const tagAmountRaw = deterministicTagAmountRaw ?? BigInt(tag).toString();
+      const amount = (BigInt(args.resourceAmountRaw) + BigInt(tagAmountRaw)).toString();
 
-    return requirements;
+      if (this.isAmountInUse(amount)) {
+        if (deterministicTag !== undefined || deterministicTagAmountRaw !== undefined) {
+          throw new Error(`Tagged amount collision for active session: ${amount}`);
+        }
+        continue;
+      }
+
+      const sessionId = randomBytes(16).toString('hex');
+      const requirements = createPaymentRequirements({
+        payTo: args.payTo,
+        maxTimeoutSeconds,
+        id: sessionId,
+        tag,
+        resourceAmountRaw: args.resourceAmountRaw,
+        tagAmountRaw,
+        amount,
+        expiresAt
+      });
+
+      this.sessionRegistry.set(sessionId, requirements);
+      this.activeSessionAmounts.set(sessionId, amount);
+      return requirements;
+    }
+
+    throw new Error('Unable to allocate unique tagged amount for session');
   }
 
   /**
@@ -181,7 +217,7 @@ export class NanoSessionFacilitatorHandler {
     // Check if session has expired
     const expiresAt = requirements.extra?.nanoSession?.expiresAt;
     if (expiresAt && new Date(expiresAt) < new Date()) {
-      this.sessionRegistry.delete(sessionId);
+      this.releaseSession(sessionId);
       return undefined;
     }
 
@@ -200,12 +236,17 @@ export class NanoSessionFacilitatorHandler {
    * @param requirements The requirements to register
    */
   registerSessionFromRequirements(sessionId: string, requirements: PaymentRequirements): void {
+    assertValidPaymentRequirements(requirements);
+    if (requirements.extra.nanoSession.id !== sessionId) {
+      throw new Error('Session ID mismatch in registerSessionFromRequirements');
+    }
     this.sessionRegistry.set(sessionId, requirements);
+    this.activeSessionAmounts.set(sessionId, requirements.amount);
   }
 
   /**
    * Verifies that a payment proof (block hash) satisfies the given requirements.
-   * Performs cryptographic validation, balance checks, and tag verification.
+   * Performs cryptographic validation, session checks, and amount verification.
    * 
    * @param requirements The requirements the payment must satisfy
    * @param payload The payment response containing the proof (hash)
@@ -221,7 +262,41 @@ export class NanoSessionFacilitatorHandler {
     }
 
     try {
+      assertValidPaymentRequirements(requirements);
       const blockHash = payload.payload.proof;
+      const sessionId = requirements.extra.nanoSession.id;
+
+      // Session Binding: Verify session ID echoed by client
+      const payloadSessionId = payload.accepted?.extra?.nanoSession?.id ?? sessionId;
+      if (payloadSessionId !== sessionId) {
+        return {
+          isValid: false,
+          error: 'Session ID mismatch'
+        };
+      }
+
+      // Session Registry Check: Ensure the session was issued and active
+      const issuedRequirements = this.sessionRegistry.get(sessionId);
+      if (!issuedRequirements) {
+        return {
+          isValid: false,
+          error: 'Session not found or expired'
+        };
+      }
+
+      // Requirements consistency check: do not trust mutated requirements
+      if (
+        requirements.amount !== issuedRequirements.amount ||
+        requirements.payTo !== issuedRequirements.payTo ||
+        requirements.extra.nanoSession.tag !== issuedRequirements.extra.nanoSession.tag ||
+        requirements.extra.nanoSession.resourceAmountRaw !== issuedRequirements.extra.nanoSession.resourceAmountRaw ||
+        requirements.extra.nanoSession.tagAmountRaw !== issuedRequirements.extra.nanoSession.tagAmountRaw
+      ) {
+        return {
+          isValid: false,
+          error: 'Requirements mismatch for issued session'
+        };
+      }
 
       // Get block information from Nano RPC
       let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
@@ -247,39 +322,16 @@ export class NanoSessionFacilitatorHandler {
       // Verify destination address matches
       // Support both `link_as_account` and `link` fields for compatibility with mocks
       const destination = blockInfo.link_as_account ?? blockInfo.link;
-      if (destination !== requirements.payTo) {
+      if (destination !== issuedRequirements.payTo) {
         return {
           isValid: false,
-          error: `Address mismatch: expected ${requirements.payTo}, got ${destination}`
+          error: `Address mismatch: expected ${issuedRequirements.payTo}, got ${destination}`
         };
       }
 
-      // Session Binding: Verify session ID matches
-      // This protects against receipt-stealing attacks
-      // Extract from the requirements that the client echoes back in 'accepted' (or the server requirements)
-      const payloadSessionId = payload.accepted?.extra?.nanoSession?.id ?? requirements.extra?.nanoSession?.id;
-      if (payloadSessionId !== requirements.extra?.nanoSession?.id) {
-        return {
-          isValid: false,
-          error: 'Session ID mismatch'
-        };
-      }
-
-      // Session Registry Check: Ensure the session ID was actually issued by us
-      // This protects against session spoofing attacks
-      if (!this.sessionRegistry.has(requirements.extra?.nanoSession?.id)) {
-        return {
-          isValid: false,
-          error: 'Session not found or expired'
-        };
-      }
-
-      // Amount tagging: Verify amount matches base amount + session tag
+      // Amount check: expected amount is explicitly provided as requirements.amount
       const actualAmount = BigInt(blockInfo.amount);
-      const nanoSession = requirements.extra?.nanoSession;
-      const tagValue = BigInt(nanoSession?.tag ?? 0);
-      const tagMultiplier = BigInt(nanoSession?.tagMultiplier ?? '1');
-      const expectedAmount = BigInt(requirements.amount) + (tagValue * tagMultiplier);
+      const expectedAmount = BigInt(issuedRequirements.amount);
 
       if (actualAmount !== expectedAmount) {
         return {
@@ -341,7 +393,7 @@ export class NanoSessionFacilitatorHandler {
 
     // Remove from session registry to prevent reuse
     if (requirements.extra?.nanoSession?.id) {
-      this.sessionRegistry.delete(requirements.extra.nanoSession.id);
+      this.releaseSession(requirements.extra.nanoSession.id);
     }
 
     return {

@@ -143,6 +143,51 @@ export class NanoRpcClient {
   }
 
   /**
+   * Broadcasts a signed block to the Nano network.
+   * @param block Signed state block representation
+   * @returns Processed block hash
+   */
+  async processBlock(block: Record<string, unknown>): Promise<string> {
+    const response = await this.callRpc('process', {
+      json_block: true,
+      block
+    });
+
+    const hash = response.hash as string | undefined;
+    if (!hash) {
+      throw new Error('RPC process response missing hash');
+    }
+    return hash;
+  }
+
+  /**
+   * Gets current active network difficulty, if available.
+   */
+  async getActiveDifficulty(): Promise<string | undefined> {
+    const response = await this.callRpc('telemetry', {}, { silent: true });
+    const active = response.active_difficulty;
+    return typeof active === 'string' ? active : undefined;
+  }
+
+  /**
+   * Requests PoW generation from RPC.
+   * @param hash Work root hash (usually account frontier)
+   * @param difficulty Optional threshold override
+   */
+  async generateWork(hash: string, difficulty?: string): Promise<string> {
+    const response = await this.callRpc('work_generate', {
+      hash,
+      ...(difficulty ? { difficulty } : {})
+    });
+
+    const work = response.work as string | undefined;
+    if (!work) {
+      throw new Error('RPC work_generate response missing work');
+    }
+    return work;
+  }
+
+  /**
    * Internal method to call RPC with failover and retry
    */
   private async callRpc(action: string, params: Record<string, unknown>, options?: { silent?: boolean }): Promise<Record<string, unknown>> {

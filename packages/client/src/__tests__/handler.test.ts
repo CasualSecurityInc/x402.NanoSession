@@ -6,7 +6,11 @@ import type { PaymentRequirements } from '@nanosession/core';
 describe('NanoSessionPaymentHandler', () => {
   const mockRpcClient = {
     getAccountInfo: vi.fn(),
-    process: vi.fn()
+    getBlockInfo: vi.fn(),
+    confirmBlock: vi.fn(),
+    processBlock: vi.fn(),
+    generateWork: vi.fn(),
+    getActiveDifficulty: vi.fn()
   };
 
   test('handle returns execer for matching scheme', async () => {
@@ -26,7 +30,8 @@ describe('NanoSessionPaymentHandler', () => {
         nanoSession: {
           tag: 42,
           id: 'test',
-          tagModulus: 10000000,
+          resourceAmountRaw: '999958',
+          tagAmountRaw: '42',
           expiresAt: new Date().toISOString()
         }
       }
@@ -56,7 +61,8 @@ describe('NanoSessionPaymentHandler', () => {
         nanoSession: {
           tag: 1,
           id: 'other',
-          tagModulus: 10
+          resourceAmountRaw: '999999',
+          tagAmountRaw: '1'
         }
       }
     };
@@ -84,7 +90,8 @@ describe('NanoSessionPaymentHandler', () => {
         nanoSession: {
           tag: 42,
           id: 'test',
-          tagModulus: 10000000,
+          resourceAmountRaw: '1958',
+          tagAmountRaw: '42',
           expiresAt: new Date().toISOString()
         }
       }

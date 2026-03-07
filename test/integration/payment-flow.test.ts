@@ -429,7 +429,7 @@ describe('Integration: Full Payment Flow', () => {
 
           if (!paymentSignature) {
             const requirements = serverHandler.getRequirements({
-              amount: paymentAmount,
+              resourceAmountRaw: paymentAmount,
               payTo: serverAddress,
               maxTimeoutSeconds: 300
             });
@@ -529,10 +529,9 @@ describe('Integration: Full Payment Flow', () => {
       console.log('   ✓ Payment execer created');
       console.log('   📤 Broadcasting payment via RPC...');
 
-      // Encode tag in payment amount: taggedAmount = baseAmount + tag
-      // Server validates: actualTag = amount % tagModulus === expected tag
+      // The requirements amount is the exact normative send amount.
       const nanoSession = requirements.extra.nanoSession;
-      const taggedAmount = (BigInt(requirements.amount) + BigInt(nanoSession.tag)).toString();
+      const taggedAmount = requirements.amount;
       console.log(`   🏷️  Tag: ${nanoSession.tag}, Tagged amount: ${taggedAmount}`);
 
       let paymentHash: string | null;
@@ -616,13 +615,13 @@ describe('Integration: Full Payment Flow', () => {
 
     // Get requirements for two different "sessions"
     const victimRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
     const attackerRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
@@ -686,12 +685,12 @@ describe('Integration: Full Payment Flow', () => {
     const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
 
     const requirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.nanoSession.tag)).toString();
+    const taggedAmount = requirements.amount;
 
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
@@ -746,12 +745,12 @@ describe('Integration: Full Payment Flow', () => {
 
     // Create a real payment for a real session
     const realRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(realRequirements.amount) + BigInt(realRequirements.extra.nanoSession.tag)).toString();
+    const taggedAmount = realRequirements.amount;
 
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {

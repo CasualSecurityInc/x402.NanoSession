@@ -1,7 +1,21 @@
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import type { NanoRpcClient } from '@nanosession/rpc';
-import { deriveKeyPair, createSendBlock, signBlock } from './signing.js';
-import { SCHEME, calculateTaggedAmount } from '@nanosession/core';
+import {
+  SCHEME,
+  NETWORK,
+  assertValidPaymentRequirements,
+  deriveAddressFromSeed,
+  createPaymentPayload,
+} from '@nanosession/core';
+import {
+  deriveSecretKey,
+  createBlock,
+  computeWork,
+  validateWork,
+  type BlockData,
+} from 'nanocurrency';
+
+const FALLBACK_WORK_THRESHOLD = 'fffffff800000000';
 
 /**
  * An object that can execute a specific payment requirement
@@ -21,8 +35,12 @@ export interface ClientOptions {
   rpcClient: NanoRpcClient;
   /** The 64-character hex seed used to derive accounts */
   seed: string;
-  /** Optional limit on how much can be spent in raw */
+  /** Optional limit on how much can be spent in raw (daily process lifetime) */
   maxSpend?: string;
+  /** Nano account index used for sending (default: 0) */
+  accountIndex?: number;
+  /** Confirmation wait timeout in ms (default: 30s) */
+  confirmationTimeoutMs?: number;
 }
 
 /**
@@ -32,7 +50,9 @@ export class NanoSessionPaymentHandler {
   private rpcClient: NanoRpcClient;
   private seed: string;
   private maxSpend?: string;
-  private spentToday: bigint = BigInt(0);
+  private spentToday: bigint = 0n;
+  private accountIndex: number;
+  private confirmationTimeoutMs: number;
 
   /**
    * @param options Initialization options
@@ -41,6 +61,8 @@ export class NanoSessionPaymentHandler {
     this.rpcClient = options.rpcClient;
     this.seed = options.seed;
     this.maxSpend = options.maxSpend;
+    this.accountIndex = options.accountIndex ?? 0;
+    this.confirmationTimeoutMs = options.confirmationTimeoutMs ?? 30_000;
   }
 
   /**
@@ -59,19 +81,24 @@ export class NanoSessionPaymentHandler {
     const execers: PaymentExecer[] = [];
 
     for (const requirements of accepts) {
-      if (requirements.scheme !== SCHEME || requirements.network !== 'nano:mainnet') {
+      if (requirements.scheme !== SCHEME || requirements.network !== NETWORK) {
         continue;
       }
 
-      const totalAmount = BigInt(calculateTaggedAmount(requirements));
+      assertValidPaymentRequirements(requirements);
+      const totalAmount = BigInt(requirements.amount);
 
-      if (this.maxSpend && totalAmount > BigInt(this.maxSpend)) {
-        throw new Error(`Payment exceeds max spend: ${totalAmount} > ${this.maxSpend}`);
+      if (this.maxSpend && (this.spentToday + totalAmount) > BigInt(this.maxSpend)) {
+        throw new Error(`Payment exceeds max spend: ${this.spentToday + totalAmount} > ${this.maxSpend}`);
       }
 
       execers.push({
         requirements,
-        exec: async () => this.executePayment(requirements)
+        exec: async () => {
+          const result = await this.executePayment(requirements);
+          this.spentToday += totalAmount;
+          return result;
+        }
       });
     }
 
@@ -79,37 +106,66 @@ export class NanoSessionPaymentHandler {
   }
 
   private async executePayment(requirements: PaymentRequirements): Promise<{ payload: PaymentPayload }> {
-    const keyPair = deriveKeyPair(this.seed);
+    const accountAddress = deriveAddressFromSeed(this.seed, this.accountIndex);
+    const accountInfo = await this.rpcClient.getAccountInfo(accountAddress);
+    const totalAmount = BigInt(requirements.amount);
+    const currentBalance = BigInt(accountInfo.balance);
 
-    // Get account info for previous block
-    const accountInfo = await this.rpcClient.getAccountInfo(
-      Buffer.from(keyPair.publicKey).toString('hex')
-    );
+    if (currentBalance < totalAmount) {
+      throw new Error(`Insufficient balance: ${currentBalance} < ${totalAmount}`);
+    }
 
-    const totalAmount = calculateTaggedAmount(requirements);
+    const secretKeyHex = deriveSecretKey(this.seed, this.accountIndex);
+    const work = await this.generateWork(accountInfo.frontier);
+    const nextBalance = (currentBalance - totalAmount).toString();
 
-    const block = createSendBlock({
-      account: '', // Would derive from public key
-      previous: accountInfo.frontier,
+    const blockData: BlockData = {
+      work,
+      balance: nextBalance,
       representative: accountInfo.representative,
-      balance: (BigInt(accountInfo.balance) - BigInt(totalAmount)).toString(),
-      link: requirements.payTo
-    });
+      previous: accountInfo.frontier,
+      link: requirements.payTo,
+    };
 
-    const signature = signBlock(block, keyPair.secretKey);
-
-    // Broadcast would happen here via RPC process
-    // For now, return mock hash
-    const blockHash = 'mock_hash_' + Date.now();
+    const block = createBlock(secretKeyHex, blockData);
+    const blockHash = await this.rpcClient.processBlock(block.block as unknown as Record<string, unknown>);
+    await this.waitForConfirmation(blockHash, this.confirmationTimeoutMs);
 
     return {
-      payload: {
-        x402Version: 2,
+      payload: createPaymentPayload({
         accepted: requirements,
-        payload: {
-          proof: blockHash
-        }
-      }
+        proof: blockHash
+      })
     };
+  }
+
+  private async generateWork(root: string): Promise<string> {
+    try {
+      const difficulty = await this.rpcClient.getActiveDifficulty();
+      return await this.rpcClient.generateWork(root, difficulty);
+    } catch {
+      const threshold = await this.rpcClient.getActiveDifficulty().catch(() => undefined) ?? FALLBACK_WORK_THRESHOLD;
+      const work = await computeWork(root, { workThreshold: threshold });
+      if (!work) {
+        throw new Error('Local work generation failed');
+      }
+      if (!validateWork({ blockHash: root, work, threshold })) {
+        throw new Error('Local work failed threshold validation');
+      }
+      return work;
+    }
+  }
+
+  private async waitForConfirmation(hash: string, timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const blockInfo = await this.rpcClient.getBlockInfo(hash);
+      if (blockInfo.confirmed) {
+        return;
+      }
+      await this.rpcClient.confirmBlock(hash).catch(() => undefined);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    throw new Error(`Payment block ${hash} not confirmed within ${timeoutMs}ms`);
   }
 }

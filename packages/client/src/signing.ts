@@ -1,5 +1,4 @@
-import nacl from 'tweetnacl';
-import { deriveSecretKey, derivePublicKey } from 'nanocurrency';
+import { deriveSecretKey, derivePublicKey, hashBlock, signBlock as nanoSignBlock } from 'nanocurrency';
 import { deriveAddressFromSeed } from '@nanosession/core';
 
 export interface KeyPair {
@@ -69,12 +68,15 @@ export function createSendBlock(params: SendBlockParams): SendBlockParams {
  * @returns The hex-encoded signature
  */
 export function signBlock(block: SendBlockParams, secretKey: Uint8Array): string {
-  const blockHash = hashBlock(block);
-  const signature = nacl.sign.detached(blockHash, secretKey);
-  return Buffer.from(signature).toString('hex');
-}
-
-function hashBlock(block: SendBlockParams): Uint8Array {
-  // Simplified - in real implementation this would properly hash the block
-  return new Uint8Array(32).fill(0);
+  const blockHash = hashBlock({
+    account: block.account,
+    previous: block.previous,
+    representative: block.representative,
+    balance: block.balance,
+    link: block.link,
+  });
+  return nanoSignBlock({
+    hash: blockHash,
+    secretKey: Buffer.from(secretKey).toString('hex'),
+  });
 }

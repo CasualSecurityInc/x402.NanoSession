@@ -49,7 +49,7 @@ export interface HandlerOptions {
  */
 export interface SupportedScheme {
   /** x402 protocol version */
-  x402Version: string;
+  x402Version: 2;
   /** Payment scheme identifier */
   scheme: string;
   /** Network identifier (CAIP-2 format) */
@@ -162,7 +162,7 @@ export class NanoSessionFacilitatorHandler {
   getSupported(): SupportedScheme[] {
     return [
       {
-        x402Version: '0.1.0',
+        x402Version: 2,
         scheme: SCHEME,
         network: NETWORK
       }

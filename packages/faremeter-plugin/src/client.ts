@@ -1,5 +1,5 @@
 import { client, x402 } from '@faremeter/types';
-import { SCHEME, NETWORK } from '@nanosession/core';
+import { SCHEME, NETWORK, createPaymentRequirements } from '@nanosession/core';
 import type { PaymentRequirements } from '@nanosession/core';
 import { NanoSessionPaymentHandler, type ClientOptions } from '@nanosession/client';
 
@@ -14,6 +14,13 @@ export interface PaymentHandlerOptions {
   maxSpend?: string;
 }
 
+/**
+ * Creates a Faremeter-compatible Client PaymentHandler for NanoSession.
+ * Automatically wraps the NanoSessionPaymentHandler for use in Faremeter middleware.
+ * 
+ * @param options Configuration options for the underlying handler
+ * @returns A Faremeter PaymentHandler function
+ */
 export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHandler {
   const underlying = new NanoSessionPaymentHandler({
     rpcClient: options.rpcClient,
@@ -29,40 +36,46 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
         continue;
       }
 
-      const extra = req.extra as {
-        tag?: number;
-        sessionId?: string;
-        tagModulus?: number;
-        expiresAt?: string;
-      } | undefined;
+      const extra = (req.extra as any)?.nanoSession;
 
-      if (!extra || extra.tag === undefined || !extra.sessionId || 
-          !extra.tagModulus || !extra.expiresAt) {
+      if (
+        !extra ||
+        extra.tag === undefined ||
+        !extra.id ||
+        !extra.resourceAmountRaw ||
+        !extra.tagAmountRaw
+      ) {
         continue;
       }
 
-      nanoAccepts.push({
-        scheme: req.scheme,
-        network: req.network,
-        asset: req.asset,
-        amount: req.maxAmountRequired,
-        payTo: req.payTo,
-        maxTimeoutSeconds: req.maxTimeoutSeconds,
-        extra: {
+      const expiresAt = typeof extra.expiresAt === 'string'
+        ? extra.expiresAt
+        : new Date(Date.now() + req.maxTimeoutSeconds * 1000).toISOString();
+
+      nanoAccepts.push(
+        createPaymentRequirements({
+          payTo: req.payTo,
+          maxTimeoutSeconds: req.maxTimeoutSeconds,
+          id: extra.id,
           tag: extra.tag,
-          sessionId: extra.sessionId,
-          tagModulus: extra.tagModulus,
-          expiresAt: extra.expiresAt,
-        },
-      });
+          resourceAmountRaw: extra.resourceAmountRaw,
+          tagAmountRaw: extra.tagAmountRaw,
+          amount: req.maxAmountRequired,
+          expiresAt,
+          scheme: req.scheme,
+          network: req.network,
+          asset: req.asset
+        })
+      );
     }
 
     const underlyingExecers = await underlying.handle(context, nanoAccepts);
 
     return underlyingExecers.map((execer): PaymentExecer => ({
-      requirements: accepts.find(r => 
-        r.scheme === execer.requirements.scheme && 
-        r.network === execer.requirements.network
+      requirements: accepts.find(r =>
+        r.scheme === execer.requirements.scheme &&
+        r.network === execer.requirements.network &&
+        (r.extra as any)?.nanoSession?.id === execer.requirements.extra.nanoSession.id
       )!,
       exec: async () => {
         const result = await execer.exec();

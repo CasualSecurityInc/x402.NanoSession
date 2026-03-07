@@ -1,5 +1,15 @@
 # AGENTS.md for `site/`
 
+---
+
+## 🛠️ Environment & Node.js
+
+- **Node.js**: Always use the default system Node version (**v25.7.0+**).
+- **nvm**: Do **NOT** use `nvm` commands (`nvm use`, `nvm ls`, etc.) in this project.
+- **Package Manager**: Always use `pnpm` (v10+).
+
+---
+
 ## 🌐 Documentation Website
 
 This directory contains the VitePress project for the x402.NanoSession documentation.
@@ -21,18 +31,23 @@ This directory contains the VitePress project for the x402.NanoSession documenta
 
 ### 🏗️ Build System (`scripts/prepare-rev.js`)
 
-We do **not** edit markdown files in `site/docs/` directly. Instead, we generate them from `../docs/` at build time.
+We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we generate them from `../docs/` at build time.
 
 **The Script Logic:**
-1.  Reads `SPEC_REV` env var (default: `rev3`).
-2.  **Cleans**: Deletes `site/docs/`.
+1.  Reads `SPEC_REV` env var (set this to `rev6`).
+2.  **Cleans**: Deletes `site/gen/docs/`.
 3.  **Copies & Renames**:
-    *   `../docs/..._Protocol.md` -> `site/docs/index.md`
-    *   `../docs/..._Extension_Name.md` -> `site/docs/extensions/name.md`
+    *   `../docs/..._Protocol.md` -> `site/gen/docs/index.md`
+    *   `../docs/..._Extension_Name.md` -> `site/gen/docs/extensions/name.md`
 4.  **Injects Navigation**:
     *   Adds "Tree View" to Protocol.
     *   Adds "See Also" links to Protocol.
     *   Adds "Back to Protocol" link to Extensions.
+
+**⚠️ AGENT POLICY**
+1. **Hardcoded Revisions**: The build script does not perform magic string replacement for document bodies. You must manually grep and update any hardcoded string matches (e.g. `using the **Rev 6** protocol flow` or `Rev. 6`) across `site/*.md` whenever you bump the protocol revision.
+2. **No NVM**: Never attempt to change Node versions using `nvm`. Stick to the system default node.
+3. **Calculation Logic**: Always use the `@nanosession/core` utility `calculateTaggedAmount` for anything involving payment amounts. Never calculate BigInt sums for payment decomposition (`resourceAmountRaw + tagAmountRaw`) manually in UI or server code.
 
 ### 🎨 Theme & Config
 
@@ -54,7 +69,7 @@ The demo server is a live backend Node.js server that acts as an x402 Facilitato
 - Testnet: `pnpm deploy:fly:testnet`
 
 **Core Mechanics:**
-1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/server`, and returns the `HTTP 402 Payment Required` payload.
+1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/facilitator`, and returns the `HTTP 402 Payment Required` payload.
 2. **WebSocket Bridge**: `services/nano-websocket.ts` listens to the public Nano network (`wss://ws.nano.to`) for incoming SEND or RECEIVE blocks hitting the `NANO_SERVER_ADDRESS`, extracting the dust tag.
 3. **Server-Sent Events (SSE)**: `routes/status.ts` pipes verified block hashes back to the Vue `<NanoPaywall>` client in real-time, instantly unlocking the UI.
 
@@ -84,7 +99,7 @@ pnpm dev:demo
 |---------|---------|
 | `pnpm dev:demo` | All: site watcher + VitePress (5173) + demo servers (3001/3002) |
 | `pnpm site:dev` | Site only: source watcher + VitePress (5173) |
-| `pnpm site:build` | Build static site (set `SPEC_REV=rev5`) |
+| `pnpm site:build` | Build static site (set `SPEC_REV=rev6`) |
 | `pnpm demo:mainnet` | Demo server only: mainnet (3001) |
 | `pnpm demo:testnet` | Demo server only: testnet (3002) |
 

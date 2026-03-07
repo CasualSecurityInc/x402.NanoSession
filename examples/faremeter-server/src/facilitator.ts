@@ -35,7 +35,7 @@ const rpcClient = new NanoRpcClient({ endpoints: [RPC_URL] });
 const facilitatorHandler = createFacilitatorHandler({
   rpcClient,
   payTo: RECEIVING_ADDRESS,
-  defaultAmount: process.env.PAYMENT_AMOUNT || DEFAULT_PAYMENT_AMOUNT,
+  defaultResourceAmountRaw: process.env.PAYMENT_AMOUNT || DEFAULT_PAYMENT_AMOUNT,
   maxTimeoutSeconds: 300,
 });
 

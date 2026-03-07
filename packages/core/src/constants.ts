@@ -5,8 +5,14 @@
 /** Tag modulus for raw tagging (10 million) */
 export const TAG_MODULUS = 10_000_000;
 
+/**
+ * Tag multiplier for raw tagging (string to preserve precision).
+ * Defaults to "1" (no scaling).
+ */
+export const TAG_MULTIPLIER = '1';
+
 /** Scheme identifier for NanoSession */
-export const SCHEME = 'nano-session';
+export const SCHEME = 'exact';
 
 /** Network identifier (CAIP-2 format) - unofficial */
 export const NETWORK = 'nano:mainnet';

@@ -25,7 +25,7 @@ Client                          Server                      Nano
   │  (sessionId, amount, payTo)   │                           │
   │<──────────────────────────────│                           │
   │                               │                           │
-  │  send_block(amount + tag)     │                           │
+  │  send_block(amount)           │                           │
   │───────────────────────────────────────────────────────────>
   │                               │                           │
   │  GET /resource                │                           │
@@ -46,12 +46,12 @@ x402.NanoSession/
 ├── packages/           # TypeScript libraries
 │   ├── core/           # Types, constants, schemas (@nanosession/core)
 │   ├── rpc/            # Nano RPC client with failover (@nanosession/rpc)
-│   ├── server/         # Server-side payment handler (@nanosession/server)
+│   ├── facilitator/    # Server-side payment handler (@nanosession/facilitator)
 │   ├── client/         # Client-side payment handler (@nanosession/client)
 │   └── faremeter-plugin/ # Faremeter x402 middleware adapter (@nanosession/faremeter)
 ├── docs/               # Protocol specification (source of truth)
 ├── examples/           # Working server + client demos
-│   ├── server/         # Standalone NanoSession server
+│   ├── standalone-facilitator/ # Standalone NanoSession server
 │   ├── client/         # Standalone NanoSession client
 │   └── faremeter-server/ # NanoSession + Faremeter middleware example
 ├── site/               # Documentation website (VitePress)
@@ -78,14 +78,14 @@ Generate and preview the protocol specification website:
 
 ```bash
 cd site
-SPEC_REV=rev5 pnpm docs:build    # Build static site from docs/
-pnpm docs:preview                 # Preview at localhost:4173
+SPEC_REV=rev6 pnpm site:build    # Build static site from docs/
+pnpm site:preview                 # Preview at localhost:4173
 ```
 
 For development with hot reload:
 ```bash
 cd site
-SPEC_REV=rev5 pnpm docs:dev      # Dev server at localhost:5173
+SPEC_REV=rev6 pnpm site:dev      # Dev server at localhost:5173
 ```
 
 ### Reference Server & Client
@@ -94,7 +94,7 @@ Run the example implementations:
 
 ```bash
 # Terminal 1: Start the payment-protected server
-cd examples/server
+cd examples/standalone-facilitator
 NANO_SERVER_ADDRESS=nano_your_address pnpm start
 
 # Terminal 2: Run the paying client
@@ -165,7 +165,7 @@ The documentation website is built from `docs/` and deployed automatically.
 |---------|-------------|
 | `@nanosession/core` | Types, constants, and schema mapping |
 | `@nanosession/rpc` | Nano RPC client with endpoint failover |
-| `@nanosession/server` | `NanoSessionFacilitatorHandler` for servers |
+| `@nanosession/facilitator` | `NanoSessionFacilitatorHandler` for servers |
 | `@nanosession/client` | `NanoSessionPaymentHandler` for clients |
 | `@nanosession/faremeter` | [Faremeter](https://github.com/faremeter/faremeter) x402 middleware adapter |
 

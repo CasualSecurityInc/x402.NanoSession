@@ -2,9 +2,10 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from 'http';
 import * as dotenv from 'dotenv';
 import { deriveSecretKey, derivePublicKey, createBlock, signBlock, computeWork, validateWork, type BlockData } from 'nanocurrency';
-import { NanoSessionFacilitatorHandler } from '@nanosession/server';
+import { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
+import { encodePaymentRequired, decodePaymentRequired, decodePaymentSignature, encodePaymentSignature } from '@nanosession/core';
 
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || './.env.mainnet' });
 
@@ -200,7 +201,9 @@ describe('Integration: Full Payment Flow', () => {
       }
     });
 
-    return processResult.hash as string;
+    const hash = processResult.hash as string;
+    await waitForConfirmation(hash);
+    return hash;
   };
 
   const receivePendingAll = async (address: string, secretKeyHex: string, representativeFallback: string) => {
@@ -269,9 +272,13 @@ describe('Integration: Full Payment Flow', () => {
         block: { ...receiveBlock.block, signature: receiveSignature }
       });
 
-      previous = (processResult.hash as string | undefined)
-        ?? (receiveBlock.hash as string | undefined)
-        ?? previous;
+      const hash = (processResult.hash as string | undefined)
+        ?? (receiveBlock.hash as string | undefined);
+
+      if (hash) {
+        await waitForConfirmation(hash);
+        previous = hash;
+      }
 
       accountInfo = await getAccountInfoSafe(address);
       if (accountInfo) {
@@ -418,27 +425,33 @@ describe('Integration: Full Payment Flow', () => {
 
       server = createServer(async (req, res) => {
         if (req.url === '/protected') {
-          const paymentResponse = req.headers['x-payment-response'];
+          const paymentSignature = req.headers['payment-signature'];
 
-          if (!paymentResponse) {
+          if (!paymentSignature) {
             const requirements = serverHandler.getRequirements({
-              amount: paymentAmount,
+              resourceAmountRaw: paymentAmount,
               payTo: serverAddress,
               maxTimeoutSeconds: 300
             });
-            requirementsCache.set(requirements.extra.sessionId, requirements);
+            requirementsCache.set(requirements.extra.nanoSession.id, requirements);
+
+            const paymentRequired = {
+              x402Version: 2 as const,
+              resource: { url: `http://${req.headers.host}/protected` },
+              accepts: [requirements]
+            };
 
             res.writeHead(402, {
               'Content-Type': 'application/json',
-              'X-Payment-Required': JSON.stringify(requirements)
+              'PAYMENT-REQUIRED': encodePaymentRequired(paymentRequired)
             });
             res.end(JSON.stringify({ error: 'Payment required' }));
             return;
           }
 
           try {
-            const payload = JSON.parse(paymentResponse as string);
-            const sessionId = payload.sessionId as string | undefined;
+            const payload = decodePaymentSignature(paymentSignature as string);
+            const sessionId = payload.accepted.extra.nanoSession.id;
             const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
 
             if (!requirements) {
@@ -489,10 +502,11 @@ describe('Integration: Full Payment Flow', () => {
       const response1 = await fetch(`${baseUrl}/protected`);
 
       expect(response1.status).toBe(402);
-      const paymentRequiredHeader = response1.headers.get('X-Payment-Required');
+      const paymentRequiredHeader = response1.headers.get('PAYMENT-REQUIRED');
       expect(paymentRequiredHeader).toBeTruthy();
 
-      const requirements = JSON.parse(paymentRequiredHeader!);
+      const paymentRequired = decodePaymentRequired(paymentRequiredHeader!);
+      const requirements = paymentRequired.accepts[0];
       console.log('   ✓ Received 402 with PaymentRequirements');
       console.log(`   💰 Amount: ${requirements.amount} raw (${Number(requirements.amount) / 1e30} XNO)`);
 
@@ -515,10 +529,10 @@ describe('Integration: Full Payment Flow', () => {
       console.log('   ✓ Payment execer created');
       console.log('   📤 Broadcasting payment via RPC...');
 
-      // Encode tag in payment amount: taggedAmount = baseAmount + tag
-      // Server validates: actualTag = amount % tagModulus === expected tag
-      const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
-      console.log(`   🏷️  Tag: ${requirements.extra.tag}, Tagged amount: ${taggedAmount}`);
+      // The requirements amount is the exact normative send amount.
+      const nanoSession = requirements.extra.nanoSession;
+      const taggedAmount = requirements.amount;
+      console.log(`   🏷️  Tag: ${nanoSession.tag}, Tagged amount: ${taggedAmount}`);
 
       let paymentHash: string | null;
       try {
@@ -540,16 +554,17 @@ describe('Integration: Full Payment Flow', () => {
         return;
       }
 
-      const blockInfo = await waitForConfirmation(paymentHash);
+      const blockInfoAfter = await rpcClient.getBlockInfo(paymentHash!);
       console.log(`   ✅ Payment confirmed: ${paymentHash}`);
-      console.log(`   🔗 Destination: ${blockInfo.link_as_account ?? blockInfo.link}`);
+      console.log(`   🔗 Destination: ${blockInfoAfter.link_as_account ?? blockInfoAfter.link}`);
 
       console.log('\n🔐 Step 3: Retrying with payment...');
       const response2 = await fetch(`${baseUrl}/protected`, {
         headers: {
-          'X-Payment-Response': JSON.stringify({
-            blockHash: paymentHash,
-            sessionId: requirements.extra.sessionId
+          'PAYMENT-SIGNATURE': encodePaymentSignature({
+            x402Version: 2,
+            accepted: requirements,
+            payload: { proof: paymentHash }
           })
         }
       });
@@ -600,25 +615,25 @@ describe('Integration: Full Payment Flow', () => {
 
     // Get requirements for two different "sessions"
     const victimRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
     const attackerRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
-    console.log(`   Victim session: ${victimRequirements.extra.sessionId}, tag: ${victimRequirements.extra.tag}`);
-    console.log(`   Attacker session: ${attackerRequirements.extra.sessionId}, tag: ${attackerRequirements.extra.tag}`);
+    console.log(`   Victim session: ${victimRequirements.extra.nanoSession.id}, tag: ${victimRequirements.extra.nanoSession.tag}`);
+    console.log(`   Attacker session: ${attackerRequirements.extra.nanoSession.id}, tag: ${attackerRequirements.extra.nanoSession.tag}`);
 
     // Verify tags are different (critical for this test)
-    expect(victimRequirements.extra.tag).not.toBe(attackerRequirements.extra.tag);
+    expect(victimRequirements.extra.nanoSession.tag).not.toBe(attackerRequirements.extra.nanoSession.tag);
 
     // Victim pays with THEIR tag encoded in amount
-    const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.tag)).toString();
+    const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.nanoSession.tag)).toString();
 
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(victimTaggedAmount)) {
@@ -638,13 +653,13 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(victimBlockHash);
     console.log(`   ✅ Victim payment confirmed: ${victimBlockHash}`);
 
     // ATTACK: Attacker tries to use victim's hash with attacker's session
     const attackPayload = {
-      blockHash: victimBlockHash,
-      sessionId: attackerRequirements.extra.sessionId // WRONG SESSION!
+      x402Version: 2 as const,
+      accepted: attackerRequirements,
+      payload: { proof: victimBlockHash }
     };
 
     const result = await serverHandler.handleSettle!(attackerRequirements, attackPayload);
@@ -670,12 +685,12 @@ describe('Integration: Full Payment Flow', () => {
     const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
 
     const requirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(requirements.amount) + BigInt(requirements.extra.tag)).toString();
+    const taggedAmount = requirements.amount;
 
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
@@ -695,11 +710,14 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
 
     // First submission - should succeed
-    const payload = { blockHash, sessionId: requirements.extra.sessionId };
+    const payload = {
+      x402Version: 2 as const,
+      accepted: requirements,
+      payload: { proof: blockHash }
+    };
     const result1 = await serverHandler.handleSettle!(requirements, payload);
     console.log(`   First submission: success=${result1?.success}`);
     expect(result1?.success).toBe(true);
@@ -727,12 +745,12 @@ describe('Integration: Full Payment Flow', () => {
 
     // Create a real payment for a real session
     const realRequirements = serverHandler.getRequirements({
-      amount: paymentAmount,
+      resourceAmountRaw: paymentAmount,
       payTo: serverAddress,
       maxTimeoutSeconds: 300
     });
 
-    const taggedAmount = (BigInt(realRequirements.amount) + BigInt(realRequirements.extra.tag)).toString();
+    const taggedAmount = realRequirements.amount;
 
     const clientInfo = await getAccountInfoSafe(clientAddress);
     if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
@@ -752,7 +770,6 @@ describe('Integration: Full Payment Flow', () => {
       return;
     }
 
-    await waitForConfirmation(blockHash);
     console.log(`   ✅ Payment confirmed: ${blockHash}`);
 
     // ATTACK: Submit with a FAKE session ID that was never issued
@@ -761,10 +778,20 @@ describe('Integration: Full Payment Flow', () => {
     // Create fake requirements with the spoofed session
     const fakeRequirements = {
       ...realRequirements,
-      extra: { ...realRequirements.extra, sessionId: fakeSessionId }
+      extra: {
+        ...realRequirements.extra,
+        nanoSession: {
+          ...realRequirements.extra.nanoSession,
+          id: fakeSessionId
+        }
+      }
     };
 
-    const payload = { blockHash, sessionId: fakeSessionId };
+    const payload = {
+      x402Version: 2 as const,
+      accepted: fakeRequirements,
+      payload: { proof: blockHash }
+    };
     const result = await serverHandler.handleSettle!(fakeRequirements, payload);
 
     // This should fail because the tag won't match (or session is unknown)

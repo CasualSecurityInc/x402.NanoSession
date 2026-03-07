@@ -6,6 +6,7 @@
 // Re-export from constants
 export {
   TAG_MODULUS,
+  TAG_MULTIPLIER,
   SCHEME,
   NETWORK,
   ASSET,
@@ -15,7 +16,6 @@ export {
 
 // Re-export from types
 export type {
-  NanoSessionHeaders,
   NanoSessionExtra,
   PaymentRequirements,
   PaymentPayload
@@ -23,10 +23,22 @@ export type {
 
 // Re-export from mapping
 export {
-  toX402Requirements,
-  fromX402Requirements,
-  toX402Payload
+  encodePaymentRequired,
+  decodePaymentRequired,
+  encodePaymentSignature,
+  decodePaymentSignature
 } from './mapping.js';
 
-export { StandardAccountPool } from './address-pool.js';
-export type { AddressPool } from './address-pool.js';
+export {
+  createPaymentRequirements,
+  createPaymentRequired,
+  createPaymentPayload,
+  assertValidPaymentPayload
+} from './builders.js';
+
+export {
+  calculateTaggedAmount,
+  deriveAddressFromSeed,
+  assertValidRawAmount,
+  assertValidPaymentRequirements
+} from './utils.js';

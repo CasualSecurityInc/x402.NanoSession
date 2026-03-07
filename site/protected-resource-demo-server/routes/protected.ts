@@ -1,11 +1,49 @@
 import { Request, Response, Router } from 'express';
-import { NanoSessionFacilitatorHandler } from '@nanosession/server';
+import { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
 import { NanoRpcClient } from '@nanosession/rpc';
+import {
+    encodePaymentRequired,
+    decodePaymentSignature,
+    calculateTaggedAmount,
+    createPaymentRequired,
+    createPaymentPayload,
+    assertValidPaymentPayload
+} from '@nanosession/core';
+import type { PaymentPayload, PaymentRequirements } from '@nanosession/core';
 import { registerSession } from './status';
 
 // Lazy-initialize to ensure dotenv has loaded env vars before we read them
 let _rpcClient: NanoRpcClient | null = null;
 let _facilitator: NanoSessionFacilitatorHandler | null = null;
+
+function resolveTagModulusEnv(): number | undefined {
+    const raw = process.env.TAG_MODULUS;
+    if (raw === undefined || raw === '') {
+        return undefined;
+    }
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`Invalid TAG_MODULUS: expected positive integer, got "${raw}"`);
+    }
+    return parsed;
+}
+
+function resolveTagMultiplierEnv(): string | undefined {
+    const raw = process.env.TAG_MULTIPLIER;
+    if (raw === undefined || raw === '') {
+        return undefined;
+    }
+    try {
+        const parsed = BigInt(raw);
+        if (parsed <= 0n) {
+            throw new Error('TAG_MULTIPLIER must be greater than zero');
+        }
+        return raw;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid TAG_MULTIPLIER: ${message}`);
+    }
+}
 
 function getRpcClient(): NanoRpcClient {
     if (!_rpcClient) {
@@ -26,6 +64,8 @@ function getFacilitator(): NanoSessionFacilitatorHandler {
             rpcClient: getRpcClient(),
             // Uses default InMemorySpentSet with TTL
             // Uses default in-memory session registry
+            tagModulus: resolveTagModulusEnv(),
+            tagMultiplier: resolveTagMultiplierEnv(),
         });
     }
     return _facilitator;
@@ -69,15 +109,20 @@ const EXCLUSIVE_CONTENT_HTML = `
  */
 async function settleAndRespond(
     facilitator: NanoSessionFacilitatorHandler,
-    requirements: any,
+    requirements: PaymentRequirements,
     blockHash: string,
     res: Response
 ) {
-    const sessionId = requirements.extra?.sessionId || 'unknown';
-    const tag = requirements.extra?.tag || 'unknown';
+    const nanoSession = requirements.extra?.nanoSession;
+    const sessionId = nanoSession?.id || 'unknown';
+    const tag = nanoSession?.tag || 'unknown';
 
     try {
-        const result = await facilitator.handleSettle(requirements, { blockHash });
+        const settlementPayload = createPaymentPayload({
+            accepted: requirements,
+            proof: blockHash
+        });
+        const result = await facilitator.handleSettle(requirements, settlementPayload);
 
         if (result?.success) {
             console.log(`[AUDIT] Tag spent: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`);
@@ -88,8 +133,15 @@ async function settleAndRespond(
             });
             console.log(`[AUDIT] Protected content served: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`);
         } else {
+            const paymentResponse = Buffer.from(JSON.stringify({
+                x402Version: 2,
+                error: result?.error || "Invalid payment proof",
+            })).toString('base64');
             console.warn(`[AUDIT] Payment rejected: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}... error=${result?.error}`);
-            res.status(402).json({ error: result?.error || "Invalid payment proof" });
+            res
+                .status(402)
+                .setHeader('PAYMENT-RESPONSE', paymentResponse)
+                .json({ error: result?.error || "Invalid payment proof" });
         }
     } catch (e) {
         console.error(`[AUDIT] Settlement error: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`, e);
@@ -104,12 +156,23 @@ async function settleAndRespond(
  */
 protectedRoute.get('/', async (req: Request, res: Response) => {
     const t0 = Date.now();
-    const paymentProof = req.header('X-Payment-Block');
-    const incomingSessionId = req.header('X-Payment-Session');
+    const paymentSignatureB64 = req.header('PAYMENT-SIGNATURE');
     const facilitator = getFacilitator();
 
-    // If the client provided a block hash, verify it
-    if (paymentProof && incomingSessionId) {
+    // If the client provided a payment signature, verify it
+    if (paymentSignatureB64) {
+        let paymentPayload: PaymentPayload;
+        try {
+            paymentPayload = decodePaymentSignature(paymentSignatureB64);
+            assertValidPaymentPayload(paymentPayload);
+        } catch (e) {
+            res.status(400).json({ error: "Invalid PAYMENT-SIGNATURE payload" });
+            return;
+        }
+
+        const paymentProof = paymentPayload.payload.proof;
+        const incomingSessionId = paymentPayload.accepted.extra.nanoSession.id;
+
         console.log(`[API] GET /api/protected with proof block=${paymentProof.slice(0, 8)}... session=${incomingSessionId.slice(0, 8)}...`);
         const storedReqs = facilitator.getStoredRequirements(incomingSessionId);
 
@@ -130,14 +193,14 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
     }
 
     // No proof provided, demand payment
-    const amountToCharge = '10000000000000000000000000000'; // 0.01 XNO in Raw
+    const amountToCharge = '10000000000000000000000000000'; // 0.01 XNO in raw (resource amount)
     const payToAddress = process.env.NANO_SERVER_ADDRESS!;
 
     // Generate x402 requirements (automatically registers session in-memory)
     const reqs = facilitator.getRequirements({
-        amount: amountToCharge,
+        resourceAmountRaw: amountToCharge,
         payTo: payToAddress,
-        maxTimeoutSeconds: 600 // 10 minute timeout
+        maxTimeoutSeconds: 180 // 3 minute timeout
     });
 
     if (process.env.NANO_RPC_URL?.includes('beta') || process.env.NANO_RPC_URL?.includes('testnet') || process.env.NANO_WS_URL?.includes('peering')) {
@@ -145,27 +208,29 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
     }
 
     // Use the sessionId generated by the facilitator
-    const newSessionId = reqs.extra.sessionId;
+    const newSessionId = reqs.extra.nanoSession.id;
 
-    // The FacilitatorHandler has likely already added a random tag
-    const taggedAmountRaw = (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString();
+    // Use centralized utility to validate and resolve the normative send amount
+    const taggedAmountRaw = calculateTaggedAmount(reqs);
 
     // Register the session in our SSE tracker so we can push real-time updates
     registerSession(newSessionId, taggedAmountRaw);
 
-    // Return the HTTP 402 with PaymentRequired schema
+    // Construct the PaymentRequired payload with shared builder
+    const paymentRequiredPayload = createPaymentRequired({
+        resource: {
+            url: `${getResourceBaseUrl(req)}/api/protected`,
+            description: 'Access to protected demo content',
+            mimeType: 'application/json'
+        },
+        accepts: [reqs],
+        error: 'Payment Required'
+    });
+
+    // Return the HTTP 402 with PaymentRequired schema in standard header
     res.status(402)
-        .setHeader('X-Payment-Required', JSON.stringify(reqs))
-        .json({
-            x402Version: 5,
-            error: 'Payment Required',
-            resource: {
-                url: `${getResourceBaseUrl(req)}/api/protected`,
-                description: 'Access to protected demo content',
-                mimeType: 'application/json'
-            },
-            accepts: [reqs]
-        });
+        .setHeader('PAYMENT-REQUIRED', encodePaymentRequired(paymentRequiredPayload))
+        .json(paymentRequiredPayload);
 });
 
 /**
@@ -177,19 +242,32 @@ protectedRoute.get('/', async (req: Request, res: Response) => {
  * SECURITY: This is safe because handleSettle independently verifies:
  *   - Block exists and is confirmed on the Nano network (RPC check)
  *   - Destination address matches requirements.payTo
- *   - Amount matches requirements.amount + tag
+ *   - Amount matches requirements.amount (normative total send amount)
  *   - Block hasn't been spent before (spent set)
  * The client cannot forge a valid block hash.
  */
 protectedRoute.post('/', async (req: Request, res: Response) => {
     const t0 = Date.now();
-    const { blockHash, requirements } = req.body;
-    console.log(`[API] POST /api/protected block=${blockHash?.slice(0, 8)}...`);
+    const { paymentSignature } = req.body;
 
-    if (!blockHash || !requirements) {
-        res.status(400).json({ error: "Missing blockHash or requirements in request body" });
+    if (!paymentSignature) {
+        res.status(400).json({ error: "Missing paymentSignature in request body" });
         return;
     }
+
+    let payload: PaymentPayload;
+    try {
+        payload = decodePaymentSignature(paymentSignature);
+        assertValidPaymentPayload(payload);
+    } catch (e) {
+        res.status(400).json({ error: "Invalid paymentSignature payload" });
+        return;
+    }
+
+    const blockHash = payload.payload.proof;
+    const requirements = payload.accepted;
+
+    console.log(`[API] POST /api/protected block=${blockHash?.slice(0, 8)}...`);
 
     // Validate that payTo matches our server address (prevent redirecting payments)
     if (requirements.payTo !== process.env.NANO_SERVER_ADDRESS) {
@@ -201,7 +279,7 @@ protectedRoute.post('/', async (req: Request, res: Response) => {
     const facilitator = getFacilitator();
 
     // Re-register the session so handleVerify's sessionRegistry.has() check passes
-    const sessionId = requirements.extra?.sessionId;
+    const sessionId = requirements.extra?.nanoSession?.id;
     if (sessionId) {
         console.info(`[protected] Re-registering lost session ${sessionId} from client-supplied requirements`);
         facilitator.registerSessionFromRequirements(sessionId, requirements);

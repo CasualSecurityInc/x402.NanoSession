@@ -11,6 +11,10 @@ export interface NanoRpcClientOptions {
   timeoutMs?: number;
 }
 
+/**
+ * A highly resilient Nano RPC client with multi-endpoint failover and exponential backoff retry.
+ * Implements a subset of the Nano RPC protocol required for x402 support.
+ */
 export class NanoRpcClient {
   private endpoints: string[];
   private maxRetries: number;
@@ -86,7 +90,9 @@ export class NanoRpcClient {
   }
 
   /**
-   * Get account information
+   * Retrieves basic account information (frontier, balance, etc)
+   * @param address The Nano account address
+   * @throws {AggregateError} if all endpoints fail or return RPC error
    */
   async getAccountInfo(address: string): Promise<AccountInfo> {
     const response = await this.callRpc('account_info', {
@@ -111,7 +117,9 @@ export class NanoRpcClient {
   }
 
   /**
-   * Get recent transaction history for an account
+   * Retrieves recent transaction history for an account
+   * @param account The Nano account address
+   * @param count Number of entries to retrieve (default: 10)
    */
   async getAccountHistory(account: string, count: number = 10): Promise<AccountHistoryEntry[]> {
     const response = await this.callRpc('account_history', {
@@ -132,6 +140,51 @@ export class NanoRpcClient {
       height: entry.height as string,
       confirmed: entry.confirmed as string,
     }));
+  }
+
+  /**
+   * Broadcasts a signed block to the Nano network.
+   * @param block Signed state block representation
+   * @returns Processed block hash
+   */
+  async processBlock(block: Record<string, unknown>): Promise<string> {
+    const response = await this.callRpc('process', {
+      json_block: true,
+      block
+    });
+
+    const hash = response.hash as string | undefined;
+    if (!hash) {
+      throw new Error('RPC process response missing hash');
+    }
+    return hash;
+  }
+
+  /**
+   * Gets current active network difficulty, if available.
+   */
+  async getActiveDifficulty(): Promise<string | undefined> {
+    const response = await this.callRpc('telemetry', {}, { silent: true });
+    const active = response.active_difficulty;
+    return typeof active === 'string' ? active : undefined;
+  }
+
+  /**
+   * Requests PoW generation from RPC.
+   * @param hash Work root hash (usually account frontier)
+   * @param difficulty Optional threshold override
+   */
+  async generateWork(hash: string, difficulty?: string): Promise<string> {
+    const response = await this.callRpc('work_generate', {
+      hash,
+      ...(difficulty ? { difficulty } : {})
+    });
+
+    const work = response.work as string | undefined;
+    if (!work) {
+      throw new Error('RPC work_generate response missing work');
+    }
+    return work;
   }
 
   /**

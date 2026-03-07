@@ -73,6 +73,13 @@ export function hasActiveSessions(): boolean {
 }
 
 /**
+ * Count of active SSE clients currently connected.
+ */
+export function getActiveSseClientCount(): number {
+    return activeClients.size;
+}
+
+/**
  * Get the amount-to-session mapping for RPC polling fallback
  */
 export function getAmountToSessionMap(): Record<string, string> {

@@ -4,6 +4,8 @@
 
 This directory contains the **Canonical Source of Truth** for the x402.NanoSession protocol. All changes to the protocol must happen here.
 
+**🚨 CRITICAL RULE:** **NEVER modify files under `docs/old/`**. The maintainer will gradually move previous versions of the spec in under there for archival purposes only.
+
 ## 📚 Reference Materials
 
 ### Upstream x402 Specification (PRIMARY)
@@ -58,13 +60,13 @@ Files follow a strict pattern to support multiple revisions and automated site g
 
 **All protocol changes MUST undergo security review.**
 
-The Rev5 specification introduced a formal Security Model after discovering the **Receipt-Stealing Attack** — a vulnerability where attackers could steal payment proofs from the public blockchain.
+The Rev6 specification includes the formal Security Model for the **Receipt-Stealing Attack** — a vulnerability where attackers could steal payment proofs from the public blockchain.
 
 #### Mandatory Review Checklist
 
 Before finalizing any protocol change:
 
-1. **Read §1 Security Model** in `x402_NanoSession_rev5_Protocol.md`
+1. **Read §1 Security Model** in `x402_NanoSession_rev6_Protocol.md`
 2. **Review the Session Binding Invariant** — sessions are security primitives
 3. **Check attack vectors**:
    - Receipt theft (hash from different session)

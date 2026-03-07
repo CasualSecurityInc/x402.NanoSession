@@ -4,7 +4,7 @@ This directory contains example applications demonstrating the NanoSession x402 
 
 ## Examples
 
-### Server Example (`server/`)
+### Server Example (`standalone-facilitator/`)
 
 A simple HTTP server that protects resources with Nano payments.
 
@@ -16,7 +16,7 @@ A simple HTTP server that protects resources with Nano payments.
 
 **Run:**
 ```bash
-cd examples/server
+cd examples/standalone-facilitator
 npx tsx src/index.ts
 ```
 
@@ -66,7 +66,7 @@ source ../e2e.env && npx tsx src/index.ts
 
 1. **Terminal 1 - Start the server:**
    ```bash
-   cd examples/server
+   cd examples/standalone-facilitator
    export NANO_SERVER_ADDRESS=nano_your_address_here
    npx tsx src/index.ts
    ```
@@ -113,7 +113,7 @@ The client will:
 
 ### Change Payment Amount
 
-Edit `examples/server/src/index.ts`:
+Edit `examples/standalone-facilitator/src/index.ts`:
 ```typescript
 const PAYMENT_AMOUNT = '500000000000000000000000'; // 0.0005 XNO
 ```

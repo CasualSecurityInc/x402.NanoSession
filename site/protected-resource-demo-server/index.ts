@@ -30,7 +30,7 @@ if (!NANO_SERVER_ADDRESS) {
 }
 
 const app = express();
-app.use(cors({ exposedHeaders: ['X-Payment-Required'] }));
+app.use(cors({ exposedHeaders: ['PAYMENT-REQUIRED'] }));
 app.use(express.json());
 
 const server = createServer(app);

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
 import { usePaymentStatus } from '../composables/usePaymentStatus'
 import { useXnapSnap } from '../composables/useXnapSnap'
+import { calculateTaggedAmount } from '@nanosession/core'
 
 const props = defineProps({
   demoServerUrl: {
@@ -55,6 +56,10 @@ const finalBlockHash = ref<string | null>(null)
 const globalError = ref<string | null>(null)
 const serverProvidedContent = ref<string | null>(null)
 const isVerifying = ref(false)
+const paymentUri = computed(() => {
+  if (!session.value) return ''
+  return `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
+})
 
 onMounted(async () => {
   if (typeof window !== 'undefined' && window.location.hash === '#testnet') {
@@ -103,22 +108,24 @@ async function fetchPaymentRequirements() {
 
     // Check if it's the expected 402
     if (res.status === 402) {
-      const xPaymentRequired = res.headers.get('x-payment-required')
-      if (xPaymentRequired) {
-        // Pretty print the JSON for the log
-        let prettyJson = ''
+      const paymentRequiredB64 = res.headers.get('payment-required')
+      if (paymentRequiredB64) {
+        let reqPayload;
         try {
-            prettyJson = JSON.stringify(JSON.parse(xPaymentRequired), null, 2)
-        } catch {
-            prettyJson = xPaymentRequired
+            reqPayload = JSON.parse(atob(paymentRequiredB64));
+        } catch (e) {
+            throw new Error("Invalid PAYMENT-REQUIRED header format");
         }
+        
+        const reqs = reqPayload.accepts[0];
+
+        // Pretty print the JSON for the log
+        const prettyJson = JSON.stringify(reqPayload, null, 2);
 
         httpLog.value.push({
             type: 'res',
-            content: `HTTP/1.1 402 Payment Required\nX-Payment-Required: ${prettyJson}`
+            content: `HTTP/1.1 402 Payment Required\nPAYMENT-REQUIRED: ${prettyJson}`
         })
-
-        const reqs = JSON.parse(xPaymentRequired)
         
         // Log 402 response for debugging
         console.warn('[NanoPaywall] 402 Response received:', {
@@ -126,10 +133,10 @@ async function fetchPaymentRequirements() {
             network: reqs.network,
             amount: reqs.amount,
             payTo: reqs.payTo,
-            tag: reqs.extra?.tag,
-            sessionId: reqs.extra?.sessionId,
-            tagModulus: reqs.extra?.tagModulus,
-            calculatedAmountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra?.tag || 0)).toString()
+            tag: reqs.extra?.nanoSession?.tag,
+            sessionId: reqs.extra?.nanoSession?.id,
+            tagModulus: reqs.extra?.nanoSession?.tagModulus,
+            calculatedAmountRaw: calculateTaggedAmount(reqs)
         })
         
         // Store the raw requirements for POST fallback if server loses session
@@ -137,8 +144,8 @@ async function fetchPaymentRequirements() {
         
         session.value = {
           payTo: reqs.payTo,
-          amountRaw: (BigInt(reqs.amount) + BigInt(reqs.extra.tag)).toString(),
-          sessionId: reqs.extra.sessionId,
+          amountRaw: calculateTaggedAmount(reqs),
+          sessionId: reqs.extra.nanoSession.id,
           expiresAt: reqs.maxTimeoutSeconds ? Date.now() + (reqs.maxTimeoutSeconds * 1000) : Date.now() + 600000
         }
 
@@ -151,7 +158,7 @@ async function fetchPaymentRequirements() {
         // Connect SSE
         connectSSE()
       } else {
-        throw new Error("Missing X-Payment-Required header")
+        throw new Error("Missing PAYMENT-REQUIRED header")
       }
     } else if (res.status === 200) {
         // Technically shouldn't happen on first load without a session
@@ -250,13 +257,22 @@ async function verifyPayment(hash: string) {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 20000)
 
+        const signaturePayload = {
+            x402Version: 2,
+            accepted: originalRequirements.value,
+            payload: { proof: hash }
+        };
+        const signatureB64 = btoa(JSON.stringify(signaturePayload));
+
         // First try GET with stored session headers
-        httpLog.value.push({ type: 'req', content: `GET /api/protected\nX-Payment-Block: ${hash}\nX-Payment-Session: ${session.value?.sessionId}` })
+        httpLog.value.push({
+            type: 'req',
+            content: `GET /api/protected\nPAYMENT-SIGNATURE: ${JSON.stringify(signaturePayload, null, 2)}`
+        })
 
         let res = await fetch(`${activeServerUrl.value}/api/protected`, {
             headers: {
-                'X-Payment-Block': hash,
-                'X-Payment-Session': session.value?.sessionId
+                'PAYMENT-SIGNATURE': signatureB64
             },
             signal: controller.signal
         })
@@ -266,14 +282,13 @@ async function verifyPayment(hash: string) {
         if (protectedData.code === 'SESSION_LOST' && originalRequirements.value) {
             console.warn('[NanoPaywall] Server session lost, retrying with POST fallback')
             httpLog.value.push({ type: 'info', content: '(Server session expired, retrying with stored requirements...)' })
-            httpLog.value.push({ type: 'req', content: `POST /api/protected\n{blockHash: "${hash}", requirements: {...}}` })
+            httpLog.value.push({ type: 'req', content: `POST /api/protected\n{paymentSignature: "..."}` })
 
             res = await fetch(`${activeServerUrl.value}/api/protected`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    blockHash: hash,
-                    requirements: originalRequirements.value
+                    paymentSignature: signatureB64
                 }),
                 signal: controller.signal
             })
@@ -318,7 +333,7 @@ async function verifyPayment(hash: string) {
 
 async function generateQRCode() {
   if (!session.value) return
-  const uri = `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
+  const uri = paymentUri.value
   try {
     // Create a virtual canvas to draw QR and overlay logo
     const canvas = document.createElement('canvas')
@@ -571,11 +586,17 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 <!-- QR Code Tab -->
                 <div v-if="activePaymentTab === 'qr'" class="tab-content">
                     <div class="qr-section">
-                        <div class="qr-wrapper">
+                        <a v-if="paymentUri" :href="paymentUri" class="qr-link" aria-label="Open wallet with payment URI">
+                          <div class="qr-wrapper">
+                            <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
+                          </div>
+                        </a>
+                        <div v-else class="qr-wrapper">
                             <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
                         </div>
+                        <a v-if="paymentUri" :href="paymentUri" class="wallet-link">Open in wallet app</a>
                         <p class="qr-hint">
-                            Scan with Natrium or any Nano wallet that handles exact amounts correctly (i.e. _not_ Nault or Cake Wallet)
+                            Scan the QR or tap the wallet link on mobile.
                         </p>
                     </div>
                 </div>
@@ -848,8 +869,10 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 
 .retry-btn {
     margin-top: 16px;
-    padding: 8px 16px;
-    background-color: var(--vp-c-brand);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: #2563eb;
     color: white;
     border: none;
     border-radius: 6px;
@@ -858,7 +881,11 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 }
 
 .retry-btn:hover {
-    background-color: var(--vp-c-brand-dark);
+    background-color: #1d4ed8;
+}
+
+.retry-btn:active {
+    background-color: #1e40af;
 }
 
 /* Expired State */
@@ -955,6 +982,11 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     align-items: center;
 }
 
+.qr-link {
+    display: inline-block;
+    border-radius: 8px;
+}
+
 .qr-wrapper {
     background-color: white;
     padding: 8px;
@@ -967,6 +999,18 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     width: 192px;
     height: 192px;
     display: block;
+}
+
+.wallet-link {
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--vp-c-brand);
+    text-decoration: none;
+}
+
+.wallet-link:hover {
+    text-decoration: underline;
 }
 
 .qr-hint {
@@ -1120,17 +1164,25 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
 }
 
 .restart-link {
-    font-size: 0.75rem;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--vp-c-brand);
     cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 0;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    padding: 6px 16px;
     text-decoration: none;
+    transition: background-color 0.2s;
 }
 
 .restart-link:hover {
-    text-decoration: underline;
+    background: rgba(59, 130, 246, 0.2);
+    text-decoration: none;
+}
+
+.restart-link:active {
+    background: rgba(59, 130, 246, 0.3);
 }
 
 /* Protocol Terminal */

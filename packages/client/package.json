@@ -18,7 +18,6 @@
   "dependencies": {
     "@nanosession/core": "workspace:*",
     "@nanosession/rpc": "workspace:*",
-    "nanocurrency": "^2.5.0",
-    "tweetnacl": "^1.0.3"
+    "nanocurrency": "^2.5.0"
   }
 }

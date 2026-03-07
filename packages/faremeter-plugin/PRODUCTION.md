@@ -16,7 +16,7 @@ The spent set prevents replay attacks by tracking which block hashes have alread
 You MUST implement the `SpentSetStorage` interface with a persistent backend:
 
 ```typescript
-import { SpentSetStorage } from '@nanosession/server';
+import { SpentSetStorage } from '@nanosession/facilitator';
 
 export interface SpentSetStorage {
   /** Check if a block hash has been spent */
@@ -32,7 +32,7 @@ Redis is ideal for spent sets due to its speed, atomic operations, and built-in 
 
 ```typescript
 import { createClient } from 'redis';
-import type { SpentSetStorage } from '@nanosession/server';
+import type { SpentSetStorage } from '@nanosession/facilitator';
 
 export class RedisSpentSet implements SpentSetStorage {
   private client: ReturnType<typeof createClient>;
@@ -87,7 +87,7 @@ For existing database infrastructure:
 
 ```typescript
 import { Pool } from 'pg';
-import type { SpentSetStorage } from '@nanosession/server';
+import type { SpentSetStorage } from '@nanosession/facilitator';
 
 export class PostgresSpentSet implements SpentSetStorage {
   private pool: Pool;

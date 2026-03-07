@@ -1,9 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const SPEC_REV = process.env.SPEC_REV || 'rev5';
+const SPEC_REV = process.env.SPEC_REV;
+if (!SPEC_REV) {
+  console.error('ERROR: SPEC_REV environment variable is required. ("revX")');
+  process.exit(1);
+}
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
-const TARGET_DIR = path.resolve(__dirname, '../docs');
+const TARGET_DIR = path.resolve(__dirname, '../gen/docs');
 const EXTENSIONS_DIR = path.join(TARGET_DIR, 'extensions');
 const APPENDIX_DIR = path.join(TARGET_DIR, 'appendix');
 
@@ -97,7 +101,7 @@ extensionFiles.sort().forEach(file => {
   const title = titleMatch ? titleMatch[1] : file;
   extensionLinks.push({ text: title, link: fileMapping[file] });
 
-  let newContent = `\n[← Back to Protocol](/protocol)\n\n` + replaceLinks(content);
+  let newContent = replaceLinks(content);
   fs.writeFileSync(targetPath, newContent);
   console.log(`Processed Extension: ${file} -> ${targetPath}`);
 });

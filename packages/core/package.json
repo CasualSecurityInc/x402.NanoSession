@@ -16,8 +16,7 @@
     "test": "vitest --run"
   },
   "dependencies": {
+    "nanocurrency": "^2.5.0",
     "zod": "^3.22.0"
-  },
-  "devDependencies": {},
-  "peerDependencies": {}
+  }
 }

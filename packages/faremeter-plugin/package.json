@@ -22,6 +22,6 @@
   "devDependencies": {
     "@nanosession/client": "workspace:*",
     "@nanosession/core": "workspace:*",
-    "@nanosession/server": "workspace:*"
+    "@nanosession/facilitator": "workspace:*"
   }
 }

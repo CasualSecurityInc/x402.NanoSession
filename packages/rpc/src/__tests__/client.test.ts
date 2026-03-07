@@ -121,4 +121,28 @@ describe('NanoRpcClient', () => {
     expect(result.balance).toBe('1000000000000000000000000000');
     expect(result.block_count).toBe(100);
   });
+
+  test('processBlock returns processed hash', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ hash: 'ABCDEF' })
+    });
+
+    const client = new NanoRpcClient({ endpoints: ['https://rpc.nano.to'] });
+    const hash = await client.processBlock({ type: 'state' });
+
+    expect(hash).toBe('ABCDEF');
+  });
+
+  test('generateWork returns work value', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ work: 'ffff0000ffff0000' })
+    });
+
+    const client = new NanoRpcClient({ endpoints: ['https://rpc.nano.to'] });
+    const work = await client.generateWork('ROOT_HASH');
+
+    expect(work).toBe('ffff0000ffff0000');
+  });
 });

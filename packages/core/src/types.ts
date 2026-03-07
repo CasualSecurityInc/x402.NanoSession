@@ -15,14 +15,14 @@ export interface ResourceInfo {
 }
 
 export interface NanoSessionExtra {
-  /** Unique tag for request identification */
-  tag: number;
   /** Session identifier */
   id: string;
-  /** Tag modulus used for calculation */
-  tagModulus: number;
-  /** Multiplier to shift the tag into higher decimals */
-  tagMultiplier?: string;
+  /** Human/audit-visible tag value */
+  tag: number;
+  /** Underlying resource price before tag amount is added (raw) */
+  resourceAmountRaw: string;
+  /** Tag component encoded into the payment amount (raw) */
+  tagAmountRaw: string;
   /** ISO timestamp when tag reservation expires */
   expiresAt?: string;
 }
@@ -34,9 +34,9 @@ export interface PaymentRequirements {
   network: string;
   /** Asset identifier (e.g. "XNO") */
   asset: string;
-  /** Base amount in raw (smallest Nano unit) */
+  /** Total amount to send in raw (normative payment amount) */
   amount: string;
-  /** Address to pay the base amount + tag to */
+  /** Address to pay the total amount to */
   payTo: string;
   /** Maximum time in seconds to complete payment */
   maxTimeoutSeconds: number;

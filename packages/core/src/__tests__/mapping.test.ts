@@ -16,14 +16,15 @@ describe('PaymentRequired encoding/decoding', () => {
         scheme: 'exact',
         network: 'nano:mainnet',
         asset: 'XNO',
-        amount: '1000000',
+        amount: '1001234',
         payTo: 'nano_abc',
         maxTimeoutSeconds: 180,
         extra: {
           nanoSession: {
             tag: 1234,
-            tagModulus: 10000,
-            id: 'uuid-1234'
+            id: 'uuid-1234',
+            resourceAmountRaw: '1000000',
+            tagAmountRaw: '1234'
           }
         }
       }
@@ -54,14 +55,15 @@ describe('PaymentPayload encoding/decoding', () => {
       scheme: 'exact',
       network: 'nano:mainnet',
       asset: 'XNO',
-      amount: '1000000',
+      amount: '1001234',
       payTo: 'nano_abc',
       maxTimeoutSeconds: 180,
       extra: {
         nanoSession: {
           tag: 1234,
-          tagModulus: 10000,
-          id: 'uuid-1234'
+          id: 'uuid-1234',
+          resourceAmountRaw: '1000000',
+          tagAmountRaw: '1234'
         }
       }
     },

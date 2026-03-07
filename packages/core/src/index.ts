@@ -28,4 +28,16 @@ export {
   decodePaymentSignature
 } from './mapping.js';
 
-export { calculateTaggedAmount, deriveAddressFromSeed } from './utils.js';
+export {
+  createPaymentRequirements,
+  createPaymentRequired,
+  createPaymentPayload,
+  assertValidPaymentPayload
+} from './builders.js';
+
+export {
+  calculateTaggedAmount,
+  deriveAddressFromSeed,
+  assertValidRawAmount,
+  assertValidPaymentRequirements
+} from './utils.js';

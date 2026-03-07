@@ -39,7 +39,7 @@ jobs:
           VITE_MAINNET_DEMO_URL: ${{ vars.VITE_MAINNET_DEMO_URL }}
           VITE_ENABLE_TESTNET_TAB: ${{ vars.VITE_ENABLE_TESTNET_TAB }}
           VITE_ENABLE_XNAP: ${{ vars.VITE_ENABLE_XNAP }}
-        run: pnpm run site:build
+        run: pnpm build && pnpm run site:build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

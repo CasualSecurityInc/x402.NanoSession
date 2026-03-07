@@ -1,5 +1,5 @@
 import { facilitator, x402 } from '@faremeter/types';
-import { SCHEME, NETWORK } from '@nanosession/core';
+import { SCHEME, NETWORK, createPaymentRequirements, createPaymentPayload } from '@nanosession/core';
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import { NanoSessionFacilitatorHandler, type HandlerOptions } from '@nanosession/facilitator';
 import type { SpentSetStorage } from '@nanosession/facilitator';
@@ -15,14 +15,8 @@ export interface FacilitatorOptions {
   rpcClient: HandlerOptions['rpcClient'];
   payTo: string;
   spentSet?: SpentSetStorage;
-  defaultAmount?: string;
+  defaultResourceAmountRaw?: string;
   maxTimeoutSeconds?: number;
-  tagModulus?: number;
-}
-
-interface SessionRequirements {
-  requirements: PaymentRequirements;
-  x402Requirements: x402PaymentRequirements;
 }
 
 /**
@@ -37,8 +31,6 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     rpcClient: options.rpcClient,
     spentSet: options.spentSet,
   });
-
-  const sessionMap = new Map<string, SessionRequirements>();
 
   const getSupported = (): Promise<x402SupportedKind>[] => {
     return [Promise.resolve({
@@ -57,10 +49,9 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       }
 
       const nanoReq = underlying.getRequirements({
-        amount: req.maxAmountRequired || options.defaultAmount || '0',
+        resourceAmountRaw: req.maxAmountRequired || options.defaultResourceAmountRaw || '0',
         payTo: options.payTo,
         maxTimeoutSeconds: options.maxTimeoutSeconds ?? req.maxTimeoutSeconds,
-        tagModulus: options.tagModulus,
       });
 
       const enriched: x402PaymentRequirements = {
@@ -75,16 +66,12 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
           nanoSession: {
             tag: nanoReq.extra.nanoSession.tag,
             id: nanoReq.extra.nanoSession.id,
-            tagModulus: nanoReq.extra.nanoSession.tagModulus,
+            resourceAmountRaw: nanoReq.extra.nanoSession.resourceAmountRaw,
+            tagAmountRaw: nanoReq.extra.nanoSession.tagAmountRaw,
             expiresAt: nanoReq.extra.nanoSession.expiresAt,
           }
         },
       };
-
-      sessionMap.set(nanoReq.extra.nanoSession.id, {
-        requirements: nanoReq,
-        x402Requirements: enriched,
-      });
 
       result.push(enriched);
     }
@@ -96,37 +83,38 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     const extra = (req.extra as any)?.nanoSession;
     if (!extra) return null;
 
-    if (extra.id === undefined || extra.tag === undefined ||
-      extra.tagModulus === undefined || extra.expiresAt === undefined) {
+    if (
+      extra.id === undefined ||
+      extra.tag === undefined ||
+      extra.resourceAmountRaw === undefined ||
+      extra.tagAmountRaw === undefined ||
+      extra.expiresAt === undefined
+    ) {
       return null;
     }
 
-    return {
-      scheme: req.scheme,
-      network: req.network,
-      asset: req.asset,
-      amount: req.maxAmountRequired,
+    return createPaymentRequirements({
       payTo: req.payTo,
       maxTimeoutSeconds: req.maxTimeoutSeconds,
-      extra: {
-        nanoSession: {
-          tag: extra.tag,
-          id: extra.id,
-          tagModulus: extra.tagModulus,
-          expiresAt: extra.expiresAt,
-        }
-      },
-    };
+      id: extra.id,
+      tag: extra.tag,
+      resourceAmountRaw: extra.resourceAmountRaw,
+      tagAmountRaw: extra.tagAmountRaw,
+      amount: req.maxAmountRequired,
+      expiresAt: extra.expiresAt,
+      scheme: req.scheme,
+      network: req.network,
+      asset: req.asset
+    });
   };
 
   const toNanoPayload = (payment: x402PaymentPayload, req: PaymentRequirements): PaymentPayload | null => {
     const payload = payment.payload as { blockHash?: string };
     if (!payload.blockHash) return null;
-    return {
-      x402Version: 2,
+    return createPaymentPayload({
       accepted: req,
-      payload: { proof: payload.blockHash }
-    };
+      proof: payload.blockHash
+    });
   };
 
   const handleVerify = async (

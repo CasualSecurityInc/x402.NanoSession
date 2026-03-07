@@ -18,7 +18,7 @@
  * const facilitator = createFacilitatorHandler({
  *   rpcClient,
  *   payTo: 'nano_your_address',
- *   defaultAmount: '1000000000000000000000000', // 0.001 XNO
+ *   defaultResourceAmountRaw: '1000000000000000000000000', // 0.001 XNO
  * });
  * ```
  *

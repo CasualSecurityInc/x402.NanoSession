@@ -29,7 +29,7 @@ const rpcClient = new NanoRpcClient({ endpoints: ['https://rpc.nano.to'] });
 const facilitatorHandler = createFacilitatorHandler({
   rpcClient,
   payTo: 'nano_your_receiving_address',
-  defaultAmount: '1000000000000000000000000', // 0.001 XNO in raw
+  defaultResourceAmountRaw: '1000000000000000000000000', // 0.001 XNO in raw
   maxTimeoutSeconds: 300,
 });
 
@@ -71,8 +71,9 @@ const paymentHandler = createPaymentHandler({
 NanoSession uses **session-bound payments** to prevent receipt theft attacks:
 
 1. Each payment request includes a unique `sessionId` and `tag`
-2. The payment amount encodes the tag: `actualAmount = baseAmount + tag`
-3. Server verifies the tag matches the session before accepting payment
+2. Requirements expose a normative send amount: `amount` (exact raw to send)
+3. Transparent fields in `extra.nanoSession` include `resourceAmountRaw`, `tagAmountRaw`, and `tag`
+4. Server verifies the block against the issued session requirements before accepting payment
 
 This prevents attackers from stealing payment proofs (block hashes) and reusing them for different sessions.
 
@@ -86,10 +87,9 @@ This prevents attackers from stealing payment proofs (block hashes) and reusing 
 |--------|------|----------|-------------|
 | `rpcClient` | `NanoRpcClient` | Yes | Nano RPC client instance |
 | `payTo` | `string` | Yes | Receiving Nano address |
-| `defaultAmount` | `string` | No | Default payment amount in raw |
+| `defaultResourceAmountRaw` | `string` | No | Default resource amount in raw (before tag amount) |
 | `maxTimeoutSeconds` | `number` | No | Session timeout (default: 300) |
 | `spentSet` | `SpentSetStorage` | No | Custom spent set storage |
-| `tagModulus` | `number` | No | Tag modulus (default: 1,000,000) |
 
 ### `createPaymentHandler(options: PaymentHandlerOptions)`
 

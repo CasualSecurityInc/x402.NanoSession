@@ -1,5 +1,5 @@
 import { client, x402 } from '@faremeter/types';
-import { SCHEME, NETWORK } from '@nanosession/core';
+import { SCHEME, NETWORK, createPaymentRequirements } from '@nanosession/core';
 import type { PaymentRequirements } from '@nanosession/core';
 import { NanoSessionPaymentHandler, type ClientOptions } from '@nanosession/client';
 
@@ -38,27 +38,32 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
 
       const extra = (req.extra as any)?.nanoSession;
 
-      if (!extra || extra.tag === undefined || !extra.id ||
-        !extra.tagModulus || !extra.expiresAt) {
+      if (
+        !extra ||
+        extra.tag === undefined ||
+        !extra.id ||
+        !extra.resourceAmountRaw ||
+        !extra.tagAmountRaw ||
+        !extra.expiresAt
+      ) {
         continue;
       }
 
-      nanoAccepts.push({
-        scheme: req.scheme,
-        network: req.network,
-        asset: req.asset,
-        amount: req.maxAmountRequired,
-        payTo: req.payTo,
-        maxTimeoutSeconds: req.maxTimeoutSeconds,
-        extra: {
-          nanoSession: {
-            tag: extra.tag,
-            id: extra.id,
-            tagModulus: extra.tagModulus,
-            expiresAt: extra.expiresAt,
-          }
-        },
-      });
+      nanoAccepts.push(
+        createPaymentRequirements({
+          payTo: req.payTo,
+          maxTimeoutSeconds: req.maxTimeoutSeconds,
+          id: extra.id,
+          tag: extra.tag,
+          resourceAmountRaw: extra.resourceAmountRaw,
+          tagAmountRaw: extra.tagAmountRaw,
+          amount: req.maxAmountRequired,
+          expiresAt: extra.expiresAt,
+          scheme: req.scheme,
+          network: req.network,
+          asset: req.asset
+        })
+      );
     }
 
     const underlyingExecers = await underlying.handle(context, nanoAccepts);
@@ -66,7 +71,8 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
     return underlyingExecers.map((execer): PaymentExecer => ({
       requirements: accepts.find(r =>
         r.scheme === execer.requirements.scheme &&
-        r.network === execer.requirements.network
+        r.network === execer.requirements.network &&
+        (r.extra as any)?.nanoSession?.id === execer.requirements.extra.nanoSession.id
       )!,
       exec: async () => {
         const result = await execer.exec();

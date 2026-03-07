@@ -14,7 +14,7 @@ This extension defines an **opt-in mechanism** whereby a Facilitator formally pr
 
 Rebating dust is strictly **optional** and is generally discouraged for low-resource or high-throughput generic servers due to the following systemic trade-offs:
 
-1. **PoW Compute Cost:** Returning the dust requires the Facilitator to compute Proof of Work (PoW) on the Nano network. Generating PoW to return `0.000007 XNO` often costs the host more in CPU compute (or external PoW API credits) than the dust is worth.
+1. **PoW Compute Cost:** Returning the dust requires the Facilitator to compute Proof of Work (PoW) on the Nano network. Generating PoW to return `0.000007 XNO` often costs the host more in CPU compute (or external PoW API credits) than the dust is worth. With the core default `tagModulus` of `10_000_000`, a typical tag like `6_284_017` raw is only `6.284017e-24 XNO` (since `1 raw = 1e-30 XNO`). The default tag modulus uses tag values as small as `1e-24 XNO`, which is effectively dust.
 2. **Ledger Bloat:** A standard interaction takes 2 blocks (Client Send, Server Receive). Refunding dust doubles this to 4 blocks on the global Nano ledger for fractions of a cent.
 3. **Queue Complexity:** Facilitators must ensure asynchronous task idempotency—if the Facilitator crashes while processing a rebate queue, it must not accidentally refund the same dust twice upon rebooting.
 

@@ -14,6 +14,7 @@ While **Extension A** solves the *throughput* problem via sharding, it leaves th
 
 *   **The Problem:** An observer can map the static pool and monitor the service's total income, customer growth, and peak hours.
 *   **The Solution:** By constantly rotating addresses based on usage (stochastic), the "map" becomes stale faster than an attacker can update it.
+*   **Active Window ($M$):** The number of concurrently active address slots maintained by the Facilitator at any given time.
 *   **Inherited Benefit:** Since this model also utilizes multiple active addresses (Active Window $M$), the extension inherits the high-throughput concurrency benefits of Extension A.
 
 ## 3. Core Concept: Usage-Based Rotation

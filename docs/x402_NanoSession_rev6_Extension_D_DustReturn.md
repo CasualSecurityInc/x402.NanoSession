@@ -8,7 +8,7 @@
 
 The `x402.NanoSession` protocol relies on "Dust Tagging" to bind a generic payment to a specific HTTP session. For example, if a resource costs `0.001 XNO`, the server might append a tag of `12345` raw, requiring the client to send a `block_amount` of `1000000000000000000012345` raw to the destination address.
 
-While this cryptographically secures the session against receipt-stealing attacks, it leaves a microscopic amount of un-spendable "dust" in the destination account on every single HTTP action. Because the Nano network is completely feeless, there is zero network cost to returning this dust to the original sender. 
+While this cryptographically secures the session against receipt-stealing attacks, it leaves a microscopic amount of "dust" in the destination account on every single HTTP action. In Nano, every raw is spendable at the protocol level; however, some nodes and wallets may choose to ignore tiny balances operationally. Because the Nano network is completely feeless, there is zero network cost to returning this dust to the original sender.
 
 This extension formalizes the standard method by which a server announces its intention to sweep and return this dust asynchronously.
 
@@ -49,6 +49,8 @@ When a Client sees `dustRebate: true`, it can conceptually model the transaction
 ## 3. The Janitor Role
 
 Returning 12,345 raw synchronously during the `POST /settle` Phase would vastly slow down the HTTP request execution time, as the server would need to generate PoW, sign, and broadcast a return block before completing the user's initial API call.
+
+With the core default `tagModulus` of `10_000_000`, a typical tag like `4_271_593` raw is only `4.271593e-24 XNO` (since `1 raw = 1e-30 XNO`). The default tag modulus uses tag values as small as `1e-24 XNO`, which is effectively dust.
 
 Therefore, dust return MUST be asynchronous. This is the domain of the **Janitor**.
 

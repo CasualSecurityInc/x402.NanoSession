@@ -101,7 +101,7 @@ extensionFiles.sort().forEach(file => {
   const title = titleMatch ? titleMatch[1] : file;
   extensionLinks.push({ text: title, link: fileMapping[file] });
 
-  let newContent = `\n[← Back to Protocol](/protocol)\n\n` + replaceLinks(content);
+  let newContent = replaceLinks(content);
   fs.writeFileSync(targetPath, newContent);
   console.log(`Processed Extension: ${file} -> ${targetPath}`);
 });

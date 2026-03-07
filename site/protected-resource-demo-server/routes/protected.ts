@@ -133,8 +133,15 @@ async function settleAndRespond(
             });
             console.log(`[AUDIT] Protected content served: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`);
         } else {
+            const paymentResponse = Buffer.from(JSON.stringify({
+                x402Version: 2,
+                error: result?.error || "Invalid payment proof",
+            })).toString('base64');
             console.warn(`[AUDIT] Payment rejected: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}... error=${result?.error}`);
-            res.status(402).json({ error: result?.error || "Invalid payment proof" });
+            res
+                .status(402)
+                .setHeader('PAYMENT-RESPONSE', paymentResponse)
+                .json({ error: result?.error || "Invalid payment proof" });
         }
     } catch (e) {
         console.error(`[AUDIT] Settlement error: tag=${tag} session=${String(sessionId).slice(0, 8)}... block=${blockHash.slice(0, 8)}...`, e);

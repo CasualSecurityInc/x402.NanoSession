@@ -9,6 +9,7 @@
 .vp-doc h1 {
   font-weight: 800;
   letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 .vp-doc h2 {

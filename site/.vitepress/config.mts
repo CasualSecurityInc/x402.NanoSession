@@ -39,7 +39,7 @@ export default defineConfig({
             {
                 text: 'Specification',
                 items: [
-                    { text: 'Protocol Definition', link: '/protocol' },
+                    { text: 'Protocol', link: '/protocol' },
                     { text: 'Extension A: Sharded Pools', link: '/extensions/extension-a-pools' },
                     { text: 'Extension B: Stochastic Rotation', link: '/extensions/extension-b-stochastic' },
                     { text: 'Extension C: Rebates', link: '/extensions/extension-c-rebates' },

@@ -31,7 +31,7 @@ A server-side binding between a payment request and the client that received it.
 **How it works:**
 
 1. Server generates unique session `id` when returning 402
-2. Server stores: `id → { payTo, baseAmount, tag, expiresAt }`
+2. Server stores: `id → { payTo, amount, resourceAmountRaw, tagAmountRaw, tag, expiresAt }`
 3. Client must return `id` (nested in `nanoSession`) alongside the block hash
 4. Server verifies block matches requirements for *that specific session*
 5. Session is single-use: deleted after successful verification
@@ -62,18 +62,17 @@ A vulnerability in payment protocols with publicly-observable ledgers where an a
 
 ## Raw Tagging
 
-A technique for encoding a unique identifier into the least significant digits of a Nano payment amount.
+A technique for binding a unique identifier to a Nano payment amount.
 
-Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10⁻³⁰ XNO), small variations can carry metadata without materially affecting the payment value.
+Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10⁻³⁰ XNO), the Facilitator can reserve a session-specific tag amount while still exposing the real resource price transparently.
 
 **How it works:**
 
-1. Server specifies base price aligned to **Tag Modulus** (e.g., `10,000,000`)
-2. Server generates unique **Tag** (0 to 9,999,999) per session `id`
-3. Client sends: `Tagged Amount = Base Price + Tag`
-4. Server extracts tag via `Amount % TAG_MODULUS`
-
-**Example:** Price of `1.000000` XNO with tag `42` becomes `1.0000042` XNO.
+1. Facilitator chooses `tag` and computes a `tagAmountRaw` using its internal policy.
+2. Facilitator sets `amount = resourceAmountRaw + tagAmountRaw`.
+3. Client sends `amount` exactly (normative).
+4. Server verifies the chain amount equals the stored session `amount`.
+5. `resourceAmountRaw`, `tagAmountRaw`, and `tag` remain visible for UI/debug.
 
 ---
 
@@ -85,23 +84,12 @@ Unlike "dust" on fee-based blockchains (which can become unspendable), Nano dust
 
 ---
 
-## TAG_MODULUS
+## Tag Strategy
 
-A protocol constant defining the range of possible tags.
+The protocol does not mandate how the Facilitator derives `tagAmountRaw` from `tag` (random or deterministic policies are both valid).
 
-- **Value:** `10,000,000` (Rev 6)
-- **Effect:** Allows up to 10 million unique tags per receiving address
-- **Constraint:** Server-quoted prices must be multiples of `TAG_MODULUS`
-
----
-
-## TAG_MULTIPLIER
-
-A protocol configuration that shifts the decimal starting point of the tag.
-
-- **Purpose:** Prevents the tag from becoming overly small "dust" (e.g. 1.000000000000000000000000000999) that standard desktop or mobile wallets (like Cake Wallet or Nault) cannot process.
-- **Value:** Expressed as a multiplier (e.g., `100000000000000000000000` to shift by 24 zeroes).
-- **Effect:** A base price of `1.000` XNO and a tag of `999` with a large multiplier can render a final amount of `1.000999` XNO.
+Normative requirement:
+- Active sessions for the same destination address must not share the same `amount`.
 
 ---
 
@@ -143,7 +131,7 @@ The client-side component handling x402 payment flows. A "headless purse":
 
 1. Detects HTTP 402 responses
 2. Extracts session `id` and payment requirements
-3. Calculates tagged amount
+3. Uses `amount` directly as the send amount
 4. Signs and broadcasts Nano send block
 5. Retries original request with block hash and session `id`
 

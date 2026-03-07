@@ -46,7 +46,7 @@ The Facilitator maintains an **Active Window** of slots ($M$) that move independ
 Session binding (per Rev 6 security requirements) applies regardless of address rotation:
 
 1. Facilitator selects active slot based on internal load balancing
-2. Facilitator generates `id` and stores: `id → { payTo: slot.address, baseAmount, tag, expiresAt }`
+2. Facilitator generates `id` and stores: `id → { payTo: slot.address, amount, resourceAmountRaw, tagAmountRaw, tag, expiresAt }`
 3. Even if the slot rotates before client pays, the stored `payTo` remains valid for verification
 4. Client returns `id` (nested in `nanoSession`) with block hash
 5. Facilitator verifies against stored requirements (not current active pool)

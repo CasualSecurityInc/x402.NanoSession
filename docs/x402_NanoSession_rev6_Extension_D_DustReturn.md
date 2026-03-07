@@ -33,7 +33,8 @@ PAYMENT-REQUIRED: [Base64 Encoded JSON]
     "nanoSession": {
       "id": "a1b2c3d4e5f6",
       "tag": 12345,
-      "tagModulus": 1000000
+      "resourceAmountRaw": "1000000000000000000000000",
+      "tagAmountRaw": "12345"
     },
     "dustRebate": true
   }
@@ -42,7 +43,8 @@ PAYMENT-REQUIRED: [Base64 Encoded JSON]
 
 ### Client Interpretation
 
-When a Client sees `dustRebate: true`, it can conceptually model the transaction not as `Cost + Tag`, but rather `Cost (+ fully serialized Tag holding)`.
+When a Client sees `dustRebate: true`, it can conceptually model the transaction as:
+`amount = resourceAmountRaw + tagAmountRaw`.
 
 ## 3. The Janitor Role
 

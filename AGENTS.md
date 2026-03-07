@@ -41,7 +41,7 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 
 | Task | Location | Notes |
 |------|----------|-------|
-| **Protocol specs** | `docs/x402_NanoSession_rev5_Protocol.md` | Current active revision |
+| **Protocol specs** | `docs/x402_NanoSession_rev6_Protocol.md` | Current active revision |
 | **Core types** | `packages/core/src/index.ts` | Exports all public types |
 | **Server handler** | `packages/facilitator/src/handler.ts` | FacilitatorHandler implementation |
 | **Client handler** | `packages/client/src/handler.ts` | PaymentHandler implementation |
@@ -111,10 +111,9 @@ Internal deps use `workspace:*` in package.json.
    // WRONG: Only checking block exists
    if (await rpc.blockExists(hash)) { accept(); }
    
-   // RIGHT: Verify tag matches THIS session
-   const expectedTag = sessions[sessionId].tag;
-   const actualTag = blockAmount % TAG_MODULUS;
-   if (actualTag !== expectedTag) { reject(); }
+   // RIGHT: Verify THIS session's exact expected amount
+   const expectedAmount = sessions[sessionId].amount;
+   if (blockAmount !== expectedAmount) { reject(); }
    ```
 
 2. **Never omit spent-set checks**
@@ -139,13 +138,13 @@ Internal deps use `workspace:*` in package.json.
 
 ## SECURITY MODEL
 
-**The Receipt-Stealing Attack (Rev5 Protection):**
+**The Receipt-Stealing Attack (Rev6 Protection):**
 
-Before Rev5, attackers could steal payment proofs from the public blockchain and reuse them. NanoSession prevents this via **session binding**:
+Before this protection, attackers could steal payment proofs from the public blockchain and reuse them. NanoSession prevents this via **session binding**:
 
 1. Server generates unique `sessionId` + `tag` for each request
-2. Payment amount encodes the tag: `actual = base + tag`
-3. Server verifies tag matches session before acceptance
+2. Server emits `amount` as the exact send amount and transparency fields (`resourceAmountRaw`, `tagAmountRaw`, `tag`)
+3. Server verifies block amount matches the issued session amount before acceptance
 4. Server tracks spent block hashes to prevent replay
 
 **Mandatory Security Checklist** (from `AGENTS.md`):
@@ -224,7 +223,7 @@ NANO_RPC_URLS=https://primary.example.com?key=ABC,https://backup.example.com
 
 - **pnpm required**: Enforced via `packageManager` field
 - **ESM only**: Pure ESM project (no CommonJS)
-- **Rev5**: Current active protocol revision
+- **Rev6**: Current active protocol revision
 - **Session = Security**: Sessions are security primitives, not implementation details
 - **Feeless**: Nano has zero transaction fees
 - **Sub-second**: Nano confirms in <1 second

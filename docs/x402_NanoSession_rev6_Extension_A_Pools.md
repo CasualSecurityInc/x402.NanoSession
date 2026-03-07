@@ -47,7 +47,7 @@ Facilitators MUST monitor addresses for both the **Current** and **Previous** Ge
 Session binding (per Rev 6 security requirements) works identically in pooled mode:
 
 1. Facilitator generates `id` and determines `Pool_Index` from session
-2. Facilitator stores: `id → { payTo: poolAddress[Pool_Index], baseAmount, tag, expiresAt }`
+2. Facilitator stores: `id → { payTo: poolAddress[Pool_Index], amount, resourceAmountRaw, tagAmountRaw, tag, expiresAt }`
 3. Client returns `id` (nested in `nanoSession`) with block hash
 4. Facilitator verifies block matches the pool address in stored requirements
 

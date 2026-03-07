@@ -6,7 +6,7 @@
 
 x402.NanoSession (Rev 6) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes **Deterministic Raw Tagging** to allow a single Nano address to process thousands of concurrent payments without unique address generation per request.
 
-**Rev 6 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 6.
+**Rev 6 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 5.
 
 ## 1. Security Model
 
@@ -120,9 +120,9 @@ NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating
 1. Client requests protected resource from the Resource Server.
 2. Resource Server requests payment requirements from the Facilitator.
 3. Facilitator generates unique session `id` and payment requirements (including `tag`).
-4. Facilitator stores mapping: `id → { payTo, baseAmount, tag, expiresAt }`.
+4. Facilitator stores mapping: `id → { payTo, amount, resourceAmountRaw, tagAmountRaw, tag, expiresAt }`.
 5. Resource Server returns HTTP 402 with requirements including `nanoSession.id`.
-6. Client calculates tagged amount: `baseAmount + tag`.
+6. Client reads the normative send amount: `amount` (exact raw value to send).
 7. Client signs and broadcasts Nano send block to the network.
 8. Client retries request to Resource Server with `PAYMENT-SIGNATURE` mapping `proof` to the block hash.
 9. Resource Server forwards the proof to the Facilitator.
@@ -130,7 +130,7 @@ NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating
 11. Facilitator verifies:
     - Block is confirmed on-chain
     - Block destination matches stored `payTo`
-    - Block amount matches stored `baseAmount + tag`
+    - Block amount matches stored `amount`
     - Block hash not in Spent Set
 12. Facilitator adds block hash to Spent Set and deletes the session constraint.
 13. Facilitator responds "Valid" to Resource Server.
@@ -157,15 +157,15 @@ Servers MUST return a Base64-encoded `PaymentRequired` JSON object containing th
        "scheme": "exact",
        "network": "nano:mainnet",
        "asset": "XNO",
-       "amount": "0.01",
+       "amount": "18007000000000000000000000000",
        "payTo": "nano_123...",
        "maxTimeoutSeconds": 180,
        "extra": {
            "nanoSession": {
                "tag": 1234,
-               "tagModulus": 10000,
-               "tagMultiplier": "1",
-               "id": "uuid-1234"
+               "id": "uuid-1234",
+               "resourceAmountRaw": "10000000000000000000000000000",
+               "tagAmountRaw": "8007000000000000000000000000"
            }
        }
     }
@@ -203,14 +203,14 @@ Clients MUST retry the HTTP request with a Base64-encoded `PaymentPayload` JSON 
 
 ### 3.2. Raw Tagging (Normative)
 
-To distinguish payments sent to the same address:
+To distinguish concurrent payments sent to the same address:
 
-1. **Tag Modulus:** `TAG_MODULUS = 10,000,000`
-2. **Tag Range:** 0 to 9,999,999
-3. **Tag Generation:** Random or `Hash(id || nonce) % TAG_MODULUS`
-4. **Tagged Amount:** `Amount_Final = Price_Raw + Tag`
-5. **Price Constraint:** `Price_Raw % TAG_MODULUS == 0`
-6. **Collision Handling:** If generated tag is already pending, regenerate
+1. Facilitator selects a `tag` using any collision-safe strategy (random or deterministic).
+2. Facilitator computes a tag amount component: `tagAmountRaw` (implementation-defined).
+3. Facilitator computes the normative total: `amount = resourceAmountRaw + tagAmountRaw`.
+4. Facilitator includes all three transparency fields in `extra.nanoSession`.
+5. Clients MUST send `amount` exactly (clients do not derive totals from parts).
+6. Facilitator MUST reject active-session collisions on `(payTo, amount)`.
 
 ### 3.3. Spent Set (Normative)
 
@@ -226,9 +226,10 @@ Facilitators MUST maintain a mapping of active sessions:
 ```
 sessions[id] = {
   payTo: string,        // Destination address
-  baseAmount: string,   // Price before tag (raw)
+  amount: string,       // Total required send amount (raw)
+  resourceAmountRaw: string, // Underlying resource price (raw)
+  tagAmountRaw: string, // Tag component encoded into amount (raw)
   tag: number,          // Generated tag
-  tagModulus: number,   // Modulus used
   expiresAt: string,    // ISO 8601 expiration
   createdAt: string     // For debugging/metrics
 }
@@ -301,7 +302,7 @@ facilatator_verify(block_hash, id):
     return false, "Session expired"
     
   block = nano_rpc.get_block(block_hash)
-  expected_amount = session.baseAmount + session.tag
+  expected_amount = session.amount
     
   if block.destination != session.payTo:
     return false, "Destination mismatch"

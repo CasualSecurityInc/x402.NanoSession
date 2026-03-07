@@ -12,7 +12,7 @@ x402.NanoSession defines a per-request HTTP 402 payment scheme for access to web
 | Payment rail | Onchain stablecoins (e.g., USDC on Base) | Nano (XNO): feeless, sub-second finality |
 | Client proof | Transfer authorization (EIP-3009) | Session-bound block hash |
 | Request binding | Payment parameters signed via EIP-712 | Mandatory session id |
-| Concurrency | Per-request wallet signature | Multiplexed via unique session + tag per address |
+| Concurrency | Per-request wallet signature | Multiplexed via unique session + tagged amount per address |
 
 ## Why "NanoSession"?
 
@@ -38,10 +38,10 @@ Client                    Server/Facilitator                Nano
   │                               │                           │
   │  402 + PAYMENT-REQUIRED       │                           │
   │  (nanoSession.id, amount,     │                           │
-  │   tag, payTo)                 │                           │
+  │   payTo, transparent parts)   │                           │
   │<──────────────────────────────│                           │
   │                               │                           │
-  │  send_block(amount + tag)     │                           │
+  │  send_block(amount)           │                           │
   │───────────────────────────────────────────────────────────>
   │                               │                           │
   │  GET /resource                │                           │

@@ -34,7 +34,7 @@ This directory contains the VitePress project for the x402.NanoSession documenta
 We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we generate them from `../docs/` at build time.
 
 **The Script Logic:**
-1.  Reads `SPEC_REV` env var (default: `rev3`).
+1.  Reads `SPEC_REV` env var (set this to `rev6`).
 2.  **Cleans**: Deletes `site/gen/docs/`.
 3.  **Copies & Renames**:
     *   `../docs/..._Protocol.md` -> `site/gen/docs/index.md`
@@ -47,7 +47,7 @@ We do **not** edit markdown files in `site/gen/docs/` directly. Instead, we gene
 **⚠️ AGENT POLICY**
 1. **Hardcoded Revisions**: The build script does not perform magic string replacement for document bodies. You must manually grep and update any hardcoded string matches (e.g. `using the **Rev 6** protocol flow` or `Rev. 6`) across `site/*.md` whenever you bump the protocol revision.
 2. **No NVM**: Never attempt to change Node versions using `nvm`. Stick to the system default node.
-3. **Calculation Logic**: Always use the `@nanosession/core` utility `calculateTaggedAmount` for anything involving payment amounts. Never calculate BigInt sums for tagged amounts (base + tag * multiplier) manually in UI or server code.
+3. **Calculation Logic**: Always use the `@nanosession/core` utility `calculateTaggedAmount` for anything involving payment amounts. Never calculate BigInt sums for payment decomposition (`resourceAmountRaw + tagAmountRaw`) manually in UI or server code.
 
 ### 🎨 Theme & Config
 
@@ -99,7 +99,7 @@ pnpm dev:demo
 |---------|---------|
 | `pnpm dev:demo` | All: site watcher + VitePress (5173) + demo servers (3001/3002) |
 | `pnpm site:dev` | Site only: source watcher + VitePress (5173) |
-| `pnpm site:build` | Build static site (set `SPEC_REV=rev5`) |
+| `pnpm site:build` | Build static site (set `SPEC_REV=rev6`) |
 | `pnpm demo:mainnet` | Demo server only: mainnet (3001) |
 | `pnpm demo:testnet` | Demo server only: testnet (3002) |
 

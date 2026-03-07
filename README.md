@@ -25,7 +25,7 @@ Client                          Server                      Nano
   │  (sessionId, amount, payTo)   │                           │
   │<──────────────────────────────│                           │
   │                               │                           │
-  │  send_block(amount + tag)     │                           │
+  │  send_block(amount)           │                           │
   │───────────────────────────────────────────────────────────>
   │                               │                           │
   │  GET /resource                │                           │
@@ -51,7 +51,7 @@ x402.NanoSession/
 │   └── faremeter-plugin/ # Faremeter x402 middleware adapter (@nanosession/faremeter)
 ├── docs/               # Protocol specification (source of truth)
 ├── examples/           # Working server + client demos
-│   ├── server/         # Standalone NanoSession server
+│   ├── standalone-facilitator/ # Standalone NanoSession server
 │   ├── client/         # Standalone NanoSession client
 │   └── faremeter-server/ # NanoSession + Faremeter middleware example
 ├── site/               # Documentation website (VitePress)
@@ -94,7 +94,7 @@ Run the example implementations:
 
 ```bash
 # Terminal 1: Start the payment-protected server
-cd examples/server
+cd examples/standalone-facilitator
 NANO_SERVER_ADDRESS=nano_your_address pnpm start
 
 # Terminal 2: Run the paying client

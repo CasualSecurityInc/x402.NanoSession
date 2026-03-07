@@ -29,19 +29,21 @@ A Resource Server opts into this extension by advertising the promise in the `ex
 ```json
 {
   "network": "nano:mainnet",
-  "amount": "10000000000000000000000000000",
+  "amount": "10000000000000000000000000042",
   "payTo": "nano_3merchantserveraddress...",
   "extra": {
     "nanoSession": {
        "id": "a1b2c3d4-e5f6-7890",
-       "tag": 42
+       "tag": 42,
+       "resourceAmountRaw": "10000000000000000000000000000",
+       "tagAmountRaw": "42"
     },
     "dustRebate": true
   }
 }
 ```
 
-The presence of `"dustRebate": true` acts as a formal protocol promise that the Facilitator will asynchronously return exactly `42 raw` to the sender account.
+The presence of `"dustRebate": true` acts as a formal protocol promise that the Facilitator will asynchronously return exactly `tagAmountRaw` to the sender account.
 
 ### 2.2 Client Initiated Return Address (Optional)
 
@@ -59,7 +61,7 @@ If the Client is paying from an exchange wallet, a shared proxy account, or a ro
 
 Facilitators implementing Extension C MUST ensure rebates are not duplicated.
 
-Because the dust tag (`42 raw`) is deterministic and bound to the specific `sessionId` and block hash `ABC123`, the Facilitator can detect redundant rebate attempts by checking its own account history:
+Because the tag component (`tagAmountRaw`) is bound to the specific `sessionId` and block hash `ABC123`, the Facilitator can detect redundant rebate attempts by checking its own account history:
 
 ```
 reboot_rebate_queue_worker():

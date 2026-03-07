@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
 import { usePaymentStatus } from '../composables/usePaymentStatus'
 import { useXnapSnap } from '../composables/useXnapSnap'
@@ -56,6 +56,10 @@ const finalBlockHash = ref<string | null>(null)
 const globalError = ref<string | null>(null)
 const serverProvidedContent = ref<string | null>(null)
 const isVerifying = ref(false)
+const paymentUri = computed(() => {
+  if (!session.value) return ''
+  return `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
+})
 
 onMounted(async () => {
   if (typeof window !== 'undefined' && window.location.hash === '#testnet') {
@@ -326,7 +330,7 @@ async function verifyPayment(hash: string) {
 
 async function generateQRCode() {
   if (!session.value) return
-  const uri = `nano:${session.value.payTo}?amount=${session.value.amountRaw}`
+  const uri = paymentUri.value
   try {
     // Create a virtual canvas to draw QR and overlay logo
     const canvas = document.createElement('canvas')
@@ -579,11 +583,17 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                 <!-- QR Code Tab -->
                 <div v-if="activePaymentTab === 'qr'" class="tab-content">
                     <div class="qr-section">
-                        <div class="qr-wrapper">
+                        <a v-if="paymentUri" :href="paymentUri" class="qr-link" aria-label="Open wallet with payment URI">
+                          <div class="qr-wrapper">
+                            <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
+                          </div>
+                        </a>
+                        <div v-else class="qr-wrapper">
                             <img v-if="qrcodeDataUrl" :src="qrcodeDataUrl" alt="Nano Payment QR Code" />
                         </div>
+                        <a v-if="paymentUri" :href="paymentUri" class="wallet-link">Open in wallet app</a>
                         <p class="qr-hint">
-                            Scan with Natrium or any Nano wallet that handles exact amounts correctly (i.e. _not_ Nault or Cake Wallet)
+                            Scan the QR or tap the wallet link on mobile.
                         </p>
                     </div>
                 </div>
@@ -969,6 +979,11 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     align-items: center;
 }
 
+.qr-link {
+    display: inline-block;
+    border-radius: 8px;
+}
+
 .qr-wrapper {
     background-color: white;
     padding: 8px;
@@ -981,6 +996,18 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
     width: 192px;
     height: 192px;
     display: block;
+}
+
+.wallet-link {
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--vp-c-brand);
+    text-decoration: none;
+}
+
+.wallet-link:hover {
+    text-decoration: underline;
 }
 
 .qr-hint {

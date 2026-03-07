@@ -10,6 +10,8 @@ NanoSession encodes session identifiers into the least significant digits of pay
 The x402 specification is designed for **Machine-to-Machine (M2M)** and **User-Agent-to-Machine** transactions. End users are not expected to deal with raw amounts or dust tags directly — client libraries handle this automatically.
 
 **This note exists solely to help developers during manual testing with consumer wallet apps.**
+
+A practical workaround for full compatibility is already demonstrated by the _Protected Demo_ page.
 :::
 
 ## Wallet Compatibility Matrix

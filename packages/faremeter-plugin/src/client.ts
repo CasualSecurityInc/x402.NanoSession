@@ -43,11 +43,14 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
         extra.tag === undefined ||
         !extra.id ||
         !extra.resourceAmountRaw ||
-        !extra.tagAmountRaw ||
-        !extra.expiresAt
+        !extra.tagAmountRaw
       ) {
         continue;
       }
+
+      const expiresAt = typeof extra.expiresAt === 'string'
+        ? extra.expiresAt
+        : new Date(Date.now() + req.maxTimeoutSeconds * 1000).toISOString();
 
       nanoAccepts.push(
         createPaymentRequirements({
@@ -58,7 +61,7 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
           resourceAmountRaw: extra.resourceAmountRaw,
           tagAmountRaw: extra.tagAmountRaw,
           amount: req.maxAmountRequired,
-          expiresAt: extra.expiresAt,
+          expiresAt,
           scheme: req.scheme,
           network: req.network,
           asset: req.asset

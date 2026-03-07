@@ -91,11 +91,14 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       extra.id === undefined ||
       extra.tag === undefined ||
       extra.resourceAmountRaw === undefined ||
-      extra.tagAmountRaw === undefined ||
-      extra.expiresAt === undefined
+      extra.tagAmountRaw === undefined
     ) {
       return null;
     }
+
+    const expiresAt = typeof extra.expiresAt === 'string'
+      ? extra.expiresAt
+      : new Date(Date.now() + req.maxTimeoutSeconds * 1000).toISOString();
 
     return createPaymentRequirements({
       payTo: req.payTo,
@@ -105,7 +108,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       resourceAmountRaw: extra.resourceAmountRaw,
       tagAmountRaw: extra.tagAmountRaw,
       amount: req.maxAmountRequired,
-      expiresAt: extra.expiresAt,
+      expiresAt,
       scheme: req.scheme,
       network: req.network,
       asset: req.asset
@@ -113,11 +116,12 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
   };
 
   const toNanoPayload = (payment: x402PaymentPayload, req: PaymentRequirements): PaymentPayload | null => {
-    const payload = payment.payload as { blockHash?: string };
-    if (!payload.blockHash) return null;
+    const payload = payment.payload as { blockHash?: string; proof?: string };
+    const proof = payload.proof ?? payload.blockHash;
+    if (!proof) return null;
     return createPaymentPayload({
       accepted: req,
-      proof: payload.blockHash
+      proof
     });
   };
 

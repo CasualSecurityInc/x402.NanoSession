@@ -166,6 +166,42 @@ describe('createFacilitatorHandler', () => {
     expect(result2?.success).toBe(false);
     expect(result2?.error).toMatch(/spent|already|session not found/i);
   });
+
+  test('handleVerify accepts standard x402 payload.proof field', async () => {
+    const handler = createFacilitatorHandler({
+      rpcClient: mockRpcClient as any,
+      payTo: 'nano_destination',
+      defaultResourceAmountRaw: '1000000000000000000000000',
+    });
+
+    const requirements = (await handler.getRequirements([{
+      scheme: SCHEME,
+      network: NETWORK,
+      asset: ASSET,
+      maxAmountRequired: '1000000000000000000000000',
+      resource: '/api/test',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300,
+    }]))[0];
+
+    mockRpcClient.getBlockInfo.mockResolvedValueOnce({
+      hash: 'VALID_BLOCK_HASH_2',
+      confirmed: true,
+      link_as_account: 'nano_destination',
+      amount: requirements.maxAmountRequired,
+    });
+
+    const payment = {
+      x402Version: 2,
+      scheme: SCHEME,
+      network: NETWORK,
+      payload: { proof: 'VALID_BLOCK_HASH_2' },
+    } as x402PaymentPayload;
+
+    const result = await handler.handleVerify!(requirements, payment);
+    expect(result?.isValid).toBe(true);
+    expect(result?.invalidReason).toBeFalsy();
+  });
 });
 
 describe('createPaymentHandler', () => {
@@ -245,5 +281,37 @@ describe('createPaymentHandler', () => {
     const execers = await handler(context, accepts);
     expect(execers).toHaveLength(1);
     expect(execers[0].requirements.scheme).toBe(SCHEME);
+  });
+
+  test('accepts nanoSession extra without expiresAt for interoperability', async () => {
+    const handler = createPaymentHandler({
+      rpcClient: mockRpcClient as any,
+      seed: '0'.repeat(64),
+    });
+
+    const context: RequestContext = {
+      request: new URL('https://example.com/api/test'),
+    };
+
+    const accepts: x402PaymentRequirements[] = [{
+      scheme: SCHEME,
+      network: NETWORK,
+      asset: ASSET,
+      maxAmountRequired: '1000000000000000000000000',
+      resource: '/api/test',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300,
+      extra: {
+        nanoSession: {
+          tag: 42,
+          id: 'test-session-2',
+          resourceAmountRaw: '999999999999999999999958',
+          tagAmountRaw: '42',
+        }
+      },
+    }];
+
+    const execers = await handler(context, accepts);
+    expect(execers).toHaveLength(1);
   });
 });

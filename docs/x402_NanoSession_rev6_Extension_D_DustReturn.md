@@ -1,8 +1,12 @@
+---
+title: Dust Return (Janitor Policy)
+---
+
 # Extension D: Dust Return (Janitor Policy)
 
-**Status:** Draft (Rev 6)  
-**Author:** Casual Security Inc.  
-**Schema Identifier / Flag:** `dustRebate: true` (in `extra` object)
+**Status:** Draft / Proposal **Date:** March 6, 2026  
+**Type:** Optional Opt-in Extension  
+**Base Specification:** `x402_NanoSession_rev6_Protocol.md`
 
 ## 1. Abstract
 
@@ -10,7 +14,7 @@ The `x402.NanoSession` protocol relies on "Dust Tagging" to bind a generic payme
 
 While this cryptographically secures the session against receipt-stealing attacks, it leaves a microscopic amount of "dust" in the destination account on every single HTTP action. In Nano, every raw is spendable at the protocol level; however, some nodes and wallets may choose to ignore tiny balances operationally. Because the Nano network is completely feeless, there is zero network cost to returning this dust to the original sender.
 
-This extension formalizes the standard method by which a server announces its intention to sweep and return this dust asynchronously.
+This extension formalizes the standard mechanism by which a server announces its intention to sweep and return this dust asynchronously.
 
 ## 2. Server Announcement (`dustRebate`)
 

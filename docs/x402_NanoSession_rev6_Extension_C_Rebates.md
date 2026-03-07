@@ -1,8 +1,12 @@
-# x402.NanoSession Extension C: Asynchronous Dust Rebates
+---
+title: Asynchronous Dust Rebates
+---
 
-**Status:** Draft / Proposal
+# Extension C: Asynchronous Dust Rebates
+
+**Status:** Draft / Proposal **Date:** March 6, 2026  
+**Type:** Optional Opt-in Extension  
 **Base Specification:** `x402_NanoSession_rev6_Protocol.md`
-**Type:** Optional Opt-in Extension
 
 ## Abstract
 

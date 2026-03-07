@@ -2,9 +2,28 @@
 title: Glossary
 ---
 
-# Glossary
+# Appendix: Glossary
 
 This glossary defines technical terms, concepts, and architectural patterns specific to the x402.NanoSession protocol. For general Nano network terminology, core node mechanics, or consensus details, please refer to the official [Nano documentation](https://docs.nano.org/).
+
+---
+
+## x402 Layer Terms
+
+### Scheme
+
+In x402, a **scheme** defines the payment style and business semantics (for example: exact one-shot payment, deferred settlement, subscription-like models).
+
+NanoSession Rev 6 uses:
+- `scheme: "exact"`
+
+### Mechanism
+
+In x402, a **mechanism** defines the concrete transfer/authorization implementation used to fulfill a scheme on a given network and asset.
+
+NanoSession should be understood as an `exact` **mechanism/profile** on Nano:
+- proof is a broadcast Nano block hash (`payload.proof`)
+- request binding is provided by `extra.nanoSession` session state
 
 ---
 
@@ -64,7 +83,7 @@ A vulnerability in payment protocols with publicly-observable ledgers where an a
 
 A technique for binding a unique identifier to a Nano payment amount.
 
-Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10⁻³⁰ XNO), the Facilitator can reserve a session-specific tag amount while still exposing the real resource price transparently.
+Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10<sup>-30</sup> XNO), the Facilitator can reserve a session-specific tag amount while still exposing the real resource price transparently.
 
 **How it works:**
 

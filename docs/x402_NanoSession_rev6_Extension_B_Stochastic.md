@@ -1,8 +1,12 @@
-# x402.NanoSession Extension B: Stochastic Rotation (Moving Window)
+---
+title: Stochastic Rotation (Moving Window)
+---
 
-**Date:** February 12, 2026
-**Status:** Draft / Proposal
-**Extension For:** `x402_NanoSession_rev6_Protocol.md`
+# Extension B: Stochastic Rotation (Moving Window)
+
+**Status:** Draft / Proposal **Date:** February 12, 2026  
+**Type:** Optional Opt-in Extension  
+**Base Specification:** `x402_NanoSession_rev6_Protocol.md`
 
 ## 1. Abstract
 

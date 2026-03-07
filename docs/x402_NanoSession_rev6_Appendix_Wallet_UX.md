@@ -2,7 +2,7 @@
 title: Notes on Raw-Dust UX
 ---
 
-# Notes on Raw-Dust UX
+# Appendix: Notes on Raw-Dust UX
 
 NanoSession encodes session identifiers into the least significant digits of payment amounts ("raw dust"). This strictly requires sending the exact amount specified in the `nano:` URI, which human-facing wallets often support inconsistently.
 

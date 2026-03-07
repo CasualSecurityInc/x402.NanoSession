@@ -4,7 +4,7 @@ title: Intro
 
 # x402.NanoSession (Rev 6) — Intro
 
-x402.NanoSession defines a per-request HTTP 402 payment scheme for access to web resources and APIs. Payments are settled instantly and feelessly via Nano (XNO), avoiding smart‑contract overhead.
+x402.NanoSession defines a per-request HTTP 402 payment profile for access to web resources and APIs. In x402 layer terms, it uses `scheme: "exact"` and provides a Nano-specific mechanism based on session-bound block-hash proof. Payments are settled instantly and feelessly via Nano (XNO), avoiding smart-contract overhead.
 
 | Feature | Original x402 (x402.org) | x402.NanoSession Rev 6 |
 | --- | --- | --- |
@@ -65,18 +65,14 @@ We analyzed multiple stateless approaches (HMAC from IP, signed requirements, se
 
 See [Protocol Specification § Security Model](./protocol.md#1-security-model) for detailed analysis.
 
-## How NanoSession Implements the "exact" Scheme
+## Scheme vs Mechanism
 
-The x402 standard defines the "exact" scheme for one-off payments of a precise, upfront cost (unlike subscriptions or shopping carts). NanoSession directly implements this (`"scheme": "exact"`, combined with `"network": "nano:mainnet"` and `extra.nanoSession`).
+NanoSession does **not** define a new x402 scheme id. It uses:
+- `scheme: "exact"` (payment style)
+- a NanoSession mechanism/profile (session-bound proof with `extra.nanoSession` + `payload.proof`)
 
-However, the original EVM reference implementations of the "exact" scheme typically use EIP-3009 `transferWithAuthorization` with EIP-712 typed signatures to bind payments to requests. Permit2 offers a similar mechanism via Uniswap's universal approval contract. Both work on EVM chains because token contracts can verify off-chain signatures and execute conditional transfers atomically.
-
-Nano's architecture prevents this pre-signed authorization approach:
-
-- **No memo field** in blocks — there is no place to embed request context
-- **Frontier dependency** — valid blocks require the current account frontier, which changes with every transaction, invalidating any pre-signed authorization
-
-These architectural tradeoffs make EVM-style pre-authorizations unviable for Nano. Instead, NanoSession achieves the "exact" payment scheme using a **session-bound block hash** natively provided by the Nano network.
+For the detailed rationale on why this differs from EVM-style pre-signed authorization flows, see [Protocol Specification §1.4–§1.5](./protocol.md#14-why-evm-style-exact-authorizations-are-unviable-for-nano).  
+For interoperability and adapter guidance, see [Interoperability Matrix](./x402_NanoSession_rev6_Appendix_Interoperability_Matrix.md).
 
 ## Core Architecture
 

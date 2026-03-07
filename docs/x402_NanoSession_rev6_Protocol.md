@@ -1,12 +1,26 @@
+---
+title: Protocol Specification
+---
+
 # x402.NanoSession Protocol Specification (Rev 6)
 
-**Date:** March 2026
+**Status:** Draft / Proposal **Date:** March 7, 2026
 
 ## Abstract
 
 x402.NanoSession (Rev 6) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes **Deterministic Raw Tagging** to allow a single Nano address to process thousands of concurrent payments without unique address generation per request.
 
 **Rev 6 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 5.
+
+## 0.1. x402 Layer Mapping (Rev 6)
+
+To keep terminology consistent with x402 v2 layering:
+- **Scheme (payment style):** NanoSession uses `scheme: "exact"`.
+- **Mechanism (transfer/auth implementation):** NanoSession uses a session-bound Nano block-hash proof (`payload.proof` + `extra.nanoSession`).
+- **Network / Asset baseline:** `network: "nano:mainnet"`, `asset: "XNO"`.
+
+This specification defines the normative wire/security behavior.  
+Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_rev6_Appendix_Interoperability_Matrix.md).
 
 ## 1. Security Model
 

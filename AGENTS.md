@@ -68,6 +68,41 @@ TypeScript monorepo implementing the NanoSession protocol — a session-bound pa
 
 ---
 
+## X402 TERMINOLOGY (CANONICAL)
+
+Use these terms consistently across code and docs:
+
+1. **Scheme = payment style/semantics**
+   - Examples: `exact`, deferred, subscription-like, prepaid.
+
+2. **Mechanism = how funds/proof move for that scheme on a network**
+   - Examples: EIP-3009, Permit2, Solana fee-payer flows, Nano block-hash proof with session binding.
+
+3. **NanoSession positioning**
+   - NanoSession is an `exact` **mechanism/profile**, not a separate scheme id.
+
+4. **Terminology rule**
+   - Do not use "method" when "mechanism" is intended.
+
+### Layers Of x402 (ASCII Reference)
+
+```
++-------------+----------------------------------------------------+----------------------------------------------+
+| Concept     | Description                                        | Example                                      |
++-------------+----------------------------------------------------+----------------------------------------------+
+| Application | Buyers and sellers exchanging x402 data            | Client pays server for access to content     |
+| Declaration | Information representation for an x402 transaction | x402 v1/v2 type specifications               |
+| Transport   | How x402 information is exchanged                  | HTTP, MCP, A2A                               |
+| Scheme      | Logical payment style                              | exact, upto, deferred                        |
+| Network     | Payment ledger                                     | Solana, Base, Polygon, AVAX                 |
+| Asset       | Unit of value transferred                          | USDC, USDT, SOL, ETH                        |
+| Mechanism   | Transfer/auth implementation for one transaction   | EIP-3009, Permit2, Solana fee payer,        |
+|             |                                                    | Nano block-hash proof + session binding      |
++-------------+----------------------------------------------------+----------------------------------------------+
+```
+
+---
+
 ## CONVENTIONS
 
 **TypeScript:**

@@ -13,49 +13,52 @@ NanoSession is a protocol for high-frequency M2M payments using [Nano](https://n
 
 ## Protocol Flow (Simplified)
 
-Four steps. No intermediaries. Zero fees.
+Four steps. Session-bound proof. Zero fees.
 
 ```
-Client                          Server                      Nano
-  │                               │                           │
-  │  GET /resource                │                           │
-  │──────────────────────────────>│                           │
-  │                               │                           │
-  │  402 + X-Payment-Required     │                           │
-  │  (sessionId, amount, payTo)   │                           │
-  │<──────────────────────────────│                           │
-  │                               │                           │
-  │  send_block(amount)           │                           │
-  │───────────────────────────────────────────────────────────>
-  │                               │                           │
-  │  GET /resource                │                           │
-  │  + X-Payment (blockHash,      │                           │
-  │    sessionId)                 │  verify block + session   │
-  │──────────────────────────────>│──────────────────────────>│
-  │                               │                           │
-  │  200 OK                       │                           │
-  │<──────────────────────────────│                           │
+Client                    Resource Server          Facilitator            Nano
+  │                               │                     │                  │
+  │  GET /resource                │                     │                  │
+  │──────────────────────────────>│                     │                  │
+  │                               │  init session       │                  │
+  │                               │────────────────────>│                  │
+  │                               │<────────────────────│                  │
+  │  402 + PAYMENT-REQUIRED       │                     │                  │
+  │  (amount, payTo,              │                     │                  │
+  │   extra.nanoSession.id)       │                     │                  │
+  │<──────────────────────────────│                     │                  │
+  │                               │                     │                  │
+  │  send_block(amount)           │                     │                  │
+  │───────────────────────────────────────────────────────────────────────>│
+  │                               │                     │                  │
+  │  GET /resource +              │                     │                  │
+  │  PAYMENT-SIGNATURE            │  verify(hash, id)   │                  │
+  │  (payload.proof=blockHash,    │────────────────────>│─────────────────>│
+  │   accepted.extra.nanoSession) │                     │                  │
+  │                               │<────────────────────│                  │
+  │  200 OK                       │                     │                  │
+  │<──────────────────────────────│                     │                  │
 ```
 
-The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is cryptographically tied to a specific request. See the [full protocol specification](./docs/) for security model details.
+The **session binding** (tag embedded in payment amount) prevents receipt theft. In Rev 6, the Resource Server issues challenges and the Facilitator verifies chain proofs + spent-set constraints. See the [Rev 6 Protocol Spec](./docs/x402_NanoSession_rev6_Protocol.md) for security details.
 
 ## Repository Layout
 
 ```
 x402.NanoSession/
-├── packages/           # TypeScript libraries
-│   ├── core/           # Types, constants, schemas (@nanosession/core)
-│   ├── rpc/            # Nano RPC client with failover (@nanosession/rpc)
-│   ├── facilitator/    # Server-side payment handler (@nanosession/facilitator)
-│   ├── client/         # Client-side payment handler (@nanosession/client)
-│   └── faremeter-plugin/ # Faremeter x402 middleware adapter (@nanosession/faremeter)
-├── docs/               # Protocol specification (source of truth)
-├── examples/           # Working server + client demos
-│   ├── standalone-facilitator/ # Standalone NanoSession server
-│   ├── client/         # Standalone NanoSession client
-│   └── faremeter-server/ # NanoSession + Faremeter middleware example
-├── site/               # Documentation website (VitePress)
-└── test/               # Integration tests (real Nano transactions)
+├── packages/                   # TypeScript libraries (@nanosession/*)
+│   ├── core/                   # Types, constants, schema mapping
+│   ├── rpc/                    # Nano RPC client with endpoint failover
+│   ├── facilitator/            # NanoSessionFacilitatorHandler
+│   ├── client/                 # NanoSessionPaymentHandler
+│   └── faremeter-plugin/       # Faremeter adapter (@nanosession/faremeter)
+├── examples/                   # Working demos (server, client, faremeter)
+│   ├── standalone-facilitator/ # Reference standalone facilitator server
+│   ├── client/                 # Reference paying client
+│   └── faremeter-server/       # Express + Faremeter integration example
+├── docs/                       # Rev 6 protocol docs (source of truth)
+├── site/                       # VitePress docs + protected-resource demo server
+└── test/integration/           # E2E tests with real Nano mainnet transactions
 ```
 
 ## Quick Start
@@ -153,7 +156,8 @@ pnpm test:integration
 
 | Resource | Description |
 |----------|-------------|
-| **[Protocol Spec](./docs/)** | The canonical specification (see `x402_NanoSession_rev*_Protocol.md`) |
+| **[Rev 6 Intro](./docs/x402_NanoSession_rev6_Intro.md)** | High-level overview and Rev 6 architecture |
+| **[Rev 6 Protocol Spec](./docs/x402_NanoSession_rev6_Protocol.md)** | Canonical wire format and security requirements |
 | **[Examples](./examples/)** | Working server and client with step-by-step instructions |
 | **[Integration Tests](./test/integration/)** | Real Nano transactions on mainnet |
 

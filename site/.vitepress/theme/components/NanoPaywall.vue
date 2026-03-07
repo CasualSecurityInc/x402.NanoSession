@@ -265,7 +265,10 @@ async function verifyPayment(hash: string) {
         const signatureB64 = btoa(JSON.stringify(signaturePayload));
 
         // First try GET with stored session headers
-        httpLog.value.push({ type: 'req', content: `GET /api/protected\nPAYMENT-SIGNATURE: ${JSON.stringify(signaturePayload, null, 2)}` })
+        httpLog.value.push({
+            type: 'req',
+            content: `GET /api/protected\nPAYMENT-SIGNATURE: ${JSON.stringify(signaturePayload, null, 2)}`
+        })
 
         let res = await fetch(`${activeServerUrl.value}/api/protected`, {
             headers: {

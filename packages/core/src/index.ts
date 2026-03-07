@@ -6,6 +6,7 @@
 // Re-export from constants
 export {
   TAG_MODULUS,
+  TAG_MULTIPLIER,
   SCHEME,
   NETWORK,
   ASSET,

@@ -207,4 +207,23 @@ describe('NanoSessionFacilitatorHandler', () => {
     expect(result!.success).toBe(false);
     expect(result!.error).toBe('Session not found or expired');
   });
+
+  test('getRequirements applies tagModulus and tagMultiplier overrides', async () => {
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any,
+      tagModulus: 10_000,
+      tagMultiplier: '1000'
+    });
+
+    const requirements = handler.getRequirements({
+      resourceAmountRaw: '5000',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300,
+      tag: 7
+    });
+
+    expect(requirements.extra.nanoSession.tag).toBe(7);
+    expect(requirements.extra.nanoSession.tagAmountRaw).toBe('7000');
+    expect(requirements.amount).toBe('12000');
+  });
 });

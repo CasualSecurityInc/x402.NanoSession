@@ -16,6 +16,35 @@ import { registerSession } from './status';
 let _rpcClient: NanoRpcClient | null = null;
 let _facilitator: NanoSessionFacilitatorHandler | null = null;
 
+function resolveTagModulusEnv(): number | undefined {
+    const raw = process.env.TAG_MODULUS;
+    if (raw === undefined || raw === '') {
+        return undefined;
+    }
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`Invalid TAG_MODULUS: expected positive integer, got "${raw}"`);
+    }
+    return parsed;
+}
+
+function resolveTagMultiplierEnv(): string | undefined {
+    const raw = process.env.TAG_MULTIPLIER;
+    if (raw === undefined || raw === '') {
+        return undefined;
+    }
+    try {
+        const parsed = BigInt(raw);
+        if (parsed <= 0n) {
+            throw new Error('TAG_MULTIPLIER must be greater than zero');
+        }
+        return raw;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid TAG_MULTIPLIER: ${message}`);
+    }
+}
+
 function getRpcClient(): NanoRpcClient {
     if (!_rpcClient) {
         if (!process.env.NANO_RPC_URL) {
@@ -35,6 +64,8 @@ function getFacilitator(): NanoSessionFacilitatorHandler {
             rpcClient: getRpcClient(),
             // Uses default InMemorySpentSet with TTL
             // Uses default in-memory session registry
+            tagModulus: resolveTagModulusEnv(),
+            tagMultiplier: resolveTagMultiplierEnv(),
         });
     }
     return _facilitator;

@@ -665,6 +665,9 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                         <p class="qr-hint">
                             Scan the QR or tap the wallet link on mobile.
                         </p>
+                        <p class="qr-hint">
+                            Need some XNO? <a href="https://nanswap.com/swap/USDC-BASE/XNO?r=81388238359" target="_blank" rel="noopener noreferrer">Get some via Nanswap</a>
+                        </p>
                     </div>
                 </div>
 

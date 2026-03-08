@@ -12,6 +12,10 @@ The protocol routes sessions via exact "dust" amounts (trailing decimals). You *
 *Demo quirk: To ensure compatibility with current 6-decimal constrained UI wallets, this demo shifts the session tag offset to the 3rd to 6th decimal place (e.g., 0.014321 XNO instead of 0.010000000000000000000000654321 XNO). This is not an issue when using a normal x402-aware client library.*
 :::
 
+::: tip Need Nano?
+[Swap for some at Nanswap](https://nanswap.com/swap/USDC-BASE/XNO?r=81388238359)
+:::
+
 <NanoPaywall>
 
 *Premium video content (requires payment to unlock)*

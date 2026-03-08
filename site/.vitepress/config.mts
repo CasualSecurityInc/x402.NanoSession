@@ -15,10 +15,6 @@ export default defineConfig({
         nav: [
             { text: 'Intro', link: '/' },
             { text: 'Protocol', link: '/protocol' },
-            { text: 'Extension A: Pools', link: '/extensions/extension-a-pools' },
-            { text: 'Extension B: Stochastic', link: '/extensions/extension-b-stochastic' },
-            { text: 'Extension C: Rebates', link: '/extensions/extension-c-rebates' },
-            { text: 'Extension D: Dust Return', link: '/extensions/extension-d-dustreturn' },
             {
                 text: 'Appendix', items: [
                     { text: 'Raw-Dust UX', link: '/appendix/wallet-ux' },

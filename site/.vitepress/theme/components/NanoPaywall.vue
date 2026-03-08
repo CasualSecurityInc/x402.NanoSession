@@ -273,39 +273,6 @@ function connectSSE() {
 
    sseReconnectAttempts = 0
    doConnectSSE()
-
-     // Polling fallback: if SSE silently dies, this catches payments the server already detected
-     startStatusPolling()
-}
-
-   eventSource.onmessage = (event) => {
-        if (event.data === 'heartbeat') return;
-        try {
-            const data = JSON.parse(event.data);
-            if (data.status) {
-                paymentStatus.value = data.status;
-                if (data.blockHash) finalBlockHash.value = data.blockHash;
-
-                if (data.status === 'confirmed') {
-                    httpLog.value.push({ type: 'info', content: `(Payment received: ${data.blockHash})` })
-                    verifyPayment(data.blockHash)
-                }
-            }
-        } catch (e) {
-            console.error('Failed to parse SSE', e);
-        }
-    };
-
-    eventSource.onerror = () => {
-        console.warn('[NanoPaywall] SSE connection error, will auto-reconnect...')
-        if (eventSource?.readyState === EventSource.CLOSED) {
-            console.error('[NanoPaywall] SSE connection permanently closed')
-            globalError.value = "Live connection lost. Payment detection may be delayed."
-        }
-    }
-
-    // Polling fallback: if SSE silently dies, this catches payments the server already detected
-    startStatusPolling()
 }
 
 function startStatusPolling() {

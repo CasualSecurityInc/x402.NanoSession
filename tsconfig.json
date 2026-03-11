@@ -29,6 +29,18 @@
       ],
       "@nanosession/faremeter": [
         "./packages/faremeter-plugin/src/index.ts"
+      ],
+      "@x402/nano": [
+        "./packages/x402-nano/src/index.ts"
+      ],
+      "@x402/nano/server": [
+        "./packages/x402-nano/src/server.ts"
+      ],
+      "@x402/nano/facilitator": [
+        "./packages/x402-nano/src/facilitator.ts"
+      ],
+      "@x402/nano/client": [
+        "./packages/x402-nano/src/client.ts"
       ]
     }
   },
@@ -58,6 +70,9 @@
     },
     {
       "path": "./packages/faremeter-plugin"
+    },
+    {
+      "path": "./packages/x402-nano"
     }
   ]
 }

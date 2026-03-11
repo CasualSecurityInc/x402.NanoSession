@@ -1,0 +1,38 @@
+{
+  "name": "@x402/nano",
+  "version": "0.1.0",
+  "description": "x402 adapter for NanoSession - Nano cryptocurrency payment mechanism",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./facilitator": {
+      "import": "./dist/facilitator.js",
+      "types": "./dist/facilitator.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@nanosession/core": "workspace:*",
+    "@nanosession/facilitator": "workspace:*",
+    "@nanosession/client": "workspace:*",
+    "@nanosession/rpc": "workspace:*"
+  },
+  "devDependencies": {},
+  "peerDependencies": {}
+}

@@ -153,6 +153,21 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/x402-nano:
+    dependencies:
+      '@nanosession/client':
+        specifier: workspace:*
+        version: link:../client
+      '@nanosession/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nanosession/facilitator':
+        specifier: workspace:*
+        version: link:../facilitator
+      '@nanosession/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+
   site:
     dependencies:
       '@nanosession/core':

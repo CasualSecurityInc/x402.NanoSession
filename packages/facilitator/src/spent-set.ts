@@ -59,11 +59,16 @@ export class InMemorySpentSet implements SpentSetStorage {
   }
 
   async addIfNotExists(blockHash: string): Promise<boolean> {
-    const exists = await this.has(blockHash);
-    if (exists) {
+    const now = Date.now();
+    const expiry = this.spentHashes.get(blockHash);
+    
+    // Check if exists and not expired
+    if (expiry && expiry >= now) {
       return false;
     }
-    await this.add(blockHash);
+    
+    // Atomically set the new expiry
+    this.spentHashes.set(blockHash, now + this.ttlMs);
     return true;
   }
 

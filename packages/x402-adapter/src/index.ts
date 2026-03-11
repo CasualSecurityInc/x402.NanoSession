@@ -1,5 +1,5 @@
 /**
- * @x402/nano
+ * @nanosession/x402
  * x402 adapter for NanoSession - Nano cryptocurrency payment mechanism
  * 
  * This package provides x402-compatible implementations for the NanoSession protocol,
@@ -8,7 +8,7 @@
  * @example
  * ```typescript
  * // Server-side usage
- * import { ExactNanoScheme } from '@x402/nano/server';
+ * import { ExactNanoScheme } from '@nanosession/x402/server';
  * 
  * const scheme = new ExactNanoScheme();
  * const assetAmount = await scheme.parsePrice("$0.001", "nano:mainnet");
@@ -17,7 +17,7 @@
  * @example
  * ```typescript
  * // Facilitator usage
- * import { ExactNanoFacilitator } from '@x402/nano/facilitator';
+ * import { ExactNanoFacilitator } from '@nanosession/x402/facilitator';
  * 
  * const facilitator = new ExactNanoFacilitator({
  *   rpcClient: nanoRpcClient,
@@ -29,7 +29,7 @@
  * @example
  * ```typescript
  * // Client usage
- * import { ExactNanoClient } from '@x402/nano/client';
+ * import { ExactNanoClient } from '@nanosession/x402/client';
  * 
  * const client = new ExactNanoClient({
  *   rpcClient: nanoRpcClient,

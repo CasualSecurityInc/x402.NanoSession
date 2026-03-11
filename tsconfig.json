@@ -14,7 +14,7 @@
     "outDir": "./dist",
     "rootDir": ".",
     "baseUrl": ".",
-    "paths": {
+ "paths": {
       "@nanosession/core": [
         "./packages/core/src/index.ts"
       ],
@@ -30,17 +30,17 @@
       "@nanosession/faremeter": [
         "./packages/faremeter-plugin/src/index.ts"
       ],
-      "@x402/nano": [
-        "./packages/x402-nano/src/index.ts"
+      "@nanosession/x402": [
+        "./packages/x402-adapter/src/index.ts"
       ],
-      "@x402/nano/server": [
-        "./packages/x402-nano/src/server.ts"
+      "@nanosession/x402/server": [
+        "./packages/x402-adapter/src/server.ts"
       ],
-      "@x402/nano/facilitator": [
-        "./packages/x402-nano/src/facilitator.ts"
+      "@nanosession/x402/facilitator": [
+        "./packages/x402-adapter/src/facilitator.ts"
       ],
-      "@x402/nano/client": [
-        "./packages/x402-nano/src/client.ts"
+      "@nanosession/x402/client": [
+        "./packages/x402-adapter/src/client.ts"
       ]
     }
   },
@@ -72,7 +72,7 @@
       "path": "./packages/faremeter-plugin"
     },
     {
-      "path": "./packages/x402-nano"
+      "path": "./packages/x402-adapter"
     }
   ]
 }

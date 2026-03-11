@@ -111,20 +111,42 @@ export function toX402Payload(payload: NanoPayload): X402Payload {
 /**
  * Parse a price string (e.g., "$0.001") to raw Nano amount
  * Nano has 30 decimal places
+ * Uses string parsing to avoid floating-point precision loss
  */
 export function parseMoneyToRawNano(price: string): string {
   // Remove $ sign and whitespace
   const cleanPrice = price.replace(/^\$/, '').trim();
-  const amount = parseFloat(cleanPrice);
-
-  if (isNaN(amount)) {
+  
+  // Handle empty string
+  if (cleanPrice === '' || cleanPrice === '-') {
     throw new Error(`Invalid price format: ${price}`);
   }
-
-  // Convert to raw (Nano has 30 decimals)
-  // 1 NANO = 10^30 raw
-  const rawAmount = BigInt(Math.round(amount * 1e6)) * BigInt(10 ** 24);
-  return rawAmount.toString();
+  
+  // Reject scientific notation
+  if (cleanPrice.includes('e') || cleanPrice.includes('E')) {
+    throw new Error(`Scientific notation not supported: ${price}`);
+  }
+  
+  // Parse as string to preserve precision
+  const [intPart = '0', decPart = ''] = cleanPrice.split('.');
+  
+  // Validate parts are numeric
+  if (!/^-?\d*$/.test(intPart) || !/^\d*$/.test(decPart)) {
+    throw new Error(`Invalid price format: ${price}`);
+  }
+  
+  // Handle negative
+  const isNegative = intPart.startsWith('-');
+  const absIntPart = isNegative ? intPart.slice(1) : intPart;
+  
+  // Pad decimal to 30 places (Nano precision)
+  const paddedDec = decPart.padEnd(30, '0').slice(0, 30);
+  
+  // Combine and convert to BigInt
+  const rawStr = (absIntPart || '0') + paddedDec;
+  const rawAmount = BigInt(rawStr);
+  
+  return isNegative ? (-rawAmount).toString() : rawAmount.toString();
 }
 
 /**

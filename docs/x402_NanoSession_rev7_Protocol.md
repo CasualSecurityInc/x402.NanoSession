@@ -8,11 +8,9 @@ title: Protocol Specification
 
 ## Abstract
 
-x402.NanoSession (Rev 7) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It offers a **Dual-Track** approach to settlement: utilizing **Deterministic Raw Tagging** for stateful, session-bound verification (`nanoSession`), and **URL-Bound Cryptographic Signatures** for lean, stateless verification (`nanoSignature`). Both mechanisms allow a single Nano address to process high volumes of concurrent payments without unique address generation per request.
+x402.NanoSession (Rev 7) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It formalizes two approaches to settlement: **Deterministic Raw Tagging** for stateful, session-bound verification (`nanoSession`), and **URL-Bound Cryptographic Signatures** for lean, stateless verification (`nanoSignature`). Both mechanisms allow a single Nano address to process high volumes of concurrent payments without unique address generation per request.
 
-**Rev 7 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 5.
-
-## 0.1. x402 Layer Mapping (Rev 7)
+## 1. x402 Layer Mapping (Rev 7)
 
 To keep terminology consistent with x402 v2 layering:
 - **Scheme (payment style):** NanoSession uses `scheme: "exact"`.
@@ -24,9 +22,9 @@ To keep terminology consistent with x402 v2 layering:
 This specification defines the normative wire/security behavior.  
 Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_rev7_Appendix_Interoperability_Matrix.md).
 
-## 1. Security Model
+## 2. Security Model
 
-### 1.1. The Receipt-Stealing Attack
+### 2.1. The Receipt-Stealing Attack
 
 Nano's block-lattice is **publicly observable in real-time**. Any observer can see payments as they occur. This creates a fundamental security challenge:
 
@@ -45,7 +43,7 @@ Nano's block-lattice is **publicly observable in real-time**. Any observer can s
 
 This attack is analogous to a grocery store where all receipts are printed on a public board. An attacker can grab someone else's receipt and present it to the security guard, who has no way to verify the receipt belongs to the person presenting it.
 
-### 1.2. The Session Binding Invariant
+### 2.2. The Session Binding Invariant
 
 **MANDATORY:** A payment proof MUST be cryptographically bound to the specific client that was issued the payment request.
 
@@ -55,14 +53,14 @@ The Resource Server / Facilitator MUST verify **three conditions** before granti
 2. Block hash is not in the Spent Set (anti-replay)
 3. **Block corresponds to requirements issued to THIS client** (session binding)
 
-### 1.3. The Shift to True Statelessness (Track 2)
+### 2.3. The Shift to True Statelessness (Track 2)
 
-Earlier revisions concluded that stateless solutions explicitly fail because Nano blocks have no memo field. However, Rev 7 introduces **Track 2: `nano-exact-broadcast-signature`**, which achieves true statelessness without degrading Nano ledger efficiency.
+Earlier revisions concluded that stateless solutions explicitly fail because Nano blocks have no memo field. However, Rev 7 formalizes **Track 2: `nano-exact-broadcast-signature`**, which achieves true statelessness without degrading Nano ledger efficiency.
 
 Instead of maintaining a Facilitator session, the client provides a cryptographic signature binding the Nano block hash to the HTTP request URL. 
-To prevent cross-server replay attacks without requiring a shared Redis-style lock between Resource Servers, the Facilitator utilizes the Nano Network itself as the global mutex via a **Settle-Before-Grant** routine (see Section 2.3).
+To prevent cross-server replay attacks without requiring a shared Redis-style lock between Resource Servers, the Facilitator utilizes the Nano Network itself as the global mutex via a **Settle-Before-Grant** routine (see Section 3.3).
 
-### 1.4. Why EVM-Style "Exact" Authorizations Are Unviable for Nano
+### 2.4. Why EVM-Style "Exact" Authorizations Are Unviable for Nano
 
 The x402 "exact" scheme is intended for one-off payments of a precise amount. However, EVM-based reference implementations of the "exact" scheme typically use **EIP-3009 transfer authorizations** (or Permit2) where the client signs a message binding the payment to a specific request. This works because:
 
@@ -77,7 +75,7 @@ Nano's architecture prevents this approach:
 
 The pre-signed authorization approach (as explored in projects like x402nano) encounters these **frontier issues**: a pre-signed block becomes invalid if any other transaction occurs on the account before broadcast.
 
-### 1.5. The Frontier Dilemma (Why Authorizations Must Be Broadcast)
+### 2.5. The Frontier Dilemma (Why Authorizations Must Be Broadcast)
 Critics of NanoSession sometimes suggest mimicking Ethereum's EIP-3009 by having the client sign a Nano Send block and pass it directly to the server *without broadcasting it*, allowing the server to asynchronously settle. 
 While "delayed settlement" risk exists in both ecosystems, the Nano version—the **Frontier Dilemma**—is mechanically far worse:
 - **EVM Nonces:** An unbroadcasted Ethereum authorization (`nonce=123`) remains perfectly valid even if the user subsequently uses their wallet for other transactions (`nonce=124`, `nonce=125`), until the authorization explicitly expires or is deliberately revoked.
@@ -85,9 +83,9 @@ While "delayed settlement" risk exists in both ecosystems, the Nano version—th
 
 NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating that the **client must broadcast the block to the network first** in BOTH tracks. For Track 1, it relies on **Raw Tagging**. For Track 2, it relies on a discrete Ed25519 signature binding the *confirmed receipt* (the block hash) to the request.
 
-## 2. Communication Flow
+## 3. Communication Flow
 
-### 2.1. Overview
+### 3.1. Overview
 
 > **Deployment Note:** The `Resource Server` and the `Facilitator` are logically separated as distinct roles in this specification, where the Facilitator is an optional but recommended service. However, they may be deployed distinctly (Standalone Facilitator) OR combined into a single running process (Embedded Facilitator).
 
@@ -123,7 +121,7 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
     │<───────────────────────│                       │                    │
 ```
 
-### 2.3. Track 1 Payment Flow (`nanoSession` — Stateful)
+### 3.2. Track 1 Payment Flow (`nanoSession` — Stateful)
 
 1. Client requests protected resource from the Resource Server.
 2. Resource Server requests payment requirements from the Facilitator.
@@ -140,7 +138,7 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
 13. Facilitator responds "Valid" to Resource Server.
 14. Resource Server grants access to Client.
 
-### 2.4. Track 2 Payment Flow (`nanoSignature` — Stateless, Settle-Before-Grant)
+### 3.3. Track 2 Payment Flow (`nanoSignature` — Stateless, Settle-Before-Grant)
 
 In this Track, the Facilitator serves purely as a stateless verifier and relies on the Nano Ledger as the definitive "Spent Set".
 
@@ -157,7 +155,7 @@ In this Track, the Facilitator serves purely as a stateless verifier and relies 
 11. If broadcast succeeds (network accepts the receive): Facilitator responds "Valid & Settled" to the Resource Server.
 12. Resource Server grants access to Client.
 
-### 2.5. Required Headers (x402 V2 Standard)
+### 3.4. Required Headers (x402 V2 Standard)
 
 NanoSession natively adopts the standard Coinbase x402 V2 API definition for payment negotiations, utilizing Base64-encoded JSON objects passed in standard headers.
 
@@ -234,9 +232,9 @@ For Track 2 (`nano-exact-broadcast-signature`), the `payload` MUST also include 
 }
 ```
 
-## 3. Technical Specification
+## 4. Technical Specification
 
-### 3.1. Session ID Requirements
+### 4.1. Session ID Requirements
 
 - **Format:** Opaque string, recommended UUID v4 or 128-bit random hex
 - **Uniqueness:** MUST be unique per payment request
@@ -244,7 +242,7 @@ For Track 2 (`nano-exact-broadcast-signature`), the `payload` MUST also include 
 - **Single-use:** MUST be invalidated after successful payment verification
 - **Storage:** Facilitator MUST store `nanoSession.id`→requirements mapping
 
-### 3.2. Raw Tagging (Normative)
+### 4.2. Raw Tagging (Normative)
 
 To distinguish concurrent payments sent to the same address:
 
@@ -255,14 +253,14 @@ To distinguish concurrent payments sent to the same address:
 5. Clients MUST send `amount` exactly (clients do not derive totals from parts).
 6. Facilitator MUST reject active-session collisions on `(payTo, amount)`.
 
-### 3.3. Spent Set (Normative)
+### 4.3. Spent Set (Normative)
 
 - **Purpose:** Prevent double-spending and replay attacks
 - **Key:** Block hash (64-character hex)
 - **Persistence:** MUST survive server restarts
 - **TTL:** Entries MAY be pruned after reasonable period (e.g., 30 days)
 
-### 3.4. Session Storage (Normative)
+### 4.4. Session Storage (Normative)
 
 Facilitators MUST maintain a mapping of active sessions:
 
@@ -283,34 +281,34 @@ Session entries MUST be:
 - Deleted after successful verification OR expiration
 - Indexed for O(1) lookup by `id`
 
-## 4. Security Considerations
+## 5. Security Considerations
 
-### 4.1. Receipt-Stealing Prevention
+### 5.1. Receipt-Stealing Prevention
 
 The mandatory session binding prevents the receipt-stealing attack by ensuring:
 - Only the client that received a specific session `id` can claim the corresponding payment
 - The attacker cannot forge or guess a valid session `id`
 - Even if the attacker observes the payment on-chain, they lack the session `id` to claim it
 
-### 4.2. Session id Confidentiality
+### 5.2. Session id Confidentiality
 
 - Session ids SHOULD be transmitted over HTTPS only
 - Session ids SHOULD NOT be logged in plaintext on client systems
 - Session ids SHOULD have sufficient entropy (128+ bits)
 
-### 4.3. Timing Considerations
+### 5.3. Timing Considerations
 
 - Sessions SHOULD expire within a reasonable window (default: 300 seconds)
 - Expired sessions MUST be rejected even if the payment is valid
 - Clock skew between client and server should be accounted for
 
-### 4.4. Spent Set Persistence
+### 5.4. Spent Set Persistence
 
 - The Spent Set MUST be durable (survive crashes/restarts)
 - Loss of Spent Set data enables replay attacks
 - Distributed deployments MUST synchronize Spent Set state
 
-## 5. Extensions
+## 6. Extensions
 
 For high-volume services, privacy-sensitive implementations, or dust lifecycle management:
 
@@ -318,9 +316,9 @@ For high-volume services, privacy-sensitive implementations, or dust lifecycle m
 - **[Extension B: Stochastic Rotation](x402_NanoSession_rev7_Extension_B_Stochastic.md)**: Privacy via address rotation
 - **[Extension D: Dust Return (Janitor)](x402_NanoSession_rev7_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
 
-## 6. Implementation Notes
+## 7. Implementation Notes
 
-### 6.1. Minimum Viable Implementation Flow
+### 7.1. Minimum Viable Implementation Flow
 
 ```
 resource_server_on_request(req):

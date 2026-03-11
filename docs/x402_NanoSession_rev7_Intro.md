@@ -104,7 +104,7 @@ NanoSession does **not** define a new x402 scheme id. It uses:
   - `nanoSession`: session-bound proof with `extra.nanoSession` + `payload.proof`
   - `nanoSignature`: signature-bound proof with `extra.nanoSignature` + `payload.proof` + `payload.signature`
 
-For the detailed rationale on why this differs from EVM-style pre-signed authorization flows, see [Protocol Specification §1.4–§1.5](./x402_NanoSession_rev7_Protocol.md#14-why-evm-style-exact-authorizations-are-unviable-for-nano).  
+For the detailed rationale on why this differs from EVM-style pre-signed authorization flows, see [Protocol Specification §2.4–§2.5](./x402_NanoSession_rev7_Protocol.md#24-why-evm-style-exact-authorizations-are-unviable-for-nano).  
 For interoperability and adapter guidance, see [Interoperability Matrix](./x402_NanoSession_rev7_Appendix_Interoperability_Matrix.md).
 
 ## Core Architecture

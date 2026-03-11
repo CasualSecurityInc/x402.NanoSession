@@ -23,7 +23,7 @@ The primary motivation for this extension is **Throughput**, not privacy.
 
 ## 3. Architecture
 
-### 2.1. The Facilitator: Generational Sharded Pool
+### 3.1. The Facilitator: Generational Sharded Pool
 The Facilitator maintains a pool of $N$ addresses. To ensure operational hygiene and mitigate long-term fingerprinting, the pool rotates periodically using Hierarchical Deterministic (HD) derivation.
 
 **Address Derivation (Normative):**
@@ -33,21 +33,21 @@ The Facilitator derives addresses using the following path:
 *   `Generation = floor(UnixTimestamp / Rotation_Period)` (Default `Rotation_Period`: 1 Week).
 *   `Pool_Index = Hash(id) % Pool_Size` (Recommended Pool_Size: 20-100).
 
-### 2.2. Session Mapping
+### 3.2. Session Mapping
 When a client requests a resource, the Facilitator uses their session `id` to determine the correct `Pool_Index`.
 
 **Resource Server Response (402)**:
 *   `payTo`: The specific pool address derived from `Pool_Index` (in `PAYMENT-REQUIRED`).
 *   `nanoSession.id`: The mandatory session identifier (in `PAYMENT-REQUIRED`).
 
-### 2.3. The Janitor
+### 3.3. The Janitor
 To ensure the Facilitator's pool accounts are always ready to move funds, the "Janitor" process SHOULD pre-compute PoW for the next expected `receive` block for **every address in the pool**. This parallelism allows the Facilitator to settle funds 20-100x faster than a single address.
 
-## 3. Rotation & Grace Period
+## 4. Rotation & Grace Period
 
 Facilitators MUST monitor addresses for both the **Current** and **Previous** Generations. This ensures that clients who started a session right before a generation flip can still complete their payment.
 
-## 4. Session Binding in Pooled Mode
+## 5. Session Binding in Pooled Mode
 
 Session binding (per Rev 7 security requirements) works identically in pooled mode:
 
@@ -58,6 +58,6 @@ Session binding (per Rev 7 security requirements) works identically in pooled mo
 
 The pool architecture is transparent to the security model.
 
-## 5. Privacy Considerations
+## 6. Privacy Considerations
 
 The Sharded Pool model provides limited privacy against an active observer. An attacker can enumerate the Facilitator's entire active pool by making repeated requests with different session IDs. This extension primarily addresses **throughput**, not privacy. For privacy, see **Extension B**.

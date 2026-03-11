@@ -81,9 +81,9 @@ function replaceLinks(content) {
   let newContent = content;
   Object.keys(fileMapping).forEach(sourceName => {
     const escapedName = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match both [text](file.md) and [text](./file.md)
-    const regex = new RegExp(`\\((?:\\.\\/)?${escapedName}\\)`, 'g');
-    newContent = newContent.replace(regex, `(${fileMapping[sourceName]})`);
+    // Match both [text](file.md) and [text](./file.md), including optional anchors #
+    const regex = new RegExp(`\\((?:\\.\\/)?${escapedName}(#[^)]*)?\\)`, 'g');
+    newContent = newContent.replace(regex, (match, anchor) => `(${fileMapping[sourceName]}${anchor || ''})`);
   });
   return newContent;
 }

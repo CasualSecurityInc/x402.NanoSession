@@ -10,7 +10,7 @@
     "test:integration": "vitest --run test/integration",
     "typecheck": "tsc --noEmit",
     "build": "tsc --build",
-    "clean": "rm -rf packages/*/dist examples/*/dist"
+    "clean": "rm -rf packages/*/dist examples/*/dist site/gen site/.vitepress/cache"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

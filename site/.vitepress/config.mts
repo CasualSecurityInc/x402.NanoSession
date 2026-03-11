@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
     title: "x402.NanoSession",
     description: "Protocol for High-Frequency M2M Nano Payments",
     base: '/x402.NanoSession/',
@@ -11,6 +12,7 @@ export default defineConfig({
     outDir: './gen/dist',
     cacheDir: './gen/.vitepress/cache',
     cleanUrls: true,
+    mermaid: {}, // Optional mermaid configuration
     themeConfig: {
         nav: [
             { text: 'Intro', link: '/' },
@@ -69,4 +71,4 @@ export default defineConfig({
             copyright: 'Copyright © 2026 Casual Security Inc.'
         }
     }
-})
+}))

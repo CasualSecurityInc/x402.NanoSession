@@ -2,27 +2,25 @@
 title: Protocol Specification
 ---
 
-# x402.NanoSession Protocol Specification (Rev 7)
+# x402.NanoSession Protocol Specification (Rev 6)
 
 **Status:** Draft / Proposal **Date:** March 7, 2026
 
 ## Abstract
 
-x402.NanoSession (Rev 7) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It offers a **Dual-Track** approach to settlement: utilizing **Deterministic Raw Tagging** for stateful, session-bound verification (`nanoSession`), and **URL-Bound Cryptographic Signatures** for lean, stateless verification (`nanoSignature`). Both mechanisms allow a single Nano address to process high volumes of concurrent payments without unique address generation per request.
+x402.NanoSession (Rev 6) is a protocol for high-frequency, machine-to-machine (M2M) payments over HTTP using the Nano (XNO) network. It utilizes **Deterministic Raw Tagging** to allow a single Nano address to process thousands of concurrent payments without unique address generation per request.
 
-**Rev 7 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 5.
+**Rev 6 formalizes the distinction between the Resource Server (HTTP entrypoint) and the Facilitator (Nano network/verification backend)**, while maintaining the mandatory session binding introduced in Rev 5.
 
-## 0.1. x402 Layer Mapping (Rev 7)
+## 0.1. x402 Layer Mapping (Rev 6)
 
 To keep terminology consistent with x402 v2 layering:
 - **Scheme (payment style):** NanoSession uses `scheme: "exact"`.
-- **Mechanisms (transfer/auth implementation):** NanoSession Rev 7 introduces a **Dual-Track** approach:
-  1. `nano-exact-broadcast-tag` (Track 1 / Compatibility): Uses a session-bound Nano block-hash proof (`payload.proof` + `extra.nanoSession`).
-  2. `nano-exact-broadcast-signature` (Track 2 / Stateless Gold Standard): Uses a cryptographically signed receipt bypassing the session registry (`payload.signature` + `extra.nanoSignature`).
+- **Mechanism (transfer/auth implementation):** NanoSession uses a session-bound Nano block-hash proof (`payload.proof` + `extra.nanoSession`).
 - **Network / Asset baseline:** `network: "nano:mainnet"`, `asset: "XNO"`.
 
 This specification defines the normative wire/security behavior.  
-Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_rev7_Appendix_Interoperability_Matrix.md).
+Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_rev6_Appendix_Interoperability_Matrix.md).
 
 ## 1. Security Model
 
@@ -55,12 +53,19 @@ The Resource Server / Facilitator MUST verify **three conditions** before granti
 2. Block hash is not in the Spent Set (anti-replay)
 3. **Block corresponds to requirements issued to THIS client** (session binding)
 
-### 1.3. The Shift to True Statelessness (Track 2)
+### 1.3. Why Stateless Solutions Fail
 
-Earlier revisions concluded that stateless solutions explicitly fail because Nano blocks have no memo field. However, Rev 7 introduces **Track 2: `nano-exact-broadcast-signature`**, which achieves true statelessness without degrading Nano ledger efficiency.
+Several stateless approaches were analyzed and rejected:
 
-Instead of maintaining a Facilitator session, the client provides a cryptographic signature binding the Nano block hash to the HTTP request URL. 
-To prevent cross-server replay attacks without requiring a shared Redis-style lock between Resource Servers, the Facilitator utilizes the Nano Network itself as the global mutex via a **Settle-Before-Grant** routine (see Section 2.3).
+| Approach | Why It Fails |
+|----------|--------------|
+| **HMAC from client IP** | NAT, proxies, VPNs make IP unreliable; attackers on same network share IP |
+| **HMAC from client public key** | Requires pre-authentication — which is itself a session |
+| **Signed requirements echoed back** | Attacker can intercept and replay the signed requirements along with the stolen block hash |
+| **Bind to sender address** | Requires knowing client's address beforehand — a session |
+| **EIP-712 style signing** | Nano blocks have no memo/data field; signature covers block content only, not request context |
+
+**Conclusion:** HTTP is stateless by design. Nano blocks contain no request-binding field. The system MUST maintain state correlating issued requirements to the client that requested them. This state is the **session**, typically tracked by the Facilitator.
 
 ### 1.4. Why EVM-Style "Exact" Authorizations Are Unviable for Nano
 
@@ -83,7 +88,7 @@ While "delayed settlement" risk exists in both ecosystems, the Nano version—th
 - **EVM Nonces:** An unbroadcasted Ethereum authorization (`nonce=123`) remains perfectly valid even if the user subsequently uses their wallet for other transactions (`nonce=124`, `nonce=125`), until the authorization explicitly expires or is deliberately revoked.
 - **Nano Frontiers:** Every Nano block mathematically chains to the exact hash of the previous block (the frontier). If a client generates an unbroadcasted block based on `Frontier A`, and then performs **any** other wallet activity (changes representative, receives a pending deposit, or pays a different service), their frontier instantly advances to `Block B`. The server's unbroadcasted block is permanently and irrevocably invalidated by the network.
 
-NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating that the **client must broadcast the block to the network first** in BOTH tracks. For Track 1, it relies on **Raw Tagging**. For Track 2, it relies on a discrete Ed25519 signature binding the *confirmed receipt* (the block hash) to the request.
+NanoSession Rev 6 avoids this accidental self-invalidation entirely by mandating that the **client must broadcast the block to the network first**, relying on **Raw Tagging** to identify the transaction, and only bringing the *confirmed receipt* (the block hash) to the Resource Server.
 
 ## 2. Communication Flow
 
@@ -91,8 +96,9 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
 
 > **Deployment Note:** The `Resource Server` and the `Facilitator` are logically separated as distinct roles in this specification, where the Facilitator is an optional but recommended service. However, they may be deployed distinctly (Standalone Facilitator) OR combined into a single running process (Embedded Facilitator).
 
-> **Variant Separation:** A Facilitator supporting both `nanoSession` and `nanoSignature` MUST advertise them as **separate** `PaymentRequirements` objects in the `accepts` array. The `extra.nanoSession` and `extra.nanoSignature` keys are **mutually exclusive** within a single requirement object. This is necessary because the two variants produce different `amount` values: `nanoSession` adds a tag component to the resource price, while `nanoSignature` uses the clean resource price.
-```text
+### 2.1. Overview
+
+```
 ┌────────┐          ┌─────────────────┐       ┌─────────────┐        ┌──────────┐
 │ Client │          │ Resource Server │       │ Facilitator │        │   Nano   │
 └───┬────┘          └────────┬────────┘       └──────┬──────┘        └────┬─────┘
@@ -123,7 +129,7 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
     │<───────────────────────│                       │                    │
 ```
 
-### 2.3. Track 1 Payment Flow (`nanoSession` — Stateful)
+### 2.2. Payment Flow (Normative)
 
 1. Client requests protected resource from the Resource Server.
 2. Resource Server requests payment requirements from the Facilitator.
@@ -135,29 +141,16 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
 8. Client retries request to Resource Server with `PAYMENT-SIGNATURE` mapping `proof` to the block hash.
 9. Resource Server forwards the proof to the Facilitator.
 10. Facilitator retrieves stored requirements using session `id`.
-11. Facilitator verifies block features and ensures block hash is not in Spent Set.
+11. Facilitator verifies:
+    - Block is confirmed on-chain
+    - Block destination matches stored `payTo`
+    - Block amount matches stored `amount`
+    - Block hash not in Spent Set
 12. Facilitator adds block hash to Spent Set and deletes the session constraint.
 13. Facilitator responds "Valid" to Resource Server.
 14. Resource Server grants access to Client.
 
-### 2.4. Track 2 Payment Flow (`nanoSignature` — Stateless, Settle-Before-Grant)
-
-In this Track, the Facilitator serves purely as a stateless verifier and relies on the Nano Ledger as the definitive "Spent Set".
-
-1. Client requests protected resource from the Resource Server.
-2. Resource Server returns HTTP 402 containing `extra.nanoSignature`.
-3. Client broadcasts a standard Nano send block for the requested amount.
-4. Client generates an Ed25519 signature binding the `block_hash` to the `request_url` using their Nano account private key.
-5. Client retries request with `PAYMENT-SIGNATURE` containing `proof` (block hash) and `signature`.
-6. Resource Server forwards proof+signature to the Facilitator.
-7. Facilitator **cryptographically verifies** the Ed25519 signature against the source account of the send block.
-8. Facilitator **verifies the send block is confirmed** on-chain.
-9. Facilitator **checks that the block is still receivable** (funds have not been pocketed by any receive block). If the block is no longer receivable, it has already been settled and MUST be rejected.
-10. *The Atomic Lock*: After the spent set check, the Facilitator generates and broadcasts a `receive` block for the pending hash.
-11. If broadcast succeeds (network accepts the receive): Facilitator responds "Valid & Settled" to the Resource Server.
-12. Resource Server grants access to Client.
-
-### 2.5. Required Headers (x402 V2 Standard)
+### 2.3. Required Headers (x402 V2 Standard)
 
 NanoSession natively adopts the standard Coinbase x402 V2 API definition for payment negotiations, utilizing Base64-encoded JSON objects passed in standard headers.
 
@@ -165,7 +158,7 @@ NanoSession natively adopts the standard Coinbase x402 V2 API definition for pay
 
 **Header:** `PAYMENT-REQUIRED`
 
-Servers MUST return a Base64-encoded `PaymentRequired` JSON object. The `accepts` array can offer Track 1 (via `nanoSession`), Track 2 (via `nanoSignature`), or both simultaneously:
+Servers MUST return a Base64-encoded `PaymentRequired` JSON object containing the required price and the session-bound Nano tagging details mapped into the `extra` field:
 
 ```json
 {
@@ -174,17 +167,6 @@ Servers MUST return a Base64-encoded `PaymentRequired` JSON object. The `accepts
     "url": "https://example.com/api/protected"
   },
   "accepts": [
-    {
-       "scheme": "exact",
-       "network": "nano:mainnet",
-       "asset": "XNO",
-       "amount": "18000000000000000000000000000",
-       "payTo": "nano_123...",
-       "maxTimeoutSeconds": 180,
-       "extra": {
-           "nanoSignature": { }
-       }
-    },
     {
        "scheme": "exact",
        "network": "nano:mainnet",
@@ -211,25 +193,14 @@ Servers MUST return a Base64-encoded `PaymentRequired` JSON object. The `accepts
 
 Clients MUST retry the HTTP request with a Base64-encoded `PaymentPayload` JSON object asserting the block proof. The `accepted` block must echo back the exact requirement chosen from the Server response.
 
-For Track 1 (`nano-exact-broadcast-tag`), the `payload` requires only the `proof`:
+*Note: While x402 V2 refers to this header as `PAYMENT-SIGNATURE`, Nano's lattice architecture means the client provides a public network block hash as the `proof` rather than a local cryptographic signature.*
+
 ```json
 {
   "x402Version": 2,
-  "accepted": { /* ... */ },
+  "accepted": { /* exact copy of the chosen requirement object above */ },
   "payload": {
      "proof": "64_CHARACTER_HEX_BLOCK_HASH"
-  }
-}
-```
-
-For Track 2 (`nano-exact-broadcast-signature`), the `payload` MUST also include the Ed25519 `signature` binding the hash to the URL:
-```json
-{
-  "x402Version": 2,
-  "accepted": { /* ... */ },
-  "payload": {
-     "proof": "64_CHARACTER_HEX_BLOCK_HASH",
-     "signature": "128_CHARACTER_HEX_ED25519_SIGNATURE"
   }
 }
 ```
@@ -314,9 +285,9 @@ The mandatory session binding prevents the receipt-stealing attack by ensuring:
 
 For high-volume services, privacy-sensitive implementations, or dust lifecycle management:
 
-- **[Extension A: Generational Sharded Pools](x402_NanoSession_rev7_Extension_A_Pools.md)**: Scale to 20-100 addresses
-- **[Extension B: Stochastic Rotation](x402_NanoSession_rev7_Extension_B_Stochastic.md)**: Privacy via address rotation
-- **[Extension D: Dust Return (Janitor)](x402_NanoSession_rev7_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
+- **[Extension A: Generational Sharded Pools](x402_NanoSession_rev6_Extension_A_Pools.md)**: Scale to 20-100 addresses
+- **[Extension B: Stochastic Rotation](x402_NanoSession_rev6_Extension_B_Stochastic.md)**: Privacy via address rotation
+- **[Extension D: Dust Return (Janitor)](x402_NanoSession_rev6_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
 
 ## 6. Implementation Notes
 

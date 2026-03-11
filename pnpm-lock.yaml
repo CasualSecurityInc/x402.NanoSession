@@ -153,7 +153,7 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/x402-nano:
+  packages/x402-adapter:
     dependencies:
       '@nanosession/client':
         specifier: workspace:*

@@ -99,4 +99,40 @@ describe('NanoSessionPaymentHandler', () => {
 
     await expect(handler.handle({}, [requirements])).rejects.toThrow('exceeds max spend');
   });
+
+  test('handle signs track 2 nanoSignature requirements', async () => {
+    const mockProcessBlock = vi.fn().mockResolvedValue('MOCK_BLOCK_HASH');
+    const handler = new NanoSessionPaymentHandler({
+      rpcClient: {
+        ...mockRpcClient,
+        getAccountInfo: vi.fn().mockResolvedValue({ balance: '10000', frontier: '0'.repeat(64), representative: 'nano_rep' }),
+        processBlock: mockProcessBlock,
+        confirmBlock: vi.fn().mockResolvedValue(true),
+        getBlockInfo: vi.fn().mockResolvedValue({ confirmed: true }),
+        generateWork: vi.fn().mockResolvedValue('work')
+      } as any,
+      seed: 'a'.repeat(64)
+    });
+
+    const requirements: PaymentRequirements = {
+      scheme: SCHEME,
+      network: 'nano:mainnet',
+      asset: 'XNO',
+      amount: '1000',
+      payTo: 'nano_destination',
+      maxTimeoutSeconds: 300,
+      extra: {
+        nanoSignature: {
+          messageToSign: 'block_hash+url'
+        }
+      }
+    };
+
+    const execers = await handler.handle({ url: 'https://api.example.com/data' }, [requirements]);
+    const { payload } = await execers[0].exec();
+
+    expect(payload.payload.proof).toBe('MOCK_BLOCK_HASH');
+    expect(payload.payload.signature).toBeDefined();
+    expect(payload.payload.signature).toMatch(/^[0-9A-Fa-f]{128}$/);
+  });
 });

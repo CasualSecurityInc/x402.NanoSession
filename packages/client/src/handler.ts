@@ -14,6 +14,7 @@ import {
   validateWork,
   type BlockData,
 } from 'nanocurrency';
+import { signMessage } from './signing.js';
 
 const FALLBACK_WORK_THRESHOLD = 'fffffff800000000';
 
@@ -75,7 +76,7 @@ export class NanoSessionPaymentHandler {
    * @throws {Error} if a matching requirement exceeds maxSpend
    */
   async handle(
-    _context: unknown,
+    context: unknown,
     accepts: PaymentRequirements[]
   ): Promise<PaymentExecer[]> {
     const execers: PaymentExecer[] = [];
@@ -95,7 +96,7 @@ export class NanoSessionPaymentHandler {
       execers.push({
         requirements,
         exec: async () => {
-          const result = await this.executePayment(requirements);
+          const result = await this.executePayment(requirements, context);
           this.spentToday += totalAmount;
           return result;
         }
@@ -105,7 +106,7 @@ export class NanoSessionPaymentHandler {
     return execers;
   }
 
-  private async executePayment(requirements: PaymentRequirements): Promise<{ payload: PaymentPayload }> {
+  private async executePayment(requirements: PaymentRequirements, context?: unknown): Promise<{ payload: PaymentPayload }> {
     const accountAddress = deriveAddressFromSeed(this.seed, this.accountIndex);
     const accountInfo = await this.rpcClient.getAccountInfo(accountAddress);
     const totalAmount = BigInt(requirements.amount);
@@ -131,12 +132,30 @@ export class NanoSessionPaymentHandler {
     const blockHash = await this.rpcClient.processBlock(block.block as unknown as Record<string, unknown>);
     await this.waitForConfirmation(blockHash, this.confirmationTimeoutMs);
 
-    return {
-      payload: createPaymentPayload({
-        accepted: requirements,
-        proof: blockHash
-      })
-    };
+    // Track 2 verification signing
+    let signature: string | undefined;
+    if (requirements.extra?.nanoSignature) {
+      let url = '';
+      if (typeof context === 'object' && context && 'url' in context && typeof (context as any).url === 'string') {
+        url = (context as any).url;
+      }
+      if (!url) {
+        throw new Error('nano-exact-broadcast-signature track requires a resource url in context to generate the signature');
+      }
+      const messageToSign = blockHash + url;
+      signature = signMessage(messageToSign, secretKeyHex);
+    }
+
+    const payload = createPaymentPayload({
+      accepted: requirements,
+      proof: blockHash
+    });
+
+    if (signature) {
+      payload.payload.signature = signature;
+    }
+
+    return { payload };
   }
 
   private async generateWork(root: string): Promise<string> {

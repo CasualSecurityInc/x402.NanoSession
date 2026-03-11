@@ -400,408 +400,479 @@ describe('Integration: Full Payment Flow', () => {
     }
   }, 120000);
 
-  test('full payment flow on mainnet', async () => {
-    if (shouldSkip) {
-      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
-      return;
-    }
+  describe('Track 1: nanoSession (Stateful)', () => {
+    test('full payment flow on mainnet', async () => {
+      if (shouldSkip) {
+        console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
+        return;
+      }
 
-    const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
+      const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
 
-    const clientAccountInfo = await getAccountInfoSafe(clientAddress);
-    if (!clientAccountInfo) {
-      console.log('⚠️  Skipping: Client account not found on chain');
-      return;
-    }
+      const clientAccountInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientAccountInfo) {
+        console.log('⚠️  Skipping: Client account not found on chain');
+        return;
+      }
 
-    await receivePendingAll(serverAddress, serverSecretKey, clientAccountInfo.representative);
-    const sweepBeforeHash = await sweepAll(serverAddress, clientAddress, serverSecretKey);
-    if (sweepBeforeHash) {
-      console.log(`   ↩️  Swept server balance to client: ${sweepBeforeHash}`);
-    }
+      await receivePendingAll(serverAddress, serverSecretKey, clientAccountInfo.representative);
+      const sweepBeforeHash = await sweepAll(serverAddress, clientAddress, serverSecretKey);
+      if (sweepBeforeHash) {
+        console.log(`   ↩️  Swept server balance to client: ${sweepBeforeHash}`);
+      }
 
-    await new Promise<void>((resolve) => {
-      const requirementsCache = new Map<string, ReturnType<typeof serverHandler.getRequirements>>();
+      await new Promise<void>((resolve) => {
+        const requirementsCache = new Map<string, ReturnType<typeof serverHandler.getRequirements>>();
 
-      server = createServer(async (req, res) => {
-        if (req.url === '/protected') {
-          const paymentSignature = req.headers['payment-signature'];
+        server = createServer(async (req, res) => {
+          if (req.url === '/protected') {
+            const paymentSignature = req.headers['payment-signature'];
 
-          if (!paymentSignature) {
-            const requirements = serverHandler.getRequirements({
-              resourceAmountRaw: paymentAmount,
-              payTo: serverAddress,
-              maxTimeoutSeconds: 300
-            });
-            requirementsCache.set(requirements.extra.nanoSession.id, requirements);
+            if (!paymentSignature) {
+              const requirements = serverHandler.getRequirements({
+                resourceAmountRaw: paymentAmount,
+                payTo: serverAddress,
+                maxTimeoutSeconds: 300
+              });
+              requirementsCache.set(requirements.extra.nanoSession.id, requirements);
 
-            const paymentRequired = {
-              x402Version: 2 as const,
-              resource: { url: `http://${req.headers.host}/protected` },
-              accepts: [requirements]
-            };
+              const paymentRequired = {
+                x402Version: 2 as const,
+                resource: { url: `http://${req.headers.host}/protected` },
+                accepts: [requirements]
+              };
 
-            res.writeHead(402, {
-              'Content-Type': 'application/json',
-              'PAYMENT-REQUIRED': encodePaymentRequired(paymentRequired)
-            });
-            res.end(JSON.stringify({ error: 'Payment required' }));
-            return;
-          }
-
-          try {
-            const payload = decodePaymentSignature(paymentSignature as string);
-            const sessionId = payload.accepted.extra.nanoSession.id;
-            const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
-
-            if (!requirements) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Unknown session' }));
+              res.writeHead(402, {
+                'Content-Type': 'application/json',
+                'PAYMENT-REQUIRED': encodePaymentRequired(paymentRequired)
+              });
+              res.end(JSON.stringify({ error: 'Payment required' }));
               return;
             }
 
-            const result = await serverHandler.handleSettle!(requirements, payload);
+            try {
+              const payload = decodePaymentSignature(paymentSignature as string);
+              const sessionId = payload.accepted.extra.nanoSession.id;
+              const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
 
-            if (result?.success) {
-              requirementsCache.delete(sessionId!);
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({
-                message: 'Access granted',
-                transactionHash: result.transactionHash
-              }));
-            } else {
-              res.writeHead(402, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({
-                error: 'Payment verification failed',
-                details: result?.error
-              }));
+              if (!requirements) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Unknown session' }));
+                return;
+              }
+
+              const result = await serverHandler.handleSettle!(requirements, payload);
+
+              if (result?.success) {
+                requirementsCache.delete(sessionId!);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  message: 'Access granted',
+                  transactionHash: result.transactionHash
+                }));
+              } else {
+                res.writeHead(402, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  error: 'Payment verification failed',
+                  details: result?.error
+                }));
+              }
+            } catch (error) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Invalid payment response' }));
             }
-          } catch (error) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid payment response' }));
+          } else {
+            res.writeHead(404);
+            res.end('Not found');
           }
-        } else {
-          res.writeHead(404);
-          res.end('Not found');
-        }
-      });
-
-      server.listen(0, '127.0.0.1', () => {
-        const addr = server.address();
-        if (addr && typeof addr === 'object') {
-          serverPort = addr.port;
-        }
-        resolve();
-      });
-    });
-
-    const baseUrl = `http://127.0.0.1:${serverPort}`;
-
-    try {
-      console.log('\n📡 Step 1: Requesting protected resource...');
-      const response1 = await fetch(`${baseUrl}/protected`);
-
-      expect(response1.status).toBe(402);
-      const paymentRequiredHeader = response1.headers.get('PAYMENT-REQUIRED');
-      expect(paymentRequiredHeader).toBeTruthy();
-
-      const paymentRequired = decodePaymentRequired(paymentRequiredHeader!);
-      const requirements = paymentRequired.accepts[0];
-      console.log('   ✓ Received 402 with PaymentRequirements');
-      console.log(`   💰 Amount: ${requirements.amount} raw (${Number(requirements.amount) / 1e30} XNO)`);
-
-      console.log('\n💳 Step 2: Creating payment...');
-      const clientHandler = new NanoSessionPaymentHandler({
-        rpcClient,
-        seed,
-        maxSpend: process.env.NANO_MAX_SPEND || '1000000000000000000000000000'
-      });
-
-      const execers = await clientHandler.handle({}, [requirements]);
-      expect(execers.length).toBeGreaterThan(0);
-
-      const clientBalance = BigInt(clientAccountInfo.balance);
-      if (clientBalance < BigInt(requirements.amount)) {
-        console.log('⚠️  Skipping: Insufficient balance to cover payment');
-        return;
-      }
-
-      console.log('   ✓ Payment execer created');
-      console.log('   📤 Broadcasting payment via RPC...');
-
-      // The requirements amount is the exact normative send amount.
-      const nanoSession = requirements.extra.nanoSession;
-      const taggedAmount = requirements.amount;
-      console.log(`   🏷️  Tag: ${nanoSession.tag}, Tagged amount: ${taggedAmount}`);
-
-      let paymentHash: string | null;
-      try {
-        paymentHash = await createAndProcessSendBlock({
-          fromAddress: clientAddress,
-          toAddress: serverAddress,
-          amountRaw: taggedAmount,
-          secretKeyHex: clientSecretKey
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.log(`   ⚠️  Broadcasting failed: ${message}`);
-        console.log('   This is expected for unfunded test accounts');
-        return;
-      }
 
-      if (!paymentHash) {
-        console.log('   ⚠️  Skipping: Could not create payment block (account may not exist)');
-        return;
-      }
-
-      const blockInfoAfter = await rpcClient.getBlockInfo(paymentHash!);
-      console.log(`   ✅ Payment confirmed: ${paymentHash}`);
-      console.log(`   🔗 Destination: ${blockInfoAfter.link_as_account ?? blockInfoAfter.link}`);
-
-      console.log('\n🔐 Step 3: Retrying with payment...');
-      const response2 = await fetch(`${baseUrl}/protected`, {
-        headers: {
-          'PAYMENT-SIGNATURE': encodePaymentSignature({
-            x402Version: 2,
-            accepted: requirements,
-            payload: { proof: paymentHash }
-          })
-        }
+        server.listen(0, '127.0.0.1', () => {
+          const addr = server.address();
+          if (addr && typeof addr === 'object') {
+            serverPort = addr.port;
+          }
+          resolve();
+        });
       });
 
-      console.log(`   Response status: ${response2.status}`);
-      if (response2.status === 402) {
-        const errorBody = await response2.json();
-        console.log(`   Server error: ${JSON.stringify(errorBody)}`);
-      }
+      const baseUrl = `http://127.0.0.1:${serverPort}`;
 
-      expect(response2.status).toBe(200);
-      const responseBody = await response2.json();
-      expect(responseBody.transactionHash).toBe(paymentHash);
+      try {
+        console.log('\n📡 Step 1: Requesting protected resource...');
+        const response1 = await fetch(`${baseUrl}/protected`);
 
-      await receivePendingAll(serverAddress, serverSecretKey, clientAccountInfo.representative);
-      const sweepAfterHash = await sweepAll(serverAddress, clientAddress, serverSecretKey);
-      if (sweepAfterHash) {
-        console.log(`   ↩️  Swept server balance to client: ${sweepAfterHash}`);
-      }
-    } finally {
-      server.close();
-    }
-  }, 120000);
+        expect(response1.status).toBe(402);
+        const paymentRequiredHeader = response1.headers.get('PAYMENT-REQUIRED');
+        expect(paymentRequiredHeader).toBeTruthy();
 
-  // ============================================================================
-  // SECURITY ATTACK TESTS
-  // These tests verify the Session Binding Invariant from Rev5 Security Model
-  // ============================================================================
+        const paymentRequired = decodePaymentRequired(paymentRequiredHeader!);
+        const requirements = paymentRequired.accepts[0];
+        console.log('   ✓ Received 402 with PaymentRequirements');
+        console.log(`   💰 Amount: ${requirements.amount} raw (${Number(requirements.amount) / 1e30} XNO)`);
 
-  test('rejects frontrun attack - stolen hash with wrong session', async () => {
-    if (shouldSkip) {
-      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
-      return;
-    }
+        console.log('\n💳 Step 2: Creating payment...');
+        const clientHandler = new NanoSessionPaymentHandler({
+          rpcClient,
+          seed,
+          maxSpend: process.env.NANO_MAX_SPEND || '1000000000000000000000000000'
+        });
 
-    // This test verifies the Session Binding Invariant:
-    // A payment made for Session A cannot be used to satisfy Session B
+        const execers = await clientHandler.handle({}, [requirements]);
+        expect(execers.length).toBeGreaterThan(0);
 
-    console.log('\n🔓 ATTACK TEST: Frontrun (Receipt Stealing)');
-
-    // 1. Victim requests resource → gets sessionId A with tag A
-    // 2. Attacker requests resource → gets sessionId B with tag B  
-    // 3. Victim pays (amount includes tag A)
-    // 4. Attacker tries to use victim's blockHash with sessionId B
-    // 5. Server MUST reject: tag A ≠ tag B
-
-    const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-
-    // Get requirements for two different "sessions"
-    const victimRequirements = serverHandler.getRequirements({
-      resourceAmountRaw: paymentAmount,
-      payTo: serverAddress,
-      maxTimeoutSeconds: 300
-    });
-
-    const attackerRequirements = serverHandler.getRequirements({
-      resourceAmountRaw: paymentAmount,
-      payTo: serverAddress,
-      maxTimeoutSeconds: 300
-    });
-
-    console.log(`   Victim session: ${victimRequirements.extra.nanoSession.id}, tag: ${victimRequirements.extra.nanoSession.tag}`);
-    console.log(`   Attacker session: ${attackerRequirements.extra.nanoSession.id}, tag: ${attackerRequirements.extra.nanoSession.tag}`);
-
-    // Verify tags are different (critical for this test)
-    expect(victimRequirements.extra.nanoSession.tag).not.toBe(attackerRequirements.extra.nanoSession.tag);
-
-    // Victim pays with THEIR tag encoded in amount
-    const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.nanoSession.tag)).toString();
-
-    const clientInfo = await getAccountInfoSafe(clientAddress);
-    if (!clientInfo || BigInt(clientInfo.balance) < BigInt(victimTaggedAmount)) {
-      console.log('   ⚠️ Skipping: Insufficient balance');
-      return;
-    }
-
-    const victimBlockHash = await createAndProcessSendBlock({
-      fromAddress: clientAddress,
-      toAddress: serverAddress,
-      amountRaw: victimTaggedAmount,
-      secretKeyHex: clientSecretKey
-    });
-
-    if (!victimBlockHash) {
-      console.log('   ⚠️ Skipping: Could not create payment block');
-      return;
-    }
-
-    console.log(`   ✅ Victim payment confirmed: ${victimBlockHash}`);
-
-    // ATTACK: Attacker tries to use victim's hash with attacker's session
-    const attackPayload = {
-      x402Version: 2 as const,
-      accepted: attackerRequirements,
-      payload: { proof: victimBlockHash }
-    };
-
-    const result = await serverHandler.handleSettle!(attackerRequirements, attackPayload);
-
-    // MUST FAIL - the block's tag doesn't match attacker's session tag
-    console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
-    expect(result?.success).toBe(false);
-    console.log('   ✅ Attack correctly rejected!');
-
-    // Cleanup: sweep funds back
-    await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
-    await sweepAll(serverAddress, clientAddress, serverSecretKey);
-  }, 120000);
-
-  test('rejects receipt reuse - already spent', async () => {
-    if (shouldSkip) {
-      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
-      return;
-    }
-
-    console.log('\n🔓 ATTACK TEST: Receipt Reuse (Double Spend Attempt)');
-
-    const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-
-    const requirements = serverHandler.getRequirements({
-      resourceAmountRaw: paymentAmount,
-      payTo: serverAddress,
-      maxTimeoutSeconds: 300
-    });
-
-    const taggedAmount = requirements.amount;
-
-    const clientInfo = await getAccountInfoSafe(clientAddress);
-    if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
-      console.log('   ⚠️ Skipping: Insufficient balance');
-      return;
-    }
-
-    const blockHash = await createAndProcessSendBlock({
-      fromAddress: clientAddress,
-      toAddress: serverAddress,
-      amountRaw: taggedAmount,
-      secretKeyHex: clientSecretKey
-    });
-
-    if (!blockHash) {
-      console.log('   ⚠️ Skipping: Could not create payment block');
-      return;
-    }
-
-    console.log(`   ✅ Payment confirmed: ${blockHash}`);
-
-    // First submission - should succeed
-    const payload = {
-      x402Version: 2 as const,
-      accepted: requirements,
-      payload: { proof: blockHash }
-    };
-    const result1 = await serverHandler.handleSettle!(requirements, payload);
-    console.log(`   First submission: success=${result1?.success}`);
-    expect(result1?.success).toBe(true);
-
-    // Second submission - same hash - MUST FAIL (already spent)
-    const result2 = await serverHandler.handleSettle!(requirements, payload);
-    console.log(`   Second submission: success=${result2?.success}, error=${result2?.error}`);
-    expect(result2?.success).toBe(false);
-    console.log('   ✅ Reuse correctly rejected!');
-
-    // Cleanup
-    await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
-    await sweepAll(serverAddress, clientAddress, serverSecretKey);
-  }, 120000);
-
-  test('rejects unknown session - session spoofing', async () => {
-    if (shouldSkip) {
-      console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
-      return;
-    }
-
-    console.log('\n🔓 ATTACK TEST: Session Spoofing (Unknown Session)');
-
-    const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
-
-    // Create a real payment for a real session
-    const realRequirements = serverHandler.getRequirements({
-      resourceAmountRaw: paymentAmount,
-      payTo: serverAddress,
-      maxTimeoutSeconds: 300
-    });
-
-    const taggedAmount = realRequirements.amount;
-
-    const clientInfo = await getAccountInfoSafe(clientAddress);
-    if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
-      console.log('   ⚠️ Skipping: Insufficient balance');
-      return;
-    }
-
-    const blockHash = await createAndProcessSendBlock({
-      fromAddress: clientAddress,
-      toAddress: serverAddress,
-      amountRaw: taggedAmount,
-      secretKeyHex: clientSecretKey
-    });
-
-    if (!blockHash) {
-      console.log('   ⚠️ Skipping: Could not create payment block');
-      return;
-    }
-
-    console.log(`   ✅ Payment confirmed: ${blockHash}`);
-
-    // ATTACK: Submit with a FAKE session ID that was never issued
-    const fakeSessionId = 'fake-session-id-12345-never-issued';
-
-    // Create fake requirements with the spoofed session
-    const fakeRequirements = {
-      ...realRequirements,
-      extra: {
-        ...realRequirements.extra,
-        nanoSession: {
-          ...realRequirements.extra.nanoSession,
-          id: fakeSessionId
+        const clientBalance = BigInt(clientAccountInfo.balance);
+        if (clientBalance < BigInt(requirements.amount)) {
+          console.log('⚠️  Skipping: Insufficient balance to cover payment');
+          return;
         }
+
+        console.log('   ✓ Payment execer created');
+        console.log('   📤 Broadcasting payment via RPC...');
+
+        // The requirements amount is the exact normative send amount.
+        const nanoSession = requirements.extra.nanoSession;
+        const taggedAmount = requirements.amount;
+        console.log(`   🏷️  Tag: ${nanoSession.tag}, Tagged amount: ${taggedAmount}`);
+
+        let paymentHash: string | null;
+        try {
+          paymentHash = await createAndProcessSendBlock({
+            fromAddress: clientAddress,
+            toAddress: serverAddress,
+            amountRaw: taggedAmount,
+            secretKeyHex: clientSecretKey
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`   ⚠️  Broadcasting failed: ${message}`);
+          console.log('   This is expected for unfunded test accounts');
+          return;
+        }
+
+        if (!paymentHash) {
+          console.log('   ⚠️  Skipping: Could not create payment block (account may not exist)');
+          return;
+        }
+
+        const blockInfoAfter = await rpcClient.getBlockInfo(paymentHash!);
+        console.log(`   ✅ Payment confirmed: ${paymentHash}`);
+        console.log(`   🔗 Destination: ${blockInfoAfter.link_as_account ?? blockInfoAfter.link}`);
+
+        console.log('\n🔐 Step 3: Retrying with payment...');
+        const response2 = await fetch(`${baseUrl}/protected`, {
+          headers: {
+            'PAYMENT-SIGNATURE': encodePaymentSignature({
+              x402Version: 2,
+              accepted: requirements,
+              payload: { proof: paymentHash }
+            })
+          }
+        });
+
+        console.log(`   Response status: ${response2.status}`);
+        if (response2.status === 402) {
+          const errorBody = await response2.json();
+          console.log(`   Server error: ${JSON.stringify(errorBody)}`);
+        }
+
+        expect(response2.status).toBe(200);
+        const responseBody = await response2.json();
+        expect(responseBody.transactionHash).toBe(paymentHash);
+
+        await receivePendingAll(serverAddress, serverSecretKey, clientAccountInfo.representative);
+        const sweepAfterHash = await sweepAll(serverAddress, clientAddress, serverSecretKey);
+        if (sweepAfterHash) {
+          console.log(`   ↩️  Swept server balance to client: ${sweepAfterHash}`);
+        }
+      } finally {
+        server.close();
       }
-    };
+    }, 120000);
 
-    const payload = {
-      x402Version: 2 as const,
-      accepted: fakeRequirements,
-      payload: { proof: blockHash }
-    };
-    const result = await serverHandler.handleSettle!(fakeRequirements, payload);
+    // ============================================================================
+    // SECURITY ATTACK TESTS
+    // These tests verify the Session Binding Invariant from Rev5 Security Model
+    // ============================================================================
 
-    // This should fail because the tag won't match (or session is unknown)
-    // The exact behavior depends on implementation, but it MUST NOT succeed
-    console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
-    expect(result?.success).toBe(false);
-    console.log('   ✅ Spoofing correctly rejected!');
+    test('rejects frontrun attack - stolen hash with wrong session', async () => {
+      if (shouldSkip) {
+        console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
+        return;
+      }
 
-    // Cleanup
-    await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
-    await sweepAll(serverAddress, clientAddress, serverSecretKey);
-  }, 120000);
+      // This test verifies the Session Binding Invariant:
+      // A payment made for Session A cannot be used to satisfy Session B
+
+      console.log('\n🔓 ATTACK TEST: Frontrun (Receipt Stealing)');
+
+      // 1. Victim requests resource → gets sessionId A with tag A
+      // 2. Attacker requests resource → gets sessionId B with tag B  
+      // 3. Victim pays (amount includes tag A)
+      // 4. Attacker tries to use victim's blockHash with sessionId B
+      // 5. Server MUST reject: tag A ≠ tag B
+
+      const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
+
+      // Get requirements for two different "sessions"
+      const victimRequirements = serverHandler.getRequirements({
+        resourceAmountRaw: paymentAmount,
+        payTo: serverAddress,
+        maxTimeoutSeconds: 300
+      });
+
+      const attackerRequirements = serverHandler.getRequirements({
+        resourceAmountRaw: paymentAmount,
+        payTo: serverAddress,
+        maxTimeoutSeconds: 300
+      });
+
+      console.log(`   Victim session: ${victimRequirements.extra.nanoSession.id}, tag: ${victimRequirements.extra.nanoSession.tag}`);
+      console.log(`   Attacker session: ${attackerRequirements.extra.nanoSession.id}, tag: ${attackerRequirements.extra.nanoSession.tag}`);
+
+      // Verify tags are different (critical for this test)
+      expect(victimRequirements.extra.nanoSession.tag).not.toBe(attackerRequirements.extra.nanoSession.tag);
+
+      // Victim pays with THEIR tag encoded in amount
+      const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.nanoSession.tag)).toString();
+
+      const clientInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientInfo || BigInt(clientInfo.balance) < BigInt(victimTaggedAmount)) {
+        console.log('   ⚠️ Skipping: Insufficient balance');
+        return;
+      }
+
+      const victimBlockHash = await createAndProcessSendBlock({
+        fromAddress: clientAddress,
+        toAddress: serverAddress,
+        amountRaw: victimTaggedAmount,
+        secretKeyHex: clientSecretKey
+      });
+
+      if (!victimBlockHash) {
+        console.log('   ⚠️ Skipping: Could not create payment block');
+        return;
+      }
+
+      console.log(`   ✅ Victim payment confirmed: ${victimBlockHash}`);
+
+      // ATTACK: Attacker tries to use victim's hash with attacker's session
+      const attackPayload = {
+        x402Version: 2 as const,
+        accepted: attackerRequirements,
+        payload: { proof: victimBlockHash }
+      };
+
+      const result = await serverHandler.handleSettle!(attackerRequirements, attackPayload);
+
+      // MUST FAIL - the block's tag doesn't match attacker's session tag
+      console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
+      expect(result?.success).toBe(false);
+      console.log('   ✅ Attack correctly rejected!');
+
+      // Cleanup: sweep funds back
+      await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
+      await sweepAll(serverAddress, clientAddress, serverSecretKey);
+    }, 120000);
+
+    test('rejects receipt reuse - already spent', async () => {
+      if (shouldSkip) {
+        console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
+        return;
+      }
+
+      console.log('\n🔓 ATTACK TEST: Receipt Reuse (Double Spend Attempt)');
+
+      const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
+
+      const requirements = serverHandler.getRequirements({
+        resourceAmountRaw: paymentAmount,
+        payTo: serverAddress,
+        maxTimeoutSeconds: 300
+      });
+
+      const taggedAmount = requirements.amount;
+
+      const clientInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
+        console.log('   ⚠️ Skipping: Insufficient balance');
+        return;
+      }
+
+      const blockHash = await createAndProcessSendBlock({
+        fromAddress: clientAddress,
+        toAddress: serverAddress,
+        amountRaw: taggedAmount,
+        secretKeyHex: clientSecretKey
+      });
+
+      if (!blockHash) {
+        console.log('   ⚠️ Skipping: Could not create payment block');
+        return;
+      }
+
+      console.log(`   ✅ Payment confirmed: ${blockHash}`);
+
+      // First submission - should succeed
+      const payload = {
+        x402Version: 2 as const,
+        accepted: requirements,
+        payload: { proof: blockHash }
+      };
+      const result1 = await serverHandler.handleSettle!(requirements, payload);
+      console.log(`   First submission: success=${result1?.success}`);
+      expect(result1?.success).toBe(true);
+
+      // Second submission - same hash - MUST FAIL (already spent)
+      const result2 = await serverHandler.handleSettle!(requirements, payload);
+      console.log(`   Second submission: success=${result2?.success}, error=${result2?.error}`);
+      expect(result2?.success).toBe(false);
+      console.log('   ✅ Reuse correctly rejected!');
+
+      // Cleanup
+      await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
+      await sweepAll(serverAddress, clientAddress, serverSecretKey);
+    }, 120000);
+
+    test('rejects unknown session - session spoofing', async () => {
+      if (shouldSkip) {
+        console.log(`Test skipped - ${skipReason || 'integration prerequisites not met'}`);
+        return;
+      }
+
+      console.log('\n🔓 ATTACK TEST: Session Spoofing (Unknown Session)');
+
+      const serverHandler = new NanoSessionFacilitatorHandler({ rpcClient });
+
+      // Create a real payment for a real session
+      const realRequirements = serverHandler.getRequirements({
+        resourceAmountRaw: paymentAmount,
+        payTo: serverAddress,
+        maxTimeoutSeconds: 300
+      });
+
+      const taggedAmount = realRequirements.amount;
+
+      const clientInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientInfo || BigInt(clientInfo.balance) < BigInt(taggedAmount)) {
+        console.log('   ⚠️ Skipping: Insufficient balance');
+        return;
+      }
+
+      const blockHash = await createAndProcessSendBlock({
+        fromAddress: clientAddress,
+        toAddress: serverAddress,
+        amountRaw: taggedAmount,
+        secretKeyHex: clientSecretKey
+      });
+
+      if (!blockHash) {
+        console.log('   ⚠️ Skipping: Could not create payment block');
+        return;
+      }
+
+      console.log(`   ✅ Payment confirmed: ${blockHash}`);
+
+      // ATTACK: Submit with a FAKE session ID that was never issued
+      const fakeSessionId = 'fake-session-id-12345-never-issued';
+
+      // Create fake requirements with the spoofed session
+      const fakeRequirements = {
+        ...realRequirements,
+        extra: {
+          ...realRequirements.extra,
+          nanoSession: {
+            ...realRequirements.extra.nanoSession,
+            id: fakeSessionId
+          }
+        }
+      };
+
+      const payload = {
+        x402Version: 2 as const,
+        accepted: fakeRequirements,
+        payload: { proof: blockHash }
+      };
+      const result = await serverHandler.handleSettle!(fakeRequirements, payload);
+
+      // This should fail because the tag won't match (or session is unknown)
+      // The exact behavior depends on implementation, but it MUST NOT succeed
+      console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
+      expect(result?.success).toBe(false);
+      console.log('   ✅ Spoofing correctly rejected!');
+
+      // Cleanup
+      await receivePendingAll(serverAddress, serverSecretKey, clientInfo.representative);
+      await sweepAll(serverAddress, clientAddress, serverSecretKey);
+    }, 120000);
+  }); // End Track 1
+
+  describe('Track 2: nanoSignature (Stateless)', () => {
+    test('full payment flow with settle-before-grant', async () => {
+      if (shouldSkip) {
+        console.log(`Test skipped - ${skipReason || 'integration prerequisites'}`);
+        return;
+      }
+
+      const serverHandler = new NanoSessionFacilitatorHandler({
+        rpcClient,
+        seed: seed,
+        accountIndex: 1,
+        receiveMode: 'sync'
+      });
+
+      const resourceUrl = 'https://api.example.com/track2';
+      const requirements = serverHandler.getRequirements({
+        resourceAmountRaw: paymentAmount,
+        payTo: serverAddress,
+        maxTimeoutSeconds: 300,
+      });
+      // Override to track 2 requirement
+      delete requirements.extra.nanoSession;
+      requirements.extra.nanoSignature = { messageToSign: 'block_hash+url' };
+
+      const clientInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientInfo || BigInt(clientInfo.balance) < BigInt(paymentAmount)) {
+        console.log('   ⚠️ Skipping: Insufficient balance');
+        return;
+      }
+
+      console.log('\n💳 Track 2: Client broadcasting generic send block...');
+      const paymentHash = await createAndProcessSendBlock({
+        fromAddress: clientAddress,
+        toAddress: serverAddress,
+        amountRaw: paymentAmount,
+        secretKeyHex: clientSecretKey
+      });
+
+      if (!paymentHash) return;
+      console.log(`   ✅ Track 2 Payment sent: ${paymentHash}`);
+
+      // Wait a moment for confirmation before signing
+      await waitForConfirmation(paymentHash, 30_000);
+
+      // We sign via client util
+      const { signMessage } = await import('@nanosession/client/dist/signing.js').catch(() => import('../../packages/client/src/signing.js'));
+      const messageToSign = paymentHash + resourceUrl;
+      const signature = signMessage(messageToSign, clientSecretKey);
+
+      const payload = {
+        x402Version: 2 as const,
+        accepted: requirements,
+        payload: { proof: paymentHash, signature }
+      };
+
+      console.log('🔐 Track 2: Server verifying and settling via atomic receive lock...');
+      const result = await serverHandler.handleSettle!(requirements, payload, { url: resourceUrl });
+
+      expect(result?.success).toBe(true);
+      console.log(`   ✅ Track 2 Settle success: ${result?.transactionHash}`);
+
+      const serverInfo = await getAccountInfoSafe(serverAddress);
+      expect(serverInfo).toBeDefined();
+      expect(serverInfo!.frontier).toBe(result?.transactionHash);
+
+      await sweepAll(serverAddress, clientAddress, serverSecretKey);
+    }, 120000);
+  });
 });

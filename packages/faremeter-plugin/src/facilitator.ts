@@ -66,15 +66,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
         maxAmountRequired: nanoReq.amount,
         payTo: nanoReq.payTo,
         maxTimeoutSeconds: nanoReq.maxTimeoutSeconds,
-        extra: {
-          nanoSession: {
-            tag: nanoReq.extra.nanoSession.tag,
-            id: nanoReq.extra.nanoSession.id,
-            resourceAmountRaw: nanoReq.extra.nanoSession.resourceAmountRaw,
-            tagAmountRaw: nanoReq.extra.nanoSession.tagAmountRaw,
-            expiresAt: nanoReq.extra.nanoSession.expiresAt,
-          }
-        },
+        extra: nanoReq.extra as Record<string, unknown>,
       };
 
       result.push(enriched);

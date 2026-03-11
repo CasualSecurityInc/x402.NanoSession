@@ -17,8 +17,7 @@
   },
   "dependencies": {
     "@nanosession/core": "workspace:*",
-    "@nanosession/rpc": "workspace:*"
-  },
-  "devDependencies": {},
-  "peerDependencies": {}
+    "@nanosession/rpc": "workspace:*",
+    "blakejs": "^1.2.1"
+  }
 }

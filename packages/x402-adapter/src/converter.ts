@@ -67,15 +67,7 @@ export function toX402Requirements(req: NanoRequirements): X402Requirements {
     amount: req.amount,
     payTo: req.payTo,
     maxTimeoutSeconds: req.maxTimeoutSeconds,
-    extra: {
-      nanoSession: {
-        id: req.extra.nanoSession.id,
-        tag: req.extra.nanoSession.tag,
-        resourceAmountRaw: req.extra.nanoSession.resourceAmountRaw,
-        tagAmountRaw: req.extra.nanoSession.tagAmountRaw,
-        expiresAt: req.extra.nanoSession.expiresAt,
-      }
-    }
+    extra: req.extra as Record<string, unknown>
   };
 }
 
@@ -116,36 +108,36 @@ export function toX402Payload(payload: NanoPayload): X402Payload {
 export function parseMoneyToRawNano(price: string): string {
   // Remove $ sign and whitespace
   const cleanPrice = price.replace(/^\$/, '').trim();
-  
+
   // Handle empty string
   if (cleanPrice === '' || cleanPrice === '-') {
     throw new Error(`Invalid price format: ${price}`);
   }
-  
+
   // Reject scientific notation
   if (cleanPrice.includes('e') || cleanPrice.includes('E')) {
     throw new Error(`Scientific notation not supported: ${price}`);
   }
-  
+
   // Parse as string to preserve precision
   const [intPart = '0', decPart = ''] = cleanPrice.split('.');
-  
+
   // Validate parts are numeric
   if (!/^-?\d*$/.test(intPart) || !/^\d*$/.test(decPart)) {
     throw new Error(`Invalid price format: ${price}`);
   }
-  
+
   // Handle negative
   const isNegative = intPart.startsWith('-');
   const absIntPart = isNegative ? intPart.slice(1) : intPart;
-  
+
   // Pad decimal to 30 places (Nano precision)
   const paddedDec = decPart.padEnd(30, '0').slice(0, 30);
-  
+
   // Combine and convert to BigInt
   const rawStr = (absIntPart || '0') + paddedDec;
   const rawAmount = BigInt(rawStr);
-  
+
   return isNegative ? (-rawAmount).toString() : rawAmount.toString();
 }
 

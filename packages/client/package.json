@@ -18,6 +18,7 @@
   "dependencies": {
     "@nanosession/core": "workspace:*",
     "@nanosession/rpc": "workspace:*",
+    "blakejs": "^1.2.1",
     "nanocurrency": "^2.5.0"
   }
 }

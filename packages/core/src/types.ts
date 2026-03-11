@@ -27,6 +27,11 @@ export interface NanoSessionExtra {
   expiresAt?: string;
 }
 
+export interface NanoSignatureExtra {
+  /** The message template that the client must sign (e.g., "block_hash+url") */
+  messageToSign: string;
+}
+
 export interface PaymentRequirements {
   /** Payment scheme identifier (must be "exact") */
   scheme: string;
@@ -40,9 +45,10 @@ export interface PaymentRequirements {
   payTo: string;
   /** Maximum time in seconds to complete payment */
   maxTimeoutSeconds: number;
-  /** Scheme-specific NanoSession extra data, now namespaced */
+  /** Scheme-specific extra data, now namespaced for Rev 7 Dual-Track */
   extra: {
-    nanoSession: NanoSessionExtra;
+    nanoSession?: NanoSessionExtra;
+    nanoSignature?: NanoSignatureExtra;
     [key: string]: unknown;
   };
 }
@@ -73,10 +79,12 @@ export interface PaymentPayload {
   resource?: ResourceInfo;
   /** The requirements that this payment satisfies */
   accepted: PaymentRequirements;
-  /** The cryptographic proof of payment */
+  /** The cryptographic payload */
   payload: {
     /** The Nano block hash serving as the proof of payment */
     proof: string;
+    /** In Track 2 (nano-exact-broadcast-signature), the Ed25519 signature binding the block to the URL */
+    signature?: string;
   };
   /** Optional protocol extensions */
   extensions?: Record<string, unknown>;

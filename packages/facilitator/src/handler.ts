@@ -10,8 +10,18 @@ import {
   TAG_MULTIPLIER,
   assertValidPaymentRequirements,
   assertValidRawAmount,
-  createPaymentRequirements
+  createPaymentRequirements,
+  deriveAddressFromSeed
 } from '@nanosession/core';
+import {
+  derivePublicKey,
+  deriveSecretKey,
+  createBlock,
+  computeWork,
+  validateWork,
+  verifyBlock
+} from 'nanocurrency';
+import { blake2bHex } from 'blakejs';
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import type { NanoRpcClient } from '@nanosession/rpc';
 import type { SpentSetStorage } from './spent-set.js';
@@ -42,6 +52,12 @@ export interface HandlerOptions {
   tagModulus?: number;
   /** Optional tag multiplier override (defaults to TAG_MULTIPLIER) */
   tagMultiplier?: string | bigint;
+  /** Seed for generating receive blocks in Track 2 (nanoSignature) */
+  seed?: string;
+  /** Account index for the Facilitator's wallet. Defaults to 0. */
+  accountIndex?: number;
+  /** Track 2 Receive Mode. Defaults to 'sync'. */
+  receiveMode?: 'sync' | 'async';
 }
 
 /**
@@ -99,6 +115,9 @@ export class NanoSessionFacilitatorHandler {
   private activeSessionAmounts: Map<string, string>;
   private tagModulus: number;
   private tagMultiplier: bigint;
+  private seed?: string;
+  private accountIndex: number;
+  private receiveMode: 'sync' | 'async';
 
   constructor(options: HandlerOptions) {
     this.rpcClient = options.rpcClient;
@@ -109,6 +128,9 @@ export class NanoSessionFacilitatorHandler {
     this.tagMultiplier = NanoSessionFacilitatorHandler.resolveTagMultiplier(
       options.tagMultiplier ?? TAG_MULTIPLIER
     );
+    this.seed = options.seed;
+    this.accountIndex = options.accountIndex ?? 0;
+    this.receiveMode = options.receiveMode ?? 'sync';
 
     // Default implementation using Map
     const inMemoryRegistry = new Map<string, PaymentRequirements>();
@@ -285,7 +307,7 @@ export class NanoSessionFacilitatorHandler {
    */
   registerSessionFromRequirements(sessionId: string, requirements: PaymentRequirements): void {
     assertValidPaymentRequirements(requirements);
-    if (requirements.extra.nanoSession.id !== sessionId) {
+    if (requirements.extra.nanoSession?.id !== sessionId) {
       throw new Error('Session ID mismatch in registerSessionFromRequirements');
     }
     this.sessionRegistry.set(sessionId, requirements);
@@ -302,7 +324,8 @@ export class NanoSessionFacilitatorHandler {
    */
   async handleVerify(
     requirements: PaymentRequirements,
-    payload: PaymentPayload
+    payload: PaymentPayload,
+    context?: unknown
   ): Promise<VerifyResult | null> {
     // Return null for non-matching schemes
     if (requirements.scheme !== SCHEME || requirements.network !== NETWORK) {
@@ -311,8 +334,75 @@ export class NanoSessionFacilitatorHandler {
 
     try {
       assertValidPaymentRequirements(requirements);
-      const blockHash = payload.payload.proof;
-      const sessionId = requirements.extra.nanoSession.id;
+      // Track 2: nanoSignature (Stateless Gold Standard)
+      if (requirements.extra?.nanoSignature) {
+        const blockHash = payload.payload.proof;
+        const signature = payload.payload.signature;
+        if (!signature) {
+          return { isValid: false, error: 'Signature required for Track 2' };
+        }
+
+        let url = '';
+        if (typeof context === 'object' && context && 'url' in context) {
+          url = (context as any).url as string;
+        }
+
+        let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
+        if (!blockInfo.confirmed) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            blockInfo = await this.rpcClient.getBlockInfo(blockHash);
+            if (blockInfo.confirmed) break;
+          }
+        }
+        if (!blockInfo.confirmed) return { isValid: false, error: 'Block not confirmed' };
+
+        // Verify cryptographic signature
+        const messageToSign = blockHash + url;
+        const messageHash = blake2bHex(messageToSign, undefined, 32);
+        try {
+          const publicKey = derivePublicKey(blockInfo.block_account);
+          if (!verifyBlock({ hash: messageHash, signature, publicKey })) {
+            return { isValid: false, error: 'Cryptographic signature is invalid' };
+          }
+        } catch (e) {
+          return { isValid: false, error: 'Signature check failed format' };
+        }
+
+        const destination = blockInfo.link_as_account ?? blockInfo.link;
+        if (destination !== requirements.payTo) {
+          return { isValid: false, error: `Address mismatch: expected ${requirements.payTo}, got ${destination}` };
+        }
+
+        if (BigInt(blockInfo.amount) !== BigInt(requirements.amount)) {
+          return { isValid: false, error: 'Amount mismatch' };
+        }
+
+        // Handle Receive block generation (Settle-Before-Grant)
+        if (!this.seed) {
+          return { isValid: false, error: 'Facilitator not configured with seed for Track 2 settlement' };
+        }
+
+        const myAddress = deriveAddressFromSeed(this.seed, this.accountIndex);
+        if (myAddress !== requirements.payTo) {
+          return { isValid: false, error: 'Facilitator seed does not match payTo address' };
+        }
+
+        if (this.receiveMode === 'sync') {
+          const result = await this.settleReceiveBlock(blockHash, myAddress, blockInfo.amount);
+          if (!result) return { isValid: false, error: 'Failed to settle (receive) block. It may already be spent.' };
+        } else {
+          this.queueReceiveBlock(blockHash, myAddress, blockInfo.amount);
+        }
+
+        return { isValid: true, blockHash };
+      }
+
+      // Track 1: nanoSession (Stateful Compatibility)
+      const sessionId = requirements.extra?.nanoSession?.id;
+      if (!sessionId) {
+        return { isValid: false, error: 'Missing session ID in requirements' };
+      }
 
       // Session Binding: Verify session ID echoed by client
       const payloadSessionId = payload.accepted?.extra?.nanoSession?.id ?? sessionId;
@@ -336,9 +426,9 @@ export class NanoSessionFacilitatorHandler {
       if (
         requirements.amount !== issuedRequirements.amount ||
         requirements.payTo !== issuedRequirements.payTo ||
-        requirements.extra.nanoSession.tag !== issuedRequirements.extra.nanoSession.tag ||
-        requirements.extra.nanoSession.resourceAmountRaw !== issuedRequirements.extra.nanoSession.resourceAmountRaw ||
-        requirements.extra.nanoSession.tagAmountRaw !== issuedRequirements.extra.nanoSession.tagAmountRaw
+        requirements.extra.nanoSession?.tag !== issuedRequirements.extra.nanoSession?.tag ||
+        requirements.extra.nanoSession?.resourceAmountRaw !== issuedRequirements.extra.nanoSession?.resourceAmountRaw ||
+        requirements.extra.nanoSession?.tagAmountRaw !== issuedRequirements.extra.nanoSession?.tagAmountRaw
       ) {
         return {
           isValid: false,
@@ -346,6 +436,7 @@ export class NanoSessionFacilitatorHandler {
         };
       }
 
+      const blockHash = payload.payload.proof;
       // Get block information from Nano RPC
       let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
 
@@ -411,10 +502,11 @@ export class NanoSessionFacilitatorHandler {
    */
   async handleSettle(
     requirements: PaymentRequirements,
-    payload: PaymentPayload
+    payload: PaymentPayload,
+    context?: unknown
   ): Promise<SettleResult | null> {
     // Verify first
-    const verifyResult = await this.handleVerify(requirements, payload);
+    const verifyResult = await this.handleVerify(requirements, payload, context);
 
     if (!verifyResult) {
       return null;
@@ -445,5 +537,61 @@ export class NanoSessionFacilitatorHandler {
       success: true,
       transactionHash: payload.payload.proof
     };
+  }
+
+  private async settleReceiveBlock(hash: string, accountAddress: string, amount: string): Promise<boolean> {
+    try {
+      if (!this.seed) return false;
+      const accountInfo = await this.rpcClient.getAccountInfo(accountAddress);
+      // Ensure frontier exists means the account is opened. (Nano accounts with 0 blocks can't be fetched, but they shouldn't be the payTo without Open block)
+      if (!accountInfo.frontier) return false;
+
+      const secretKeyHex = deriveSecretKey(this.seed, this.accountIndex);
+      const newBalance = (BigInt(accountInfo.balance) + BigInt(amount)).toString();
+      const work = await this.generateWork(accountInfo.frontier);
+
+      const blockData = {
+        work,
+        balance: newBalance,
+        representative: accountInfo.representative,
+        link: hash,
+        previous: accountInfo.frontier,
+      };
+
+      const block = createBlock(secretKeyHex, blockData);
+      const newHash = await this.rpcClient.processBlock(block.block as any);
+
+      await this.waitForConfirmation(newHash, 30_000);
+      return true;
+    } catch (e) {
+      console.error('Failed to create/process receive block:', e);
+      return false;
+    }
+  }
+
+  private queueReceiveBlock(hash: string, accountAddress: string, amount: string): void {
+    this.settleReceiveBlock(hash, accountAddress, amount).catch(console.error);
+  }
+
+  private async generateWork(root: string): Promise<string> {
+    try {
+      const difficulty = await this.rpcClient.getActiveDifficulty();
+      return await this.rpcClient.generateWork(root, difficulty);
+    } catch {
+      const work = await computeWork(root, { workThreshold: 'fffffff800000000' });
+      if (!work) throw new Error('Local computeWork failed');
+      return work;
+    }
+  }
+
+  private async waitForConfirmation(hash: string, timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const info = await this.rpcClient.getBlockInfo(hash).catch(() => null);
+      if (info && info.confirmed) return;
+      await this.rpcClient.confirmBlock(hash).catch(() => undefined);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    throw new Error(`Confirmation timeout for block ${hash}`);
   }
 }

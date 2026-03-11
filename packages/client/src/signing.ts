@@ -1,5 +1,6 @@
 import { deriveSecretKey, derivePublicKey, hashBlock, signBlock as nanoSignBlock } from 'nanocurrency';
 import { deriveAddressFromSeed } from '@nanosession/core';
+import { blake2bHex } from 'blakejs';
 
 export interface KeyPair {
   publicKey: Uint8Array;
@@ -78,5 +79,21 @@ export function signBlock(block: SendBlockParams, secretKey: Uint8Array): string
   return nanoSignBlock({
     hash: blockHash,
     secretKey: Buffer.from(secretKey).toString('hex'),
+  });
+}
+
+/**
+ * Signs an arbitrary string message according to the NanoSession Rev 7 standard.
+ * The message is hashed using 32-byte Blake2b, and then signed using Nano's Ed25519.
+ * 
+ * @param message The string (e.g., "block_hash+url") to sign
+ * @param secretKeyHex The 64-character hex secret key
+ * @returns The hex-encoded signature
+ */
+export function signMessage(message: string, secretKeyHex: string): string {
+  const hash = blake2bHex(message, undefined, 32);
+  return nanoSignBlock({
+    hash,
+    secretKey: secretKeyHex
   });
 }

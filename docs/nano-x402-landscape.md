@@ -53,7 +53,7 @@ This comparison focuses on publicly observable implementation characteristics an
 | Replay hardening | Delegated to scheme/dependency behavior | Local spent-set replay checks plus network checks |
 | Session spoofing | Delegated to scheme/dependency behavior | Session registry with issued-requirements verification |
 | Reliability controls | Basic process + RPC wiring in facilitator service | Confirmation retry/failover-oriented behavior in RPC/client paths |
-| Throughput path | Single-account flow simplicity | Extension path for sharded pools (Rev6 Extension A) |
+| Throughput path | Single-account flow simplicity | Extension path for sharded pools (Rev 7 Extension A) |
 | Code size | ~210 lines (index.js) | ~450 lines (handler.ts) + supporting packages |
 
 ## Technical Review: `@x402nano/facilitator`
@@ -264,8 +264,8 @@ The claims about x402.NanoSession capabilities above are anchored in current pro
 - Core types/constants and mechanism mapping: `packages/core/src/`
 - Attack-oriented integration coverage:
   - `test/integration/payment-flow.test.ts` (includes frontrun/receipt-stealing, receipt reuse, session spoofing scenarios)
-- Rev6 extension for throughput scaling:
-  - `docs/x402_NanoSession_rev6_Extension_A_Pools.md`
+- Rev 7 extension for throughput scaling:
+  - `docs/x402_NanoSession_Rev 7_Extension_A_Pools.md`
 
 For third-party facilitator observations, anchors are:
 

@@ -75,7 +75,7 @@ export function createPaymentHandler(options: PaymentHandlerOptions): PaymentHan
       requirements: accepts.find(r =>
         r.scheme === execer.requirements.scheme &&
         r.network === execer.requirements.network &&
-        (r.extra as any)?.nanoSession?.id === execer.requirements.extra.nanoSession.id
+        (r.extra as any)?.nanoSession?.id === execer.requirements.extra.nanoSession?.id
       )!,
       exec: async () => {
         const result = await execer.exec();

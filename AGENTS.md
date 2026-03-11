@@ -196,6 +196,21 @@ Before this protection, attackers could steal payment proofs from the public blo
 
 ---
 
+## PRE-PUSH CHECKLIST
+
+**CRITICAL: Run these before every `git push`:**
+
+- [ ] `pnpm install` - Ensure `pnpm-lock.yaml` is up-to-date (CI uses `--frozen-lockfile`)
+- [ ] `pnpm test:run` - All unit tests pass
+- [ ] `pnpm typecheck` - No TypeScript errors
+
+**Why this matters:** CI fails if lockfile doesn't match package.json. This happens when:
+- Adding/removing packages
+- Changing package dependencies
+- Adding new workspace packages
+
+---
+
 ## COMMANDS
 
 ```bash

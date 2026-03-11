@@ -558,7 +558,7 @@ async function setNetworkMode(mode: 'mainnet' | 'testnet') {
                <div v-if="serverProvidedContent" v-html="serverProvidedContent" class="server-content"></div>
             </div>
              <div class="block-info">
-                Block: <a :href="`https://nanexplorer.com/nano/blocks/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
+                Block: <a :href="`https://blocklattice.io/block/${finalBlockHash}`" target="_blank" rel="noopener noreferrer" class="block-link">{{ finalBlockHash }}</a>
             </div>
         </div>
 

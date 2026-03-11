@@ -34,31 +34,42 @@ export function assertValidRawAmount(raw: string, fieldName: string): void {
  * This catches object-shape mismatches and arithmetic inconsistencies early.
  */
 export function assertValidPaymentRequirements(requirements: PaymentRequirements): void {
-    if (!requirements.extra?.nanoSession) {
-        throw new Error('Missing extra.nanoSession');
+    if (!requirements.extra?.nanoSession && !requirements.extra?.nanoSignature) {
+        throw new Error('Missing extra.nanoSession or extra.nanoSignature');
+    }
+
+    if (requirements.extra?.nanoSession && requirements.extra?.nanoSignature) {
+        throw new Error('Malformed requirements: nanoSession and nanoSignature are mutually exclusive');
     }
 
     assertValidRawAmount(requirements.amount, 'amount');
-    assertValidRawAmount(requirements.extra.nanoSession.resourceAmountRaw, 'extra.nanoSession.resourceAmountRaw');
-    assertValidRawAmount(requirements.extra.nanoSession.tagAmountRaw, 'extra.nanoSession.tagAmountRaw');
 
-    if (!Number.isInteger(requirements.extra.nanoSession.tag) || requirements.extra.nanoSession.tag < 0) {
-        throw new Error('Invalid extra.nanoSession.tag: must be a non-negative integer');
-    }
+    if (requirements.extra?.nanoSession) {
+        assertValidRawAmount(requirements.extra.nanoSession.resourceAmountRaw, 'extra.nanoSession.resourceAmountRaw');
+        assertValidRawAmount(requirements.extra.nanoSession.tagAmountRaw, 'extra.nanoSession.tagAmountRaw');
 
-    if (!requirements.extra.nanoSession.id) {
-        throw new Error('Missing extra.nanoSession.id');
-    }
+        if (!Number.isInteger(requirements.extra.nanoSession.tag) || requirements.extra.nanoSession.tag < 0) {
+            throw new Error('Invalid extra.nanoSession.tag: must be a non-negative integer');
+        }
 
-    const expectedTotal = (
-        BigInt(requirements.extra.nanoSession.resourceAmountRaw) +
-        BigInt(requirements.extra.nanoSession.tagAmountRaw)
-    ).toString();
+        if (!requirements.extra.nanoSession.id) {
+            throw new Error('Missing extra.nanoSession.id');
+        }
 
-    if (requirements.amount !== expectedTotal) {
-        throw new Error(
-            `Amount invariant violation: amount=${requirements.amount}, expected=${expectedTotal}`
-        );
+        const expectedTotal = (
+            BigInt(requirements.extra.nanoSession.resourceAmountRaw) +
+            BigInt(requirements.extra.nanoSession.tagAmountRaw)
+        ).toString();
+
+        if (requirements.amount !== expectedTotal) {
+            throw new Error(
+                `Amount invariant violation: amount=${requirements.amount}, expected=${expectedTotal}`
+            );
+        }
+    } else if (requirements.extra?.nanoSignature) {
+        if (!requirements.extra.nanoSignature.messageToSign) {
+            throw new Error('Missing extra.nanoSignature.messageToSign');
+        }
     }
 }
 

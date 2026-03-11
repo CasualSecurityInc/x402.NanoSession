@@ -4,19 +4,32 @@ title: Intro
 
 # x402.NanoSession (Rev 7) — Intro
 
-x402.NanoSession defines a per-request HTTP 402 payment profile for access to web resources and APIs. In x402 layer terms, it uses `scheme: "exact"` and provides a Nano-specific mechanism based on session-bound block-hash proof. Payments are settled instantly and feelessly via Nano (XNO), avoiding smart-contract overhead.
+x402.NanoSession defines a per-request HTTP 402 payment profile for access to web resources and APIs. In x402 layer terms, it uses `scheme: "exact"` and provides two Nano-specific mechanism variants: **`nanoSession`** (stateful, session-bound) and **`nanoSignature`** (stateless, signature-bound). Payments are settled instantly and feelessly via Nano (XNO), avoiding smart-contract overhead.
 
 | Feature | Original x402 (x402.org) | x402.NanoSession Rev 7 |
 | --- | --- | --- |
 | Transport | HTTP 402 with x402 V2 headers | HTTP 402 with x402 V2 headers |
 | Payment rail | Onchain stablecoins (e.g., USDC on Base) | Nano (XNO): feeless, sub-second finality |
-| Client proof | Transfer authorization (EIP-3009) | Session-bound block hash |
-| Request binding | Payment parameters signed via EIP-712 | Mandatory session id |
-| Concurrency | Per-request wallet signature | Multiplexed via unique session + tagged amount per address |
+| Client proof | Transfer authorization (EIP-3009) | Block hash + optional Ed25519 signature |
+| Request binding | Payment parameters signed via EIP-712 | `nanoSession`: server-issued session id + tagged amount  ||
+|  |  | `nanoSignature`: Ed25519 signature binding block hash to request URL |
+| Concurrency | Per-request wallet signature | `nanoSession`: multiplexed via unique session + tagged amount per address  ||
+|  |  | `nanoSignature`: stateless — no server state required |
+
+## Two Mechanism Variants
+
+Rev 7 introduces **two complementary mechanism variants** under the same `scheme: "exact"` umbrella. Throughout this specification, they are identified by their `extra` field key:
+
+| Identifier | Extra key | Style | Best for |
+|---|---|---|---|
+| **`nanoSession`** | `extra.nanoSession` | Stateful (server-issued session + tagged amount) | High-throughput APIs behind a dedicated Facilitator |
+| **`nanoSignature`** | `extra.nanoSignature` | Stateless (Ed25519 signature + Settle-Before-Grant) | Decentralized services, multi-facilitator, and simple deployments |
+
+A Facilitator MAY advertise one or both variants in the `accepts` array of a 402 response.
 
 ## Why "NanoSession"?
 
-The name reflects a core architectural truth: **the session is the security primitive**.
+The name reflects a core architectural truth of the `nanoSession` variant: **the session is the security primitive**.
 
 Nano's block-lattice is publicly observable in real-time. Anyone can see payments as they occur. A block hash alone proves only that *a payment happened* — not *who requested it*. Without binding payments to specific requests, an attacker could intercept a payment proof and claim it as their own.
 
@@ -55,24 +68,25 @@ Client                    Server/Facilitator                Nano
 
 The **session binding** (tag embedded in payment amount) prevents receipt theft — each payment is tied to a specific session and verified server-side. See the [Protocol Specification](./protocol.md) for security model details.
 
-## Why Not Stateless?
+## Dual-Track Approach
 
-We analyzed multiple stateless approaches (HMAC from IP, signed requirements, sender binding). All fail because:
+Rev 7 addresses this with **two complementary variants**:
 
-- HTTP provides no standard client identity primitive
-- Nano blocks have no memo/data field for request context
-- Any "binding" requires prior coordination — which is itself a session
+- **`nanoSession`** (stateful): The Facilitator issues a unique session per request, avoiding the problems above through server-side state. Best for high-throughput APIs with a dedicated Facilitator.
+- **`nanoSignature`** (stateless): The client signs `block_hash + request_url` with their Nano account key. The Facilitator verifies the signature cryptographically without needing prior session state. An atomic **Settle-Before-Grant** routine (receive block broadcast) acts as the ledger-level mutex against double-spending.
 
-See [Protocol Specification § Security Model](./protocol.md#1-security-model) for detailed analysis.
+See [Protocol Specification § Security Model](./x402_NanoSession_rev7_Protocol.md#1-security-model) for the detailed threat analysis behind both approaches.
 
 ## Scheme vs Mechanism
 
 NanoSession does **not** define a new x402 scheme id. It uses:
 - `scheme: "exact"` (payment style)
-- a NanoSession mechanism/profile (session-bound proof with `extra.nanoSession` + `payload.proof`)
+- Two mechanism variants:
+  - `nanoSession`: session-bound proof with `extra.nanoSession` + `payload.proof`
+  - `nanoSignature`: signature-bound proof with `extra.nanoSignature` + `payload.proof` + `payload.signature`
 
-For the detailed rationale on why this differs from EVM-style pre-signed authorization flows, see [Protocol Specification §1.4–§1.5](./protocol.md#14-why-evm-style-exact-authorizations-are-unviable-for-nano).  
-For interoperability and adapter guidance, see [Interoperability Matrix](./x402_NanoSession_Rev 7_Appendix_Interoperability_Matrix.md).
+For the detailed rationale on why this differs from EVM-style pre-signed authorization flows, see [Protocol Specification §1.4–§1.5](./x402_NanoSession_rev7_Protocol.md#14-why-evm-style-exact-authorizations-are-unviable-for-nano).  
+For interoperability and adapter guidance, see [Interoperability Matrix](./x402_NanoSession_rev7_Appendix_Interoperability_Matrix.md).
 
 ## Core Architecture
 

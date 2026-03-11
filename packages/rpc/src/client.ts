@@ -62,6 +62,50 @@ export class NanoRpcClient {
   }
 
   /**
+   * Check if a block hash is receivable (i.e., the send block exists and its
+   * funds have NOT yet been pocketed by a receive block).
+   * Uses the `receivable_exists` RPC (V23+).
+   *
+   * @param hash The block hash of a send block
+   * @returns true if the block is still receivable (unreceived)
+   */
+  async receivableExists(hash: string): Promise<boolean> {
+    try {
+      const response = await this.callRpc('receivable_exists', {
+        hash,
+        include_only_confirmed: true
+      });
+      return response.exists === '1' || response.exists === 1 || response.exists === true;
+    } catch (e) {
+      try {
+        // Fallback for V23 and older nodes that still use pending_exists
+        const response = await this.callRpc('pending_exists', {
+          hash,
+          include_only_confirmed: true
+        });
+        return response.exists === '1' || response.exists === 1 || response.exists === true;
+      } catch (e2) {
+        // Definitive fallback for restricted proxies like rpc.nano.to
+        // which block _exists commands but allow blocks_info
+        const info = await this.callRpc('blocks_info', {
+          hashes: [hash],
+          receive_hash: true
+        });
+        
+        const blocks = info.blocks as Record<string, any> | undefined;
+        if (!blocks || !blocks[hash]) return false;
+        
+        const block = blocks[hash];
+        const isConfirmed = block.confirmed === 'true' || block.confirmed === true;
+        if (!isConfirmed) return false;
+
+        const receiveHash = block.receive_hash;
+        return !receiveHash || receiveHash === '0' || receiveHash === '0'.repeat(64);
+      }
+    }
+  }
+
+  /**
    * Confirm a block (trigger election if needed)
    * Silently succeeds if the RPC doesn't support block_confirm
    */

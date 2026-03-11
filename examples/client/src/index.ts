@@ -63,8 +63,8 @@ async function fetchWithPayment(url: string): Promise<Response> {
     console.log(`   Network: ${requirements.network}`);
     console.log(`   Amount: ${requirements.amount} raw (${Number(requirements.amount) / 1e30} XNO)`);
     console.log(`   Pay To: ${requirements.payTo}`);
-    console.log(`   Session ID: ${nanoSession.id}`);
-    console.log(`   Tag: ${nanoSession.tag}`);
+    console.log(`   Session ID: ${nanoSession?.id ?? '(nanoSignature)'}`);
+    console.log(`   Tag: ${nanoSession?.tag ?? 'N/A'}`);
     console.log('');
 
     // Check if we can afford it

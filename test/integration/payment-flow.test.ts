@@ -6,6 +6,7 @@ import { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
 import { NanoSessionPaymentHandler, deriveAddressFromSeed } from '@nanosession/client';
 import { NanoRpcClient } from '@nanosession/rpc';
 import { encodePaymentRequired, decodePaymentRequired, decodePaymentSignature, encodePaymentSignature } from '@nanosession/core';
+import type { PaymentRequirements } from '@nanosession/core';
 
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || './.env.mainnet' });
 
@@ -434,7 +435,7 @@ describe('Integration: Full Payment Flow', () => {
                 payTo: serverAddress,
                 maxTimeoutSeconds: 300
               });
-              requirementsCache.set(requirements.extra.nanoSession.id, requirements);
+              requirementsCache.set(requirements.extra.nanoSession!.id, requirements);
 
               const paymentRequired = {
                 x402Version: 2 as const,
@@ -452,7 +453,7 @@ describe('Integration: Full Payment Flow', () => {
 
             try {
               const payload = decodePaymentSignature(paymentSignature as string);
-              const sessionId = payload.accepted.extra.nanoSession.id;
+              const sessionId = payload.accepted.extra.nanoSession?.id;
               const requirements = sessionId ? requirementsCache.get(sessionId) : undefined;
 
               if (!requirements) {
@@ -533,7 +534,7 @@ describe('Integration: Full Payment Flow', () => {
         // The requirements amount is the exact normative send amount.
         const nanoSession = requirements.extra.nanoSession;
         const taggedAmount = requirements.amount;
-        console.log(`   🏷️  Tag: ${nanoSession.tag}, Tagged amount: ${taggedAmount}`);
+        console.log(`   🏷️  Tag: ${nanoSession!.tag}, Tagged amount: ${taggedAmount}`);
 
         let paymentHash: string | null;
         try {
@@ -627,14 +628,14 @@ describe('Integration: Full Payment Flow', () => {
         maxTimeoutSeconds: 300
       });
 
-      console.log(`   Victim session: ${victimRequirements.extra.nanoSession.id}, tag: ${victimRequirements.extra.nanoSession.tag}`);
-      console.log(`   Attacker session: ${attackerRequirements.extra.nanoSession.id}, tag: ${attackerRequirements.extra.nanoSession.tag}`);
+      console.log(`   Victim session: ${victimRequirements.extra.nanoSession!.id}, tag: ${victimRequirements.extra.nanoSession!.tag}`);
+      console.log(`   Attacker session: ${attackerRequirements.extra.nanoSession!.id}, tag: ${attackerRequirements.extra.nanoSession!.tag}`);
 
       // Verify tags are different (critical for this test)
-      expect(victimRequirements.extra.nanoSession.tag).not.toBe(attackerRequirements.extra.nanoSession.tag);
+      expect(victimRequirements.extra.nanoSession!.tag).not.toBe(attackerRequirements.extra.nanoSession!.tag);
 
       // Victim pays with THEIR tag encoded in amount
-      const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.nanoSession.tag)).toString();
+      const victimTaggedAmount = (BigInt(victimRequirements.amount) + BigInt(victimRequirements.extra.nanoSession!.tag)).toString();
 
       const clientInfo = await getAccountInfoSafe(clientAddress);
       if (!clientInfo || BigInt(clientInfo.balance) < BigInt(victimTaggedAmount)) {
@@ -793,7 +794,7 @@ describe('Integration: Full Payment Flow', () => {
         accepted: fakeRequirements,
         payload: { proof: blockHash }
       };
-      const result = await serverHandler.handleSettle!(fakeRequirements, payload);
+      const result = await serverHandler.handleSettle!(fakeRequirements as unknown as PaymentRequirements, payload as any);
 
       // This should fail because the tag won't match (or session is unknown)
       // The exact behavior depends on implementation, but it MUST NOT succeed
@@ -822,14 +823,12 @@ describe('Integration: Full Payment Flow', () => {
       });
 
       const resourceUrl = 'https://api.example.com/track2';
-      const requirements = serverHandler.getRequirements({
-        resourceAmountRaw: paymentAmount,
+      const requirements = serverHandler.getSignatureRequirements({
+        amount: paymentAmount,
         payTo: serverAddress,
         maxTimeoutSeconds: 300,
+        messageToSign: 'block_hash+url'
       });
-      // Override to track 2 requirement
-      delete requirements.extra.nanoSession;
-      requirements.extra.nanoSignature = { messageToSign: 'block_hash+url' };
 
       const clientInfo = await getAccountInfoSafe(clientAddress);
       if (!clientInfo || BigInt(clientInfo.balance) < BigInt(paymentAmount)) {
@@ -837,40 +836,79 @@ describe('Integration: Full Payment Flow', () => {
         return;
       }
 
-      console.log('\n💳 Track 2: Client broadcasting generic send block...');
-      const paymentHash = await createAndProcessSendBlock({
-        fromAddress: clientAddress,
-        toAddress: serverAddress,
-        amountRaw: paymentAmount,
-        secretKeyHex: clientSecretKey
+      console.log('\n💳 Track 2: Client generating payment via handler...');
+      const clientHandler = new NanoSessionPaymentHandler({
+        rpcClient,
+        seed: clientSecretKey, // the seed was derived directly as clientSecretKey in these specs
+        maxSpend: process.env.NANO_MAX_SPEND || '1000000000000000000000000000'
+      });
+      // The test setup actually uses seed=seed, accountIndex=0 for client, so let's use that
+      const properClientHandler = new NanoSessionPaymentHandler({
+        rpcClient,
+        seed: seed,
+        accountIndex: 0,
+        maxSpend: process.env.NANO_MAX_SPEND || '1000000000000000000000000000'
       });
 
-      if (!paymentHash) return;
-      console.log(`   ✅ Track 2 Payment sent: ${paymentHash}`);
-
-      // Wait a moment for confirmation before signing
-      await waitForConfirmation(paymentHash, 30_000);
-
-      // We sign via client util
-      const { signMessage } = await import('@nanosession/client/dist/signing.js').catch(() => import('../../packages/client/src/signing.js'));
-      const messageToSign = paymentHash + resourceUrl;
-      const signature = signMessage(messageToSign, clientSecretKey);
-
-      const payload = {
-        x402Version: 2 as const,
-        accepted: requirements,
-        payload: { proof: paymentHash, signature }
-      };
+      const execers = await properClientHandler.handle({ url: resourceUrl }, [requirements]);
+      expect(execers.length).toBeGreaterThan(0);
+      
+      const { payload } = await execers[0].exec();
+      console.log(`   ✅ Track 2 Payment sent and signed: ${payload.payload.proof}`);
 
       console.log('🔐 Track 2: Server verifying and settling via atomic receive lock...');
       const result = await serverHandler.handleSettle!(requirements, payload, { url: resourceUrl });
 
+      if (!result?.success) {
+        console.error('TRACK 2 FAILED WITH:', result);
+      }
       expect(result?.success).toBe(true);
       console.log(`   ✅ Track 2 Settle success: ${result?.transactionHash}`);
 
       const serverInfo = await getAccountInfoSafe(serverAddress);
       expect(serverInfo).toBeDefined();
       expect(serverInfo!.frontier).toBe(result?.transactionHash);
+
+      await sweepAll(serverAddress, clientAddress, serverSecretKey);
+    }, 120000);
+
+    test('rejects spoofed signature - wrong URL', async () => {
+      if (shouldSkip) return;
+
+      const serverHandler = new NanoSessionFacilitatorHandler({
+        rpcClient,
+        seed: seed,
+        accountIndex: 1,
+        receiveMode: 'sync'
+      });
+
+      const resourceUrl = 'https://api.example.com/track2';
+      const requirements = serverHandler.getSignatureRequirements({
+        amount: paymentAmount,
+        payTo: serverAddress,
+      });
+
+      const clientInfo = await getAccountInfoSafe(clientAddress);
+      if (!clientInfo || BigInt(clientInfo.balance) < BigInt(paymentAmount)) return;
+
+      const clientHandler = new NanoSessionPaymentHandler({
+        rpcClient,
+        seed: seed,
+        accountIndex: 0
+      });
+
+      // Provide WRONG url to the client handler so it signs the wrong context
+      const execers = await clientHandler.handle({ url: 'https://api.example.com/wrong' }, [requirements]);
+      const { payload } = await execers[0].exec();
+
+      console.log('🔐 Track 2 Attack: Server verifying spoofed signature...');
+      // Server validates against the REAL url
+      const result = await serverHandler.handleSettle!(requirements, payload, { url: resourceUrl });
+
+      console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
+      expect(result?.success).toBe(false);
+      expect(result?.error).toContain('Cryptographic signature is invalid');
+      console.log('   ✅ Spoofed signature correctly rejected!');
 
       await sweepAll(serverAddress, clientAddress, serverSecretKey);
     }, 120000);

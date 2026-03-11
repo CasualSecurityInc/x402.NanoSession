@@ -22,7 +22,7 @@ To keep terminology consistent with x402 v2 layering:
 - **Network / Asset baseline:** `network: "nano:mainnet"`, `asset: "XNO"`.
 
 This specification defines the normative wire/security behavior.  
-Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_Rev 7_Appendix_Interoperability_Matrix.md).
+Interoperability migration options and optional future CAIP/SIWx profiles are centralized in [Appendix: Interoperability Matrix](./x402_NanoSession_rev7_Appendix_Interoperability_Matrix.md).
 
 ## 1. Security Model
 
@@ -91,9 +91,8 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
 
 > **Deployment Note:** The `Resource Server` and the `Facilitator` are logically separated as distinct roles in this specification, where the Facilitator is an optional but recommended service. However, they may be deployed distinctly (Standalone Facilitator) OR combined into a single running process (Embedded Facilitator).
 
-### 2.1. Overview
-
-```
+> **Variant Separation:** A Facilitator supporting both `nanoSession` and `nanoSignature` MUST advertise them as **separate** `PaymentRequirements` objects in the `accepts` array. The `extra.nanoSession` and `extra.nanoSignature` keys are **mutually exclusive** within a single requirement object. This is necessary because the two variants produce different `amount` values: `nanoSession` adds a tag component to the resource price, while `nanoSignature` uses the clean resource price.
+```text
 ┌────────┐          ┌─────────────────┐       ┌─────────────┐        ┌──────────┐
 │ Client │          │ Resource Server │       │ Facilitator │        │   Nano   │
 └───┬────┘          └────────┬────────┘       └──────┬──────┘        └────┬─────┘
@@ -124,7 +123,7 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
     │<───────────────────────│                       │                    │
 ```
 
-### 2.2. Track 1 Payment Flow (Stateful Compatibility)
+### 2.3. Track 1 Payment Flow (`nanoSession` — Stateful)
 
 1. Client requests protected resource from the Resource Server.
 2. Resource Server requests payment requirements from the Facilitator.
@@ -141,7 +140,7 @@ NanoSession Rev 7 avoids this accidental self-invalidation entirely by mandating
 13. Facilitator responds "Valid" to Resource Server.
 14. Resource Server grants access to Client.
 
-### 2.3. Track 2 Payment Flow (Stateless "Settle-Before-Grant")
+### 2.4. Track 2 Payment Flow (`nanoSignature` — Stateless, Settle-Before-Grant)
 
 In this Track, the Facilitator serves purely as a stateless verifier and relies on the Nano Ledger as the definitive "Spent Set".
 
@@ -151,13 +150,14 @@ In this Track, the Facilitator serves purely as a stateless verifier and relies 
 4. Client generates an Ed25519 signature binding the `block_hash` to the `request_url` using their Nano account private key.
 5. Client retries request with `PAYMENT-SIGNATURE` containing `proof` (block hash) and `signature`.
 6. Resource Server forwards proof+signature to the Facilitator.
-7. Facilitator **cryptographically verifies** the signature against the source account of the send block.
-8. Facilitator **checks the ledger status** of the block hash. It MUST be "pending". If "history" or "unknown", it is rejected.
-9. *The Atomic Lock*: Facilitator generates and synchronously broadcasts a `receive` block for the pending hash.
-10. If broadcast succeeds (Network accepts the receive): Facilitator responds "Valid & Settled" to the Resource Server.
-11. Resource Server grants access to Client.
+7. Facilitator **cryptographically verifies** the Ed25519 signature against the source account of the send block.
+8. Facilitator **verifies the send block is confirmed** on-chain.
+9. Facilitator **checks that the block is still receivable** (funds have not been pocketed by any receive block). If the block is no longer receivable, it has already been settled and MUST be rejected.
+10. *The Atomic Lock*: After the spent set check, the Facilitator generates and broadcasts a `receive` block for the pending hash.
+11. If broadcast succeeds (network accepts the receive): Facilitator responds "Valid & Settled" to the Resource Server.
+12. Resource Server grants access to Client.
 
-### 2.3. Required Headers (x402 V2 Standard)
+### 2.5. Required Headers (x402 V2 Standard)
 
 NanoSession natively adopts the standard Coinbase x402 V2 API definition for payment negotiations, utilizing Base64-encoded JSON objects passed in standard headers.
 
@@ -314,9 +314,9 @@ The mandatory session binding prevents the receipt-stealing attack by ensuring:
 
 For high-volume services, privacy-sensitive implementations, or dust lifecycle management:
 
-- **[Extension A: Generational Sharded Pools](x402_NanoSession_Rev 7_Extension_A_Pools.md)**: Scale to 20-100 addresses
-- **[Extension B: Stochastic Rotation](x402_NanoSession_Rev 7_Extension_B_Stochastic.md)**: Privacy via address rotation
-- **[Extension D: Dust Return (Janitor)](x402_NanoSession_Rev 7_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
+- **[Extension A: Generational Sharded Pools](x402_NanoSession_rev7_Extension_A_Pools.md)**: Scale to 20-100 addresses
+- **[Extension B: Stochastic Rotation](x402_NanoSession_rev7_Extension_B_Stochastic.md)**: Privacy via address rotation
+- **[Extension D: Dust Return (Janitor)](x402_NanoSession_rev7_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
 
 ## 6. Implementation Notes
 

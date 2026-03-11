@@ -74,6 +74,47 @@ export function createPaymentRequirements(args: CreatePaymentRequirementsArgs): 
   return requirements;
 }
 
+export interface CreateSignatureRequirementsArgs {
+  /** Destination account address */
+  payTo: string;
+  /** Maximum time in seconds to complete payment */
+  maxTimeoutSeconds: number;
+  /** Amount to pay in raw (clean resource price — no tagging) */
+  amount: string;
+  /** Template describing what the client must sign (e.g., "block_hash+url") */
+  messageToSign?: string;
+  scheme?: string;
+  network?: string;
+  asset?: string;
+}
+
+/**
+ * Creates canonical nanoSignature (stateless) payment requirements.
+ * No session ID, no tag — the amount is the clean resource price.
+ * Each variant MUST be a separate PaymentRequirements in the accepts array.
+ */
+export function createSignatureRequirements(args: CreateSignatureRequirementsArgs): PaymentRequirements {
+  if (!args.amount || BigInt(args.amount) <= 0n) {
+    throw new Error('Invalid signature requirements: amount must be positive');
+  }
+
+  const requirements: PaymentRequirements = {
+    scheme: args.scheme ?? SCHEME,
+    network: args.network ?? NETWORK,
+    asset: args.asset ?? ASSET,
+    amount: args.amount,
+    payTo: args.payTo,
+    maxTimeoutSeconds: args.maxTimeoutSeconds,
+    extra: {
+      nanoSignature: {
+        messageToSign: args.messageToSign ?? 'block_hash+url'
+      }
+    }
+  };
+
+  return requirements;
+}
+
 /**
  * Creates a canonical x402 PaymentRequired payload and validates all requirements.
  */

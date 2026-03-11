@@ -17,6 +17,7 @@ export {
 // Re-export from types
 export type {
   NanoSessionExtra,
+  NanoSignatureExtra,
   PaymentRequirements,
   PaymentPayload
 } from './types.js';
@@ -31,6 +32,7 @@ export {
 
 export {
   createPaymentRequirements,
+  createSignatureRequirements,
   createPaymentRequired,
   createPaymentPayload,
   assertValidPaymentPayload

@@ -105,7 +105,7 @@ describe('NanoSessionPaymentHandler', () => {
     const handler = new NanoSessionPaymentHandler({
       rpcClient: {
         ...mockRpcClient,
-        getAccountInfo: vi.fn().mockResolvedValue({ balance: '10000', frontier: '0'.repeat(64), representative: 'nano_rep' }),
+        getAccountInfo: vi.fn().mockResolvedValue({ balance: '10000', frontier: 'F'.repeat(64), representative: 'nano_1co6q3ac8q88bxhcg4dnextsfp7139hbxakxpewrzwzdqinuqtfhcye6bz8z' }),
         processBlock: mockProcessBlock,
         confirmBlock: vi.fn().mockResolvedValue(true),
         getBlockInfo: vi.fn().mockResolvedValue({ confirmed: true }),
@@ -119,7 +119,7 @@ describe('NanoSessionPaymentHandler', () => {
       network: 'nano:mainnet',
       asset: 'XNO',
       amount: '1000',
-      payTo: 'nano_destination',
+      payTo: 'nano_1co6q3ac8q88bxhcg4dnextsfp7139hbxakxpewrzwzdqinuqtfhcye6bz8z',
       maxTimeoutSeconds: 300,
       extra: {
         nanoSignature: {

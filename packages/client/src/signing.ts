@@ -92,6 +92,8 @@ export function signBlock(block: SendBlockParams, secretKey: Uint8Array): string
  */
 export function signMessage(message: string, secretKeyHex: string): string {
   const hash = blake2bHex(message, undefined, 32);
+  // NOTE: nanocurrency.signBlock is a generic Ed25519 sign wrapper.
+  // It accepts any 32-byte hex hash, not just Nano block hashes.
   return nanoSignBlock({
     hash,
     secretKey: secretKeyHex

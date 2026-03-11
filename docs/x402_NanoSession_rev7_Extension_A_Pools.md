@@ -4,9 +4,10 @@ title: Generational Sharded Pools
 
 # Extension A: Generational Sharded Pools
 
-**Status:** Draft / Proposal **Date:** February 12, 2026  
+**Status:** Draft / Proposal **Date:** March 11, 2026  
 **Type:** Optional Opt-in Extension  
-**Base Specification:** `x402_NanoSession_Rev 7_Protocol.md`
+**Track Applicability:** Both `nanoSession` and `nanoSignature` (track-independent — address pool mechanics apply regardless of verification variant)  
+**Base Specification:** `x402_NanoSession_rev7_Protocol.md`
 
 ## 1. Abstract
 

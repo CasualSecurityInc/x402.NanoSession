@@ -21,9 +21,10 @@ NanoSession Rev 7 uses:
 
 In x402, a **mechanism** defines the concrete transfer/authorization implementation used to fulfill a scheme on a given network and asset.
 
-NanoSession should be understood as an `exact` **mechanism/profile** on Nano:
-- proof is a broadcast Nano block hash (`payload.proof`)
-- request binding is provided by `extra.nanoSession` session state
+NanoSession should be understood as an `exact` **mechanism/profile** on Nano. Rev 7 defines two concrete variants:
+
+- **`nanoSession`** (stateful): proof is a broadcast Nano block hash (`payload.proof`), request binding via server-issued session (`extra.nanoSession`)
+- **`nanoSignature`** (stateless): proof is a broadcast Nano block hash (`payload.proof`) + Ed25519 signature (`payload.signature`), request binding via cryptographic signature over `block_hash + url` (`extra.nanoSignature`)
 
 ---
 
@@ -56,7 +57,8 @@ A server-side binding between a payment request and the client that received it.
 5. Session is single-use: deleted after successful verification
 
 **Properties:**
-- **Mandatory:** Sessions are not optional; they are a security requirement
+- **Mandatory:** Sessions are not optional for the `nanoSession` variant; they are its core security requirement
+- **Not used by `nanoSignature`:** The stateless variant does not require server-side sessions
 - **Opaque:** Format is implementation-defined (UUID, random hex, etc.)
 - **Short-lived:** Should expire within minutes (default: 300 seconds)
 - **Single-use:** Consumed on successful payment verification
@@ -100,6 +102,8 @@ Because Nano amounts are expressed in "raw" (the smallest indivisible unit, 10<s
 Extremely small amounts of Nano (XNO) used to encode metadata in a payment. In Raw Tagging, dust represents the tag portion—the digits below the price alignment boundary.
 
 Unlike "dust" on fee-based blockchains (which can become unspendable), Nano dust remains fully spendable because Nano has no transaction fees.
+
+> **Track Applicability:** Dust is a concept specific to `nanoSession`'s Raw Tagging. The `nanoSignature` variant does not use tagged amounts.
 
 ---
 
@@ -155,3 +159,39 @@ The client-side component handling x402 payment flows. A "headless purse":
 5. Retries original request with block hash and session `id`
 
 Purses typically operate within a **Daily Budget** to prevent runaway spending.
+
+---
+
+## nanoSignature (Stateless Mechanism Variant)
+
+The `nanoSignature` variant (Rev 7) provides a stateless alternative to `nanoSession`. Instead of server-issued sessions, request binding is achieved through Ed25519 cryptographic signatures.
+
+**How it works:**
+1. The Facilitator advertises `extra.nanoSignature` (containing `messageToSign` template) in the 402 response
+2. Client broadcasts a send block for the required amount
+3. Client signs `block_hash + request_url` with the same Nano account private key that created the send block
+4. Client sends `payload.proof` (block hash) and `payload.signature` (Ed25519 signature)
+5. Facilitator verifies the signature against the send block's source account public key
+
+---
+
+## Settle-Before-Grant
+
+A settlement strategy used by the `nanoSignature` variant where the Facilitator **atomically generates a receive block** before granting resource access.
+
+**Purpose:** The receive block acts as a ledger-level mutex — if the block has already been received by another entity, the receive will fail, preventing double-spending.
+
+**Sequence:**
+1. Verify Ed25519 signature and block properties
+2. Check that the send block is still **receivable** (unreceived)
+3. Add to Spent Set (anti-replay)
+4. Broadcast receive block (the atomic lock)
+5. Grant resource access only if receive succeeds
+
+---
+
+## Receivable Block
+
+A confirmed send block whose funds have not yet been "pocketed" by a corresponding receive block on the destination account. In Nano RPC, the `receivable_exists` command checks this status.
+
+**Why it matters for `nanoSignature`:** The Facilitator must verify the send block is still receivable before accepting it as proof — otherwise, the funds may have already been claimed.

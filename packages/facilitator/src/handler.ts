@@ -11,6 +11,7 @@ import {
   assertValidPaymentRequirements,
   assertValidRawAmount,
   createPaymentRequirements,
+  createSignatureRequirements,
   deriveAddressFromSeed
 } from '@nanosession/core';
 import {
@@ -274,6 +275,37 @@ export class NanoSessionFacilitatorHandler {
   }
 
   /**
+   * Generates payment requirements for the nanoSignature (stateless) variant.
+   * No session ID, no tag — the amount is the clean resource price.
+   * Returns a SEPARATE PaymentRequirements from getRequirements().
+   *
+   * A Facilitator advertising both variants should include BOTH in the accepts array:
+   * ```ts
+   * const accepts = [
+   *   facilitator.getRequirements({ resourceAmountRaw, payTo }),
+   *   facilitator.getSignatureRequirements({ amount: resourceAmountRaw, payTo })
+   * ];
+   * ```
+   */
+  getSignatureRequirements(args: {
+    /** Amount in raw (clean resource price) */
+    amount: string;
+    /** Destination account address */
+    payTo: string;
+    /** How long before this requirement expires (default: 600s) */
+    maxTimeoutSeconds?: number;
+    /** Template for the message the client must sign (default: "block_hash+url") */
+    messageToSign?: string;
+  }): PaymentRequirements {
+    return createSignatureRequirements({
+      payTo: args.payTo,
+      maxTimeoutSeconds: args.maxTimeoutSeconds ?? 600,
+      amount: args.amount,
+      messageToSign: args.messageToSign
+    });
+  }
+
+  /**
    * Retrieves previously generated requirements for a session.
    * @param sessionId Hexadecimal session identifier
    * @returns The stored requirements, or undefined if not found or expired
@@ -334,68 +366,20 @@ export class NanoSessionFacilitatorHandler {
 
     try {
       assertValidPaymentRequirements(requirements);
-      // Track 2: nanoSignature (Stateless Gold Standard)
+
+      // ── Mutual exclusivity guard ──────────────────────────────────
+      // Each variant MUST be in a separate PaymentRequirements object.
+      // A single requirement with BOTH extra keys is malformed.
+      if (requirements.extra?.nanoSession && requirements.extra?.nanoSignature) {
+        return {
+          isValid: false,
+          error: 'Malformed requirements: nanoSession and nanoSignature are mutually exclusive. Each variant must be a separate PaymentRequirements in the accepts array.'
+        };
+      }
+
+      // ── nanoSignature (stateless) ──────────────────────────────────
       if (requirements.extra?.nanoSignature) {
-        const blockHash = payload.payload.proof;
-        const signature = payload.payload.signature;
-        if (!signature) {
-          return { isValid: false, error: 'Signature required for Track 2' };
-        }
-
-        let url = '';
-        if (typeof context === 'object' && context && 'url' in context) {
-          url = (context as any).url as string;
-        }
-
-        let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
-        if (!blockInfo.confirmed) {
-          for (let i = 0; i < 10; i++) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            blockInfo = await this.rpcClient.getBlockInfo(blockHash);
-            if (blockInfo.confirmed) break;
-          }
-        }
-        if (!blockInfo.confirmed) return { isValid: false, error: 'Block not confirmed' };
-
-        // Verify cryptographic signature
-        const messageToSign = blockHash + url;
-        const messageHash = blake2bHex(messageToSign, undefined, 32);
-        try {
-          const publicKey = derivePublicKey(blockInfo.block_account);
-          if (!verifyBlock({ hash: messageHash, signature, publicKey })) {
-            return { isValid: false, error: 'Cryptographic signature is invalid' };
-          }
-        } catch (e) {
-          return { isValid: false, error: 'Signature check failed format' };
-        }
-
-        const destination = blockInfo.link_as_account ?? blockInfo.link;
-        if (destination !== requirements.payTo) {
-          return { isValid: false, error: `Address mismatch: expected ${requirements.payTo}, got ${destination}` };
-        }
-
-        if (BigInt(blockInfo.amount) !== BigInt(requirements.amount)) {
-          return { isValid: false, error: 'Amount mismatch' };
-        }
-
-        // Handle Receive block generation (Settle-Before-Grant)
-        if (!this.seed) {
-          return { isValid: false, error: 'Facilitator not configured with seed for Track 2 settlement' };
-        }
-
-        const myAddress = deriveAddressFromSeed(this.seed, this.accountIndex);
-        if (myAddress !== requirements.payTo) {
-          return { isValid: false, error: 'Facilitator seed does not match payTo address' };
-        }
-
-        if (this.receiveMode === 'sync') {
-          const result = await this.settleReceiveBlock(blockHash, myAddress, blockInfo.amount);
-          if (!result) return { isValid: false, error: 'Failed to settle (receive) block. It may already be spent.' };
-        } else {
-          this.queueReceiveBlock(blockHash, myAddress, blockInfo.amount);
-        }
-
-        return { isValid: true, blockHash };
+        return this.verifyNanoSignature(requirements, payload, context);
       }
 
       // Track 1: nanoSession (Stateful Compatibility)
@@ -528,7 +512,33 @@ export class NanoSessionFacilitatorHandler {
       };
     }
 
-    // Remove from session registry to prevent reuse
+    // ── nanoSignature: Settle-Before-Grant ─────────────────────────
+    // The receive block is broadcast AFTER the spent set check to ensure
+    // replay attempts never trigger a blockchain write.
+    if (requirements.extra?.nanoSignature) {
+      if (!this.seed) {
+        return { success: false, error: 'Facilitator not configured with seed for nanoSignature settlement' };
+      }
+      const myAddress = deriveAddressFromSeed(this.seed, this.accountIndex);
+      if (myAddress !== requirements.payTo) {
+        return { success: false, error: 'Facilitator seed does not match payTo address' };
+      }
+
+      const blockHash = payload.payload.proof;
+      const blockInfo = await this.rpcClient.getBlockInfo(blockHash);
+
+      if (this.receiveMode === 'sync') {
+        const receiveHash = await this.settleReceiveBlock(blockHash, myAddress, blockInfo.amount);
+        if (!receiveHash) {
+          return { success: false, error: 'Failed to settle (receive) block — funds may already be pocketed' };
+        }
+        return { success: true, transactionHash: receiveHash };
+      } else {
+        this.queueReceiveBlock(blockHash, myAddress, blockInfo.amount);
+      }
+    }
+
+    // ── nanoSession: release session state ─────────────────────────
     if (requirements.extra?.nanoSession?.id) {
       this.releaseSession(requirements.extra.nanoSession.id);
     }
@@ -539,12 +549,85 @@ export class NanoSessionFacilitatorHandler {
     };
   }
 
-  private async settleReceiveBlock(hash: string, accountAddress: string, amount: string): Promise<boolean> {
+  // ── nanoSignature verification (Track 2: stateless) ──────────────
+
+  /**
+   * Verifies a nanoSignature (stateless) payment proof.
+   * Checks: signature validity, block confirmation, receivability, destination, amount.
+   * Does NOT broadcast receive block — that happens in handleSettle.
+   */
+  private async verifyNanoSignature(
+    requirements: PaymentRequirements,
+    payload: PaymentPayload,
+    context?: unknown
+  ): Promise<VerifyResult> {
+    const blockHash = payload.payload.proof;
+    const signature = payload.payload.signature;
+
+    if (!signature) {
+      return { isValid: false, error: 'Signature required for nanoSignature verification' };
+    }
+
+    // URL is mandatory — without it the signature cannot prevent cross-server replay
+    let url = '';
+    if (typeof context === 'object' && context && 'url' in context) {
+      url = (context as any).url as string;
+    }
+    if (!url) {
+      return { isValid: false, error: 'URL context required for nanoSignature verification' };
+    }
+
+    // 1. Fetch and confirm the send block
+    let blockInfo = await this.rpcClient.getBlockInfo(blockHash);
+    if (!blockInfo.confirmed) {
+      for (let i = 0; i < 10; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        blockInfo = await this.rpcClient.getBlockInfo(blockHash);
+        if (blockInfo.confirmed) break;
+      }
+    }
+    if (!blockInfo.confirmed) {
+      return { isValid: false, error: 'Block not confirmed' };
+    }
+
+    // 2. The block must still be receivable (funds not yet pocketed)
+    const isReceivable = await this.rpcClient.receivableExists(blockHash);
+    if (!isReceivable) {
+      return { isValid: false, error: 'Block is not receivable — funds already pocketed or unknown hash' };
+    }
+
+    // 3. Verify Ed25519 signature binding block_hash + url
+    //    NOTE: nanocurrency.verifyBlock is a generic Ed25519 verify wrapper.
+    //    It accepts any 32-byte hex hash, not just Nano block hashes.
+    const messageHash = blake2bHex(blockHash + url, undefined, 32);
     try {
-      if (!this.seed) return false;
+      const publicKey = derivePublicKey(blockInfo.block_account);
+      if (!verifyBlock({ hash: messageHash, signature, publicKey })) {
+        return { isValid: false, error: 'Cryptographic signature is invalid' };
+      }
+    } catch {
+      return { isValid: false, error: 'Signature verification failed — malformed input' };
+    }
+
+    // 4. Destination and amount checks
+    const destination = blockInfo.link_as_account ?? blockInfo.link;
+    if (destination !== requirements.payTo) {
+      return { isValid: false, error: `Address mismatch: expected ${requirements.payTo}, got ${destination}` };
+    }
+    if (BigInt(blockInfo.amount) !== BigInt(requirements.amount)) {
+      return { isValid: false, error: `Amount mismatch: expected ${requirements.amount}, got ${blockInfo.amount}` };
+    }
+
+    return { isValid: true, blockHash };
+  }
+
+  // ── Receive block helpers (Settle-Before-Grant) ────────────────
+
+  private async settleReceiveBlock(hash: string, accountAddress: string, amount: string): Promise<string | null> {
+    try {
+      if (!this.seed) return null;
       const accountInfo = await this.rpcClient.getAccountInfo(accountAddress);
-      // Ensure frontier exists means the account is opened. (Nano accounts with 0 blocks can't be fetched, but they shouldn't be the payTo without Open block)
-      if (!accountInfo.frontier) return false;
+      if (!accountInfo.frontier) return null;
 
       const secretKeyHex = deriveSecretKey(this.seed, this.accountIndex);
       const newBalance = (BigInt(accountInfo.balance) + BigInt(amount)).toString();
@@ -562,10 +645,10 @@ export class NanoSessionFacilitatorHandler {
       const newHash = await this.rpcClient.processBlock(block.block as any);
 
       await this.waitForConfirmation(newHash, 30_000);
-      return true;
+      return newHash;
     } catch (e) {
       console.error('Failed to create/process receive block:', e);
-      return false;
+      return null;
     }
   }
 

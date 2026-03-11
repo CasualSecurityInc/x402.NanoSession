@@ -4,9 +4,10 @@ title: Asynchronous Dust Rebates
 
 # Extension C: Asynchronous Dust Rebates
 
-**Status:** Draft / Proposal **Date:** March 6, 2026  
+**Status:** Draft / Proposal **Date:** March 11, 2026  
 **Type:** Optional Opt-in Extension  
-**Base Specification:** `x402_NanoSession_Rev 7_Protocol.md`
+**Track Applicability:** `nanoSession` only (dust rebates apply to the tag component in stateful sessions; `nanoSignature` does not use tagged amounts)  
+**Base Specification:** `x402_NanoSession_rev7_Protocol.md`
 
 ## Abstract
 

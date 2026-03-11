@@ -16,6 +16,13 @@ export interface SpentSetStorage {
    * Mark a block hash as spent
    */
   add(blockHash: string): Promise<void>;
+
+  /**
+   * Atomically add a block hash only if it doesn't already exist.
+   * Returns true if added successfully, false if already spent.
+   * This is critical for preventing race conditions in settlement.
+   */
+  addIfNotExists(blockHash: string): Promise<boolean>;
 }
 
 /**
@@ -49,6 +56,15 @@ export class InMemorySpentSet implements SpentSetStorage {
 
   async add(blockHash: string): Promise<void> {
     this.spentHashes.set(blockHash, Date.now() + this.ttlMs);
+  }
+
+  async addIfNotExists(blockHash: string): Promise<boolean> {
+    const exists = await this.has(blockHash);
+    if (exists) {
+      return false;
+    }
+    await this.add(blockHash);
+    return true;
   }
 
   /**

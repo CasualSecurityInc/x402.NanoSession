@@ -9,3 +9,6 @@
 	path = docs/references/faremeter
 	url = https://github.com/faremeter/faremeter.git
 	branch = main
+[submodule "docs/references/facilitator"]
+	path = docs/references/facilitator
+	url = https://github.com/x402nano/facilitator

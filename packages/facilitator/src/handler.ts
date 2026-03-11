@@ -427,17 +427,14 @@ export class NanoSessionFacilitatorHandler {
       };
     }
 
-    // Check if already spent
-    const isSpent = await this.spentSet.has(payload.payload.proof);
-    if (isSpent) {
+    // Atomically check and mark as spent to prevent race conditions
+    const added = await this.spentSet.addIfNotExists(payload.payload.proof);
+    if (!added) {
       return {
         success: false,
         error: 'Payment already spent'
       };
     }
-
-    // Mark as spent
-    await this.spentSet.add(payload.payload.proof);
 
     // Remove from session registry to prevent reuse
     if (requirements.extra?.nanoSession?.id) {

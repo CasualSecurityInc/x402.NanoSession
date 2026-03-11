@@ -27,6 +27,11 @@ describe('parseMoneyToRawNano', () => {
     expect(parseMoneyToRawNano('0.00000001')).toBe('10000000000000000000000');
   });
 
+  it('handles negative numbers', () => {
+    expect(parseMoneyToRawNano('-1')).toBe('-1000000000000000000000000000000');
+    expect(parseMoneyToRawNano('-0.001')).toBe('-1000000000000000000000000000');
+  });
+
   it('strips $ prefix', () => {
     expect(parseMoneyToRawNano('$0.001')).toBe('1000000000000000000000000000');
     expect(parseMoneyToRawNano('$ 0.001')).toBe('1000000000000000000000000000');
@@ -45,6 +50,11 @@ describe('parseMoneyToRawNano', () => {
     expect(() => parseMoneyToRawNano('abc')).toThrow('Invalid price format');
     expect(() => parseMoneyToRawNano('')).toThrow('Invalid price format');
     expect(() => parseMoneyToRawNano('  ')).toThrow('Invalid price format');
+  });
+
+  it('throws on scientific notation', () => {
+    expect(() => parseMoneyToRawNano('1e-6')).toThrow('Scientific notation not supported');
+    expect(() => parseMoneyToRawNano('1E6')).toThrow('Scientific notation not supported');
   });
 });
 
@@ -250,7 +260,7 @@ describe('toX402Payload', () => {
       extensions: { custom: 'data' },
     };
 
-    const result = toX402Payload(nanoPayload as any);
+    const result = toX402Payload(nanoPayload);
     expect(result.x402Version).toBe(2);
     expect(result.payload.proof).toBe('ABC123BLOCKHASH');
     expect(result.extra).toEqual({ custom: 'data' });

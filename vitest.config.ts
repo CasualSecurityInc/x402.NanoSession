@@ -21,7 +21,7 @@ export default defineConfig({
       '@nanosession/rpc': resolve(__dirname, './packages/rpc/src'),
       '@nanosession/faremeter': resolve(__dirname, './packages/faremeter-plugin/src'),
     },
-    include: ['packages/*/src/**/*.test.ts', 'examples/*/src/**/*.test.ts', 'test/**/*.test.ts'],
+      include: ['packages/x402-adapter/src/**/*.test.ts', 'packages/*/src/**/*.test.ts', 'examples/*/src/**/*.test.ts', 'test/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

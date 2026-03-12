@@ -22,65 +22,43 @@ describe('Integration: Full Payment Flow', () => {
   let serverSecretKey = '';
   let serverPublicKey = '';
   let rpcClient: NanoRpcClient;
-  let rpcEndpoints: Array<{ baseUrl: string; extraParams: Record<string, string> }> = [];
+  let rpcUrls: string[] = [];
   let hasRpcCredentials = false;
+
 
   const paymentAmount = '1000000000000000000000000';
   const fallbackWorkThreshold = 'fffffff800000000';
 
-  const callEndpointWithRetry = async (
-    endpoint: { baseUrl: string; extraParams: Record<string, string> },
-    action: string,
-    params: Record<string, unknown>
-  ) => {
-    const maxRetries = 3;
-    let delayMs = 1000;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
+  const rpcCall = async (action: string, params: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    // Use NanoRpcClient's internal call logic by making a raw request
+    // Since NanoRpcClient doesn't expose a generic call method, we implement
+    // failover here but rely on NanoRpcClient for URL parsing
+    const errors: Error[] = [];
+    
+    for (const url of rpcUrls) {
       try {
-        const response = await fetch(endpoint.baseUrl, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, ...params, ...endpoint.extraParams })
+          body: JSON.stringify({ action, ...params })
         });
-
+        
         if (!response.ok) {
-          throw new Error(`RPC HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-
+        
         const data = await response.json() as Record<string, unknown>;
         if (data.error) {
           throw new Error(`RPC error: ${data.error}`);
         }
-
+        
         return data;
-      } catch (error) {
-        if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          delayMs *= 2;
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw new Error('RPC request failed');
-  };
-
-  const rpcCall = async (action: string, params: Record<string, unknown>) => {
-    const errors: Error[] = [];
-
-    for (const endpoint of rpcEndpoints) {
-      try {
-        return await callEndpointWithRetry(endpoint, action, params);
       } catch (error) {
         errors.push(error instanceof Error ? error : new Error(String(error)));
       }
     }
-
-    const message = `All RPC endpoints failed for action: ${action}`;
-    throw new Error(`${message} (${errors.map(error => error.message).join('; ')})`);
+    
+    throw new AggregateError(errors, `All RPC endpoints failed for action: ${action}`);
   };
 
   const getAccountInfoSafe = async (address: string) => {
@@ -327,15 +305,7 @@ describe('Integration: Full Payment Flow', () => {
     throw new Error(`Block ${hash} not confirmed within ${timeoutMs}ms`);
   };
 
-  const parseRpcUrl = (url: string): { baseUrl: string; extraParams: Record<string, string> } => {
-    const parsed = new URL(url);
-    const extraParams: Record<string, string> = {};
-    parsed.searchParams.forEach((value, key) => {
-      extraParams[key] = value;
-    });
-    parsed.search = '';
-    return { baseUrl: parsed.toString().replace(/\/$/, ''), extraParams };
-  };
+
 
   beforeAll(async () => {
     seed = process.env.NANO_TEST_SEED || '';
@@ -352,20 +322,20 @@ describe('Integration: Full Payment Flow', () => {
     clientSecretKey = deriveSecretKey(seed, 0);
     serverSecretKey = deriveSecretKey(seed, 1);
     serverPublicKey = derivePublicKey(serverSecretKey);
-    const rpcUrls = process.env.NANO_RPC_URLS || process.env.NANO_RPC_URL || 'https://rpc.nano.to';
-    rpcEndpoints = rpcUrls
-      .split(',')
-      .map(value => value.trim())
-      .filter(Boolean)
-      .map(parseRpcUrl);
-    if (!rpcEndpoints.length) {
+    const rpcUrlsEnv = process.env.NANO_RPC_URLS || process.env.NANO_RPC_URL || 'https://rpc.nano.to';
+    rpcUrls = rpcUrlsEnv.split(',').map(u => u.trim()).filter(Boolean);
+    
+    if (!rpcUrls.length) {
       skipReason = 'no RPC endpoints configured';
       console.log(`\n⚠️  Skipping integration tests: ${skipReason}`);
       shouldSkip = true;
       return;
     }
-    hasRpcCredentials = rpcEndpoints.some(e => Object.keys(e.extraParams).length > 0);
-    rpcClient = new NanoRpcClient({ endpoints: rpcEndpoints.map(e => e.baseUrl) });
+    
+    // NanoRpcClient handles URL parsing and query param extraction internally
+    rpcClient = new NanoRpcClient({ endpoints: rpcUrls });
+    hasRpcCredentials = rpcUrls.some(url => url.includes('?') && new URL(url).searchParams.has('key'));
+    
 
     console.log('\n🔑 Test Accounts:');
     console.log(`   Client (acct0): ${clientAddress}`);

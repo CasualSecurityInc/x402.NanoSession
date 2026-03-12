@@ -25,16 +25,34 @@ import { toNanoRequirements, toNanoPayload } from './converter.js';
  * Configuration options for ExactNanoFacilitator
  */
 export interface ExactNanoFacilitatorConfig {
-  /** Nano RPC client instance */
-  rpcClient: NanoRpcClient;
-  /** Optional spent set storage (defaults to in-memory) */
-  spentSet?: SpentSetStorage;
-  /** Optional session storage (defaults to in-memory Map) */
-  sessionRegistry?: SessionRegistry;
-  /** Optional tag modulus override */
-  tagModulus?: number;
-  /** Optional tag multiplier override */
+/** Nano RPC client instance */
+rpcClient: NanoRpcClient;
+/** Optional spent set storage (defaults to in-memory) */
+spentSet?: SpentSetStorage;
+/** Optional session storage (defaults to in-memory Map) */
+sessionRegistry?: SessionRegistry;
+/** Optional tag modulus override */
+tagModulus?: number;
+/** Optional tag multiplier override */
   tagMultiplier?: string | bigint;
+  /**
+   * Seed for Track 2 (nanoSignature) receive block signing.
+   * 64-character hexadecimal string.
+   * Required for Track 2 settlement, optional for Track 1.
+   */
+  seed?: string;
+  /**
+   * Account index for Track 2 wallet derivation.
+   * Used with seed to derive the receiving address.
+   * Default: 0
+   */
+  accountIndex?: number;
+  /**
+   * Track 2 receive mode.
+   * 'sync': Wait for receive block confirmation before returning (default)
+   * 'async': Queue receive block, return immediately
+   */
+  receiveMode?: 'sync' | 'async';
 }
 
 /**
@@ -59,7 +77,10 @@ export class ExactNanoFacilitator implements SchemeNetworkFacilitator {
       sessionRegistry: config.sessionRegistry,
       tagModulus: config.tagModulus,
       tagMultiplier: config.tagMultiplier,
-    });
+seed: config.seed,
+accountIndex: config.accountIndex,
+receiveMode: config.receiveMode,
+  });
   }
 
   /**

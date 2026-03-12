@@ -12,6 +12,8 @@ import type {
   MoneyParser
 } from './types.js';
 import { SCHEME, NETWORK, ASSET } from '@nanosession/core';
+import type { NanoSessionFacilitatorHandler } from '@nanosession/facilitator';
+import { x402ContextStorage } from './context.js';
 import { parseMoneyToRawNano, isAssetAmount } from './converter.js';
 
 /**
@@ -21,6 +23,16 @@ import { parseMoneyToRawNano, isAssetAmount } from './converter.js';
 export class ExactNanoScheme implements SchemeNetworkServer {
   readonly scheme = SCHEME;
   private moneyParsers: MoneyParser[] = [];
+  private handler?: NanoSessionFacilitatorHandler;
+
+  /**
+   * Creates a new ExactNanoScheme instance.
+   * 
+   * @param handler - Optional facilitator handler for dynamic requirement generation
+   */
+  constructor(handler?: NanoSessionFacilitatorHandler) {
+    this.handler = handler;
+  }
 
   /**
    * Register a custom money parser in the parser chain.
@@ -83,8 +95,8 @@ export class ExactNanoScheme implements SchemeNetworkServer {
 
   /**
    * Build payment requirements for this scheme/network combination.
-   * For NanoSession, this passes through the requirements as-is since
-   * the facilitator will add NanoSession-specific metadata.
+   * For NanoSession, this uses the facilitator handler to generate
+   * session-specific metadata (tags, IDs) or signature messages.
    *
    * @param paymentRequirements - The base payment requirements
    * @param supportedKind - The supported kind from facilitator (unused)
@@ -105,9 +117,38 @@ export class ExactNanoScheme implements SchemeNetworkServer {
     void supportedKind;
     void extensionKeys;
 
-    // For NanoSession, the facilitator adds the nanoSession extra data
-    // The server just ensures the base requirements are properly formed
-    return paymentRequirements;
+    if (!this.handler) {
+      // If no handler is provided, we can't generate dynamic requirements
+      return paymentRequirements;
+    }
+
+    // Track 2: nanoSignature (Stateless)
+    if (paymentRequirements.extra?.nanoSignature) {
+      return this.handler.getSignatureRequirements({
+        amount: paymentRequirements.amount,
+        payTo: paymentRequirements.payTo,
+        maxTimeoutSeconds: paymentRequirements.maxTimeoutSeconds,
+      });
+    }
+
+    // Track 1: nanoSession (Stateful)
+    // Check if we have a session ID in the context (Session Recovery)
+    const context = x402ContextStorage.getStore();
+    if (context?.sessionId) {
+      const recovered = this.handler.getStoredRequirements(context.sessionId);
+      if (recovered) {
+        return recovered;
+      } else {
+        console.warn(`[x402-adapter] Session ${context.sessionId} not found in registry (expired or reloaded)`);
+      }
+    }
+
+    // Normal generation
+    return this.handler.getRequirements({
+      resourceAmountRaw: paymentRequirements.amount,
+      payTo: paymentRequirements.payTo,
+      maxTimeoutSeconds: paymentRequirements.maxTimeoutSeconds,
+    });
   }
 
   /**

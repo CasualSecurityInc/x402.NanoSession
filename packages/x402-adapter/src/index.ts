@@ -71,5 +71,12 @@ export {
   getDefaultNanoAssetAmount,
 } from './converter.js';
 
+// Re-export context utilities
+export {
+  x402ContextStorage,
+  withX402Context,
+} from './context.js';
+export type { X402Context } from './context.js';
+
 // Version
 export const VERSION = '0.1.0';

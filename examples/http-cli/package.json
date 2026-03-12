@@ -1,0 +1,22 @@
+{
+  "name": "@nanosession/http-cli",
+  "version": "0.1.0",
+  "description": "Example NanoSession x402 payment client",
+  "type": "module",
+  "bin": {
+    "http-cli": "./bin/http-cli.js"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@nanosession/client": "workspace:*",
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "debug": "^4.4.0",
+    "dotenv": "^17.2.4"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12"
+  }
+}

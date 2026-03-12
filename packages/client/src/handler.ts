@@ -12,9 +12,14 @@ import {
   createBlock,
   computeWork,
   validateWork,
+  convert,
+  Unit,
   type BlockData,
 } from 'nanocurrency';
+import debug from 'debug';
 import { signMessage } from './signing.js';
+
+const log = debug('nanosession:client:payment');
 
 const FALLBACK_WORK_THRESHOLD = 'fffffff800000000';
 
@@ -113,7 +118,9 @@ export class NanoSessionPaymentHandler {
     const currentBalance = BigInt(accountInfo.balance);
 
     if (currentBalance < totalAmount) {
-      throw new Error(`Insufficient balance: ${currentBalance} < ${totalAmount}`);
+      const balanceXno = convert(currentBalance.toString(), { from: Unit.raw, to: Unit.NANO });
+      const requiredXno = convert(totalAmount.toString(), { from: Unit.raw, to: Unit.NANO });
+      throw new Error(`Insufficient balance on ${accountAddress}: ${balanceXno} < ${requiredXno} XNO`);
     }
 
     const secretKeyHex = deriveSecretKey(this.seed, this.accountIndex);
@@ -163,6 +170,8 @@ export class NanoSessionPaymentHandler {
       const difficulty = await this.rpcClient.getActiveDifficulty();
       return await this.rpcClient.generateWork(root, difficulty);
     } catch {
+      // RPC work generation failed - fall back to local CPU computation
+      log('RPC work generation failed, falling back to local CPU computation (this may take 10-30 seconds)...');
       const threshold = await this.rpcClient.getActiveDifficulty().catch(() => undefined) ?? FALLBACK_WORK_THRESHOLD;
       const work = await computeWork(root, { workThreshold: threshold });
       if (!work) {

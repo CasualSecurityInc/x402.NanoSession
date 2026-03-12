@@ -22,12 +22,16 @@ import {
   validateWork,
   verifyBlock
 } from 'nanocurrency';
-import { blake2bHex } from 'blakejs';
+import blakejs from 'blakejs';
+import debug from 'debug';
 import type { PaymentRequirements, PaymentPayload } from '@nanosession/core';
 import type { NanoRpcClient } from '@nanosession/rpc';
 import type { SpentSetStorage } from './spent-set.js';
 import { InMemorySpentSet } from './spent-set.js';
 import { randomBytes } from 'crypto';
+
+const { blake2bHex } = blakejs;
+const log = debug('nanosession:facilitator');
 
 /**
  * Interface for session storage
@@ -647,7 +651,7 @@ export class NanoSessionFacilitatorHandler {
       await this.waitForConfirmation(newHash, 30_000);
       return newHash;
     } catch (e) {
-      console.error('Failed to create/process receive block:', e);
+      log('Failed to create/process receive block: %O', e);
       return null;
     }
   }

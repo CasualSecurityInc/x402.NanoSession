@@ -1,6 +1,7 @@
 import { deriveSecretKey, derivePublicKey, hashBlock, signBlock as nanoSignBlock } from 'nanocurrency';
 import { deriveAddressFromSeed } from '@nanosession/core';
-import { blake2bHex } from 'blakejs';
+import blakejs from 'blakejs';
+const { blake2bHex } = blakejs;
 
 export interface KeyPair {
   publicKey: Uint8Array;

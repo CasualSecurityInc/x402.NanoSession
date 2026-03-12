@@ -16,8 +16,11 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@nanosession/core": "workspace:*"
+    "@nanosession/core": "workspace:*",
+    "debug": "^4.4.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/debug": "^4.1.12"
+  },
   "peerDependencies": {}
 }

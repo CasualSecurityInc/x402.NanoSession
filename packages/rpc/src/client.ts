@@ -1,7 +1,10 @@
 import type { BlockInfo, AccountInfo, AccountHistoryEntry } from './types.js';
+import debug from 'debug';
+
+const log = debug('nanosession:rpc');
 
 export interface NanoRpcClientOptions {
-  /** RPC endpoint URLs to try in order */
+  /** RPC endpoint URLs to try in order (query params will be merged into each RPC request body) */
   endpoints: string[];
   /** Maximum retries per endpoint */
   maxRetries?: number;
@@ -12,11 +15,22 @@ export interface NanoRpcClientOptions {
 }
 
 /**
+ * Parsed RPC endpoint with extracted query parameters.
+ * URL query params are merged into each RPC request body as a convention.
+ */
+interface ParsedEndpoint {
+  /** Base URL without query string */
+  baseUrl: string;
+  /** Query parameters extracted from URL to merge into RPC body */
+  extraParams: Record<string, string>;
+}
+
+/**
  * A highly resilient Nano RPC client with multi-endpoint failover and exponential backoff retry.
  * Implements a subset of the Nano RPC protocol required for x402 support.
  */
 export class NanoRpcClient {
-  private endpoints: string[];
+  private endpoints: ParsedEndpoint[];
   private maxRetries: number;
   private retryDelayMs: number;
   private timeoutMs: number;
@@ -25,7 +39,7 @@ export class NanoRpcClient {
     if (!options.endpoints.length) {
       throw new Error('At least one endpoint is required');
     }
-    this.endpoints = options.endpoints;
+    this.endpoints = options.endpoints.map(url => this.parseRpcUrl(url));
     this.maxRetries = options.maxRetries ?? 3;
     this.retryDelayMs = options.retryDelayMs ?? 1000;
     this.timeoutMs = options.timeoutMs ?? 30000;
@@ -244,20 +258,20 @@ export class NanoRpcClient {
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         if (!silent) {
-          console.error(`[RPC] ${action} failed for ${endpoint}: ${err.message}`);
+          log('%s failed for %s: %s', action, endpoint.baseUrl, err.message);
         }
         errors.push(err);
       }
     }
 
     if (!silent) {
-      console.error(`[RPC] All endpoints failed for action: ${action}`, errors.map(e => e.message));
+      log('All endpoints failed for action: %s (%s)', action, errors.map(e => e.message).join(', '));
     }
     throw new AggregateError(errors, `All RPC endpoints failed for action: ${action}`);
   }
 
   private async callEndpointWithRetry(
-    endpoint: string,
+    endpoint: ParsedEndpoint,
     action: string,
     params: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
@@ -269,12 +283,13 @@ export class NanoRpcClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
-        const response = await fetch(endpoint, {
+        const response = await fetch(endpoint.baseUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ action, ...params }),
+          // Merge URL query params into RPC body (convention: ?key=API_KEY -> { ..., key: "API_KEY" })
+          body: JSON.stringify({ action, ...params, ...endpoint.extraParams }),
           signal: controller.signal
         });
 
@@ -293,6 +308,11 @@ export class NanoRpcClient {
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           lastError = new Error(`Request timeout after ${this.timeoutMs}ms`);
+        } else if (error instanceof TypeError && error.message === 'fetch failed') {
+          // Handle network-level errors (connection refused, DNS failure, etc.)
+          const cause = (error as any).cause;
+          const code = cause?.code || cause?.errno;
+          lastError = this.formatNetworkError(code, endpoint.baseUrl);
         } else {
           lastError = error instanceof Error ? error : new Error(String(error));
         }
@@ -311,5 +331,56 @@ export class NanoRpcClient {
 
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Formats network-level errors into user-friendly messages.
+   */
+  private formatNetworkError(code: string | number | undefined, endpoint: string): Error {
+    const host = (() => {
+      try { return new URL(endpoint).host; } catch { return endpoint; }
+    })();
+
+    switch (code) {
+      case 'ECONNREFUSED':
+        return new Error(`Connection refused by ${host}`);
+      case 'ENOTFOUND':
+        return new Error(`Host not found: ${host}`);
+      case 'ETIMEDOUT':
+        return new Error(`Connection timed out to ${host}`);
+      case 'ECONNRESET':
+        return new Error(`Connection reset by ${host}`);
+      case 'ENETUNREACH':
+        return new Error(`Network unreachable`);
+      case 'EHOSTUNREACH':
+        return new Error(`Host unreachable: ${host}`);
+      case 'EAI_AGAIN':
+        return new Error(`DNS lookup failed for ${host} (temporary)`);
+      default:
+        return new Error(`Network error connecting to ${host}${code ? ` (${code})` : ''}`);
+    }
+  }
+
+  /**
+   * Parses an RPC URL to extract query parameters.
+   * Query params are merged into each RPC request body.
+   *
+   * Convention: URLs like `https://rpc.nano.to?key=ABC` will include `{ key: "ABC" }`
+   * in every RPC request body, enabling API key authentication.
+   *
+   * @param url The RPC endpoint URL (may contain query params)
+   * @returns Parsed endpoint with base URL and extracted params
+   */
+  private parseRpcUrl(url: string): ParsedEndpoint {
+    const parsed = new URL(url);
+    const extraParams: Record<string, string> = {};
+    parsed.searchParams.forEach((value, key) => {
+      extraParams[key] = value;
+    });
+    parsed.search = '';
+    return {
+      baseUrl: parsed.toString().replace(/\/$/, ''),
+      extraParams
+    };
   }
 }

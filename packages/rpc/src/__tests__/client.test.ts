@@ -145,4 +145,151 @@ describe('NanoRpcClient', () => {
 
     expect(work).toBe('ffff0000ffff0000');
   });
+
+  test('URL query params are extracted and merged into RPC body', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ hash: 'TEST_HASH' })
+    });
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://rpc.nano.to?key=secret123&token=abc']
+    });
+    await client.processBlock({ type: 'state' });
+
+    // Verify the request body includes the query params
+    const callArgs = mockFetch.mock.calls[0];
+    const body = JSON.parse(callArgs[1].body);
+    
+    expect(body.action).toBe('process');
+    expect(body.key).toBe('secret123');
+    expect(body.token).toBe('abc');
+    // Base URL should not have query string
+    expect(callArgs[0]).toBe('https://rpc.nano.to');
+  });
+
+  test('URL without query params works normally', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ hash: 'TEST_HASH' })
+    });
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://rpc.nano.to']
+    });
+    await client.processBlock({ type: 'state' });
+
+    const callArgs = mockFetch.mock.calls[0];
+    const body = JSON.parse(callArgs[1].body);
+    
+    expect(body.action).toBe('process');
+    expect(body.key).toBeUndefined();
+    expect(callArgs[0]).toBe('https://rpc.nano.to');
+  });
+
+  test('multiple endpoints each have their own query params', async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error('First failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ hash: 'TEST_HASH' })
+      });
+
+    const client = new NanoRpcClient({
+      endpoints: [
+        'https://primary.example.com?key=primary_key',
+        'https://backup.example.com?key=backup_key&extra=param'
+      ],
+      maxRetries: 1
+    });
+    await client.processBlock({ type: 'state' });
+
+    // First call should have primary key
+    const firstCall = mockFetch.mock.calls[0];
+    const firstBody = JSON.parse(firstCall[1].body);
+    expect(firstBody.key).toBe('primary_key');
+    expect(firstCall[0]).toBe('https://primary.example.com');
+
+    // Second call (failover) should have backup key
+    const secondCall = mockFetch.mock.calls[1];
+    const secondBody = JSON.parse(secondCall[1].body);
+    expect(secondBody.key).toBe('backup_key');
+    expect(secondBody.extra).toBe('param');
+    expect(secondCall[0]).toBe('https://backup.example.com');
+  });
+
+  test('connection refused error has user-friendly message', async () => {
+    const fetchError = new TypeError('fetch failed');
+    (fetchError as any).cause = { code: 'ECONNREFUSED', errno: -111 };
+    mockFetch.mockRejectedValue(fetchError);
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://rpc.example.com'],
+      maxRetries: 1
+    });
+
+    try {
+      await client.getBlockInfo('HASH');
+      expect.fail('Expected error to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors[0].message).toBe('Connection refused by rpc.example.com');
+    }
+  });
+
+  test('DNS not found error has user-friendly message', async () => {
+    const fetchError = new TypeError('fetch failed');
+    (fetchError as any).cause = { code: 'ENOTFOUND' };
+    mockFetch.mockRejectedValue(fetchError);
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://nonexistent.invalid'],
+      maxRetries: 1
+    });
+
+    try {
+      await client.getBlockInfo('HASH');
+      expect.fail('Expected error to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors[0].message).toBe('Host not found: nonexistent.invalid');
+    }
+  });
+
+  test('unknown network error includes error code', async () => {
+    const fetchError = new TypeError('fetch failed');
+    (fetchError as any).cause = { code: 'EUNKNOWN' };
+    mockFetch.mockRejectedValue(fetchError);
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://rpc.example.com'],
+      maxRetries: 1
+    });
+
+    try {
+      await client.getBlockInfo('HASH');
+      expect.fail('Expected error to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors[0].message).toBe('Network error connecting to rpc.example.com (EUNKNOWN)');
+    }
+  });
+
+  test('fetch failed without cause has generic message', async () => {
+    const fetchError = new TypeError('fetch failed');
+    mockFetch.mockRejectedValue(fetchError);
+
+    const client = new NanoRpcClient({
+      endpoints: ['https://rpc.example.com'],
+      maxRetries: 1
+    });
+
+    try {
+      await client.getBlockInfo('HASH');
+      expect.fail('Expected error to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors[0].message).toBe('Network error connecting to rpc.example.com');
+    }
+  });
 });

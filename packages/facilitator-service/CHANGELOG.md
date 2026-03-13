@@ -1,5 +1,13 @@
 # @nanosession/facilitator-service
 
+## 0.1.2
+
+### Patch Changes
+
+- Bump to 0.1.2 to synchronize with the rest of the workspace and fix publication collision.
+- Updated dependencies
+  - @nanosession/x402@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

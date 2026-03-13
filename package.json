@@ -11,9 +11,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --build",
     "docker:build": "docker build -t nanosession-facilitator -f packages/facilitator-service/Dockerfile .",
-    "clean": "rm -rf packages/*/dist examples/*/dist site/gen site/.vitepress/cache"
+    "clean": "rm -rf packages/*/dist examples/*/dist site/gen site/.vitepress/cache",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^20.0.0",
     "dotenv": "^17.2.4",
     "nanocurrency": "^2.5.0",

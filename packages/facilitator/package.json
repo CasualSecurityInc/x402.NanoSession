@@ -1,6 +1,6 @@
 {
   "name": "@nanosession/facilitator",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "FacilitatorHandler and spent set for NanoSession x402 server",
   "type": "module",
   "main": "./dist/index.js",

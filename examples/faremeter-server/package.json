@@ -1,6 +1,6 @@
 {
   "name": "@nanosession/examples-faremeter-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Example: NanoSession x402 server using Faremeter middleware",
   "type": "module",
   "scripts": {

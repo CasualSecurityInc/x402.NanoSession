@@ -1,5 +1,6 @@
 {
   "name": "x402-nanosession-docs",
+  "private": true,
   "version": "1.0.1",
   "description": "Documentation site for x402.NanoSession Protocol",
   "scripts": {

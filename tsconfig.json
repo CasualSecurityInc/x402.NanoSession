@@ -41,6 +41,9 @@
       ],
       "@nanosession/x402/client": [
         "./packages/x402-adapter/src/client.ts"
+      ],
+      "@nanosession/facilitator-service": [
+        "./packages/facilitator-service/src/index.ts"
       ]
     }
   },
@@ -72,6 +75,9 @@
     },
     {
       "path": "./packages/x402-adapter"
+    },
+    {
+      "path": "./packages/facilitator-service"
     }
   ]
 }

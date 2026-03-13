@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "test": "vitest",
     "test:run": "vitest --run",
     "test:integration": "vitest --run test/integration",
     "typecheck": "tsc --noEmit",
     "build": "tsc --build",
+    "docker:build": "docker build -t nanosession-facilitator -f packages/facilitator-service/Dockerfile .",
     "clean": "rm -rf packages/*/dist examples/*/dist site/gen site/.vitepress/cache"
   },
   "devDependencies": {

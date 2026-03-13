@@ -1,0 +1,31 @@
+{
+  "name": "@nanosession/facilitator-service",
+  "version": "0.1.0",
+  "description": "Production-ready Nano x402 Facilitator service",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@nanosession/core": "workspace:*",
+    "@nanosession/facilitator": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "@nanosession/x402": "workspace:*",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "debug": "^4.4.0",
+    "dotenv": "^17.2.4",
+    "zod": "^3.24.2",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/debug": "^4.1.12",
+    "@types/morgan": "^1.9.9"
+  }
+}

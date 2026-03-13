@@ -1,0 +1,9 @@
+node_modules
+dist
+.pnpm-store
+.git
+.vscode
+*.log
+.env
+.env.*
+!.env.example

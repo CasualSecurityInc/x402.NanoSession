@@ -9,6 +9,7 @@ import type {
 } from '@nanosession/core';
 import {
   createPaymentRequirements as createNanoRequirements,
+  createSignatureRequirements as createNanoSignatureRequirements,
   createPaymentPayload as createNanoPayload,
   SCHEME,
   NETWORK,
@@ -17,43 +18,64 @@ import {
 import type {
   PaymentRequirements as X402Requirements,
   PaymentPayload as X402Payload,
-  AssetAmount
+  AssetAmount,
+  Network as X402Network
 } from './types.js';
 
 /**
  * Convert x402 PaymentRequirements to NanoSession PaymentRequirements
  */
 export function toNanoRequirements(req: X402Requirements): NanoRequirements | null {
-  const extra = req.extra?.nanoSession as NanoSessionExtra | undefined;
-  if (!extra) return null;
+  // Track 1: nanoSession (Stateful)
+  if (req.extra?.nanoSession) {
+    const extra = req.extra.nanoSession as NanoSessionExtra;
+    
+    // Validate required fields for session
+    if (
+      extra.id === undefined ||
+      extra.tag === undefined ||
+      !extra.resourceAmountRaw ||
+      !extra.tagAmountRaw
+    ) {
+      return null;
+    }
 
-  // Validate required fields
-  if (
-    extra.id === undefined ||
-    extra.tag === undefined ||
-    !extra.resourceAmountRaw ||
-    !extra.tagAmountRaw
-  ) {
-    return null;
+    const expiresAt = typeof extra.expiresAt === 'string'
+      ? extra.expiresAt
+      : new Date(Date.now() + req.maxTimeoutSeconds * 1000).toISOString();
+
+    return createNanoRequirements({
+      payTo: req.payTo,
+      maxTimeoutSeconds: req.maxTimeoutSeconds,
+      id: extra.id,
+      tag: extra.tag,
+      resourceAmountRaw: extra.resourceAmountRaw,
+      tagAmountRaw: extra.tagAmountRaw,
+      amount: req.amount,
+      expiresAt,
+      scheme: req.scheme,
+      network: req.network as any,
+      asset: req.asset
+    });
   }
 
-  const expiresAt = typeof extra.expiresAt === 'string'
-    ? extra.expiresAt
-    : new Date(Date.now() + req.maxTimeoutSeconds * 1000).toISOString();
+  // Track 2: nanoSignature (Stateless)
+  if (req.extra?.nanoSignature) {
+    const extra = req.extra.nanoSignature as any;
+    
+    return createNanoSignatureRequirements({
+      payTo: req.payTo,
+      maxTimeoutSeconds: req.maxTimeoutSeconds,
+      amount: req.amount,
+      scheme: req.scheme,
+      network: req.network as any,
+      asset: req.asset,
+      url: extra.url || '',
+      messageToSign: extra.messageToSign
+    });
+  }
 
-  return createNanoRequirements({
-    payTo: req.payTo,
-    maxTimeoutSeconds: req.maxTimeoutSeconds,
-    id: extra.id,
-    tag: extra.tag,
-    resourceAmountRaw: extra.resourceAmountRaw,
-    tagAmountRaw: extra.tagAmountRaw,
-    amount: req.amount,
-    expiresAt,
-    scheme: req.scheme,
-    network: req.network,
-    asset: req.asset
-  });
+  return null;
 }
 
 /**
@@ -62,7 +84,7 @@ export function toNanoRequirements(req: X402Requirements): NanoRequirements | nu
 export function toX402Requirements(req: NanoRequirements): X402Requirements {
   return {
     scheme: req.scheme,
-    network: req.network,
+    network: req.network as X402Network,
     asset: req.asset,
     amount: req.amount,
     payTo: req.payTo,
@@ -83,7 +105,8 @@ export function toNanoPayload(
 
   return createNanoPayload({
     accepted: requirements,
-    proof
+    proof,
+    signature: payload.payload.signature as string
   });
 }
 

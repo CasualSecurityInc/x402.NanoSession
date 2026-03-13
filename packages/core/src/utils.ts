@@ -66,11 +66,11 @@ export function assertValidPaymentRequirements(requirements: PaymentRequirements
                 `Amount invariant violation: amount=${requirements.amount}, expected=${expectedTotal}`
             );
         }
-    } else if (requirements.extra?.nanoSignature) {
-        if (!requirements.extra.nanoSignature.messageToSign) {
-            throw new Error('Missing extra.nanoSignature.messageToSign');
-        }
+} else if (requirements.extra?.nanoSignature) {
+    if (!requirements.extra.nanoSignature.url) {
+      throw new Error('Missing extra.nanoSignature.url - required for replay protection');
     }
+  }
 }
 
 /**

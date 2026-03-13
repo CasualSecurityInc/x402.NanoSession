@@ -16,7 +16,7 @@ export type Price = string | number | AssetAmount;
  * @example "nano:mainnet" - Nano mainnet
  * @example "eip155:8453" - Base mainnet
  */
-export type Network = string;
+export type Network = `${string}:${string}`;
 
 /**
  * Asset amount with asset identifier.
@@ -62,7 +62,7 @@ export interface PaymentPayload {
   /** The payment proof and scheme-specific data */
   payload: {
     /** The cryptographic proof (e.g., block hash for Nano) */
-    proof: string;
+    proof?: string;
     /** Additional scheme-specific payload data */
     [key: string]: unknown;
   };
@@ -91,6 +91,23 @@ export interface FacilitatorContext {
    * @returns The extension instance, or undefined if not registered
    */
   getExtension<T extends FacilitatorExtension = FacilitatorExtension>(key: string): T | undefined;
+}
+
+/**
+ * Supported response from facilitator.
+ */
+export interface SupportedResponse {
+  /** Kinds of payments supported */
+  kinds: Array<{
+    x402Version: number;
+    scheme: string;
+    network: Network;
+    extra?: Record<string, unknown>;
+  }>;
+  /** Extension keys supported */
+  extensions: string[];
+  /** Signers per network */
+  signers: Record<Network, string[]>;
 }
 
 /**
@@ -217,6 +234,10 @@ export interface SchemeNetworkFacilitator {
    */
   readonly caipFamily: string;
   /**
+   * Returns support information for the facilitator.
+   */
+  getSupported(): Promise<SupportedResponse>;
+  /**
    * Get mechanism-specific extra data for supported kinds endpoint.
    * @param network - The network identifier
    * @returns Extra data or undefined
@@ -228,7 +249,7 @@ export interface SchemeNetworkFacilitator {
    * @param network - The network identifier
    * @returns Array of signer addresses (empty for feeless chains like Nano)
    */
-  getSigners(network: string): string[];
+  getSigners(network: Network): string[];
   /**
    * Verify a payment proof.
    * @param payload - The payment payload

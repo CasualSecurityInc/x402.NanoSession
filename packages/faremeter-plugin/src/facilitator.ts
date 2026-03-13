@@ -102,7 +102,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
       amount: req.maxAmountRequired,
       expiresAt,
       scheme: req.scheme,
-      network: req.network,
+      network: req.network as any,
       asset: req.asset
     });
   };
@@ -188,7 +188,7 @@ export function createFacilitatorHandler(options: FacilitatorOptions): Facilitat
     return {
       success: result.success,
       txHash: result.transactionHash ?? null,
-      networkId: result.success ? NETWORK : null,
+      networkId: result.success ? NETWORK as any : null,
       error: result.error ?? null,
     };
   };

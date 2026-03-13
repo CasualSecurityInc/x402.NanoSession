@@ -2,7 +2,7 @@
 
 This example demonstrates how to integrate the `@nanosession/x402` adapter with the official `@x402/next` server libraries to protect a Next.js App Router API route.
 
-It exposes a single route at `/api/weather` that requires a fraction of Nano (XNO) to access, and offers both Track 1 (`nanoSession` – Stateful Tagging) and Track 2 (`nanoSignature` – Stateless Signatures) as payment options.
+It exposes a single route at `/weather` that requires a fraction of Nano (XNO) to access, and offers both Track 1 (`nanoSession` – Stateful Tagging) and Track 2 (`nanoSignature` – Stateless Signatures) as payment options.
 
 ## Getting Started
 
@@ -55,10 +55,10 @@ NANO_PAY_TO=nano_your_address_here  # Only used if NANO_SEED not set
 
 ## Testing the API
 
-To test the API, you can use the minimalistic CLI client located in `examples/cli-client/`, passing it the `--type session` or `--type signature` flags as needed.
+To test the API, you can use the minimalistic CLI client located in `examples/http-cli/`, passing it the `--type session` or `--type signature` flags as needed.
 
 ```bash
-cd ../cli-client
-export NANO_TEST_SEED=your_seed_here
-npm start -- -t session http://localhost:3000/api/weather
+cd ../http-cli
+export NANO_SEED=your_seed_here
+npm start -- -t session http://localhost:3000/weather
 ```

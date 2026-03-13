@@ -17,9 +17,11 @@ import type {
   FacilitatorContext,
   VerifyResponse,
   SettleResponse,
-  Network
+  Network,
+  SupportedResponse
 } from './types.js';
 import { toNanoRequirements, toNanoPayload } from './converter.js';
+import { x402ContextStorage } from './context.js';
 
 /**
  * Configuration options for ExactNanoFacilitator
@@ -84,6 +86,24 @@ receiveMode: config.receiveMode,
   }
 
   /**
+   * Returns support information for the facilitator.
+   */
+  async getSupported(): Promise<SupportedResponse> {
+    return {
+      kinds: [{
+        x402Version: 2,
+        scheme: this.scheme,
+        network: NETWORK as Network,
+        extra: this.getExtra(NETWORK as Network)
+      }],
+      extensions: [],
+      signers: {
+        [NETWORK as Network]: this.getSigners(NETWORK as Network)
+      }
+    };
+  }
+
+  /**
    * Returns undefined — NanoSession has no mechanism-specific extra data
    * for the supported kinds endpoint.
    *
@@ -102,7 +122,7 @@ receiveMode: config.receiveMode,
    * @param _ - The network identifier (unused)
    * @returns Empty array
    */
-  getSigners(_: string): string[] {
+  getSigners(_: Network): string[] {
     void _;
     return [];
   }
@@ -149,8 +169,12 @@ receiveMode: config.receiveMode,
       };
     }
 
+    // Get URL from context for nanoSignature verification
+    const context = x402ContextStorage.getStore();
+    const verifyContext = context?.url ? { url: context.url } : undefined;
+
     // Delegate to underlying handler
-    const result = await this.underlying.handleVerify(nanoReq, nanoPayload);
+    const result = await this.underlying.handleVerify(nanoReq, nanoPayload, verifyContext);
 
     if (!result) {
       return {
@@ -217,8 +241,12 @@ receiveMode: config.receiveMode,
       };
     }
 
+    // Get URL from context for nanoSignature settlement
+    const context = x402ContextStorage.getStore();
+    const settleContext = context?.url ? { url: context.url } : undefined;
+
     // Delegate to underlying handler
-    const result = await this.underlying.handleSettle(nanoReq, nanoPayload);
+    const result = await this.underlying.handleSettle(nanoReq, nanoPayload, settleContext);
 
     if (!result) {
       return {

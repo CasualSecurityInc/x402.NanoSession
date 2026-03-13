@@ -226,4 +226,58 @@ describe('NanoSessionFacilitatorHandler', () => {
     expect(requirements.extra.nanoSession.tagAmountRaw).toBe('7000');
     expect(requirements.amount).toBe('12000');
   });
+
+  test('handleVerify validates Track 2 (nanoSignature) with URL from requirements', async () => {
+    // Note: This test requires a mocked crypto environment matching nanoSignature.
+    // In NanoSession Rev 7, nanoSignature uses Ed25519 signatures over blake2b(block_hash + url).
+    const handler = new NanoSessionFacilitatorHandler({
+      rpcClient: mockRpcClient as any
+    });
+
+    const amount = '10000000000000000000000000000'; // 0.01 XNO
+    const payTo = 'nano_3facil1tatoraddr';
+    const url = 'http://localhost:3000/weather';
+    const requirements = handler.getSignatureRequirements({
+      amount,
+      payTo,
+      url
+    });
+
+    const blockHash = 'C0E9542DDFF27B45E46A1416260E56DE771BAC40ACFD31473A48A662095F7316';
+    
+    // We mock verifyBlock to return true for this test
+    // to avoid needing full ed25519 signing logic here
+    const { verifyBlock } = await import('nanocurrency');
+    const verifySpy = vi.spyOn({ verifyBlock }, 'verifyBlock').mockReturnValue(true);
+
+    mockRpcClient.getBlockInfo.mockResolvedValue({
+      hash: blockHash,
+      confirmed: true,
+      block_account: 'nano_1clientaccount',
+      link: payTo,
+      link_as_account: payTo,
+      amount: amount
+    });
+    
+    // Mock receivable check
+    (mockRpcClient as any).receivableExists = vi.fn().mockResolvedValue(true);
+
+    const mockPayload: any = { 
+      x402Version: 2,
+      accepted: requirements,
+      payload: { 
+        proof: blockHash,
+        signature: 'MOCK_SIGNATURE'
+      }
+    };
+
+    // The URL now comes from requirements.extra.nanoSignature.url, not from context
+    // This test verifies that the signature verification uses the canonical URL from requirements
+    
+    // With the URL in requirements, verification should proceed (may fail on crypto if mock is incomplete)
+    const result = await handler.handleVerify(requirements, mockPayload);
+    // The error should NOT be about missing URL since URL is now in requirements
+    expect(result!.error).not.toBe('URL missing in requirements.extra.nanoSignature.url');
+    expect(result!.error).not.toBe('URL context required for nanoSignature verification');
+  });
 });

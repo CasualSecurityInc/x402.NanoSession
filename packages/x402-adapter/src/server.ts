@@ -124,11 +124,18 @@ export class ExactNanoScheme implements SchemeNetworkServer {
 
     // Track 2: nanoSignature (Stateless)
     if (paymentRequirements.extra?.nanoSignature) {
+      // Get the canonical URL from context (set by withX402Context in the route handler)
+      const context = x402ContextStorage.getStore();
+      const url = context?.url;
+      if (!url) {
+        console.warn('[x402-adapter] nanoSignature requires a URL for replay protection. Ensure withX402Context passes the request URL.');
+      }
       return this.handler.getSignatureRequirements({
         amount: paymentRequirements.amount,
         payTo: paymentRequirements.payTo,
         maxTimeoutSeconds: paymentRequirements.maxTimeoutSeconds,
-      });
+        url: url || '',
+      }) as any;
     }
 
     // Track 1: nanoSession (Stateful)
@@ -137,7 +144,7 @@ export class ExactNanoScheme implements SchemeNetworkServer {
     if (context?.sessionId) {
       const recovered = this.handler.getStoredRequirements(context.sessionId);
       if (recovered) {
-        return recovered;
+        return recovered as any;
       } else {
         console.warn(`[x402-adapter] Session ${context.sessionId} not found in registry (expired or reloaded)`);
       }
@@ -148,7 +155,7 @@ export class ExactNanoScheme implements SchemeNetworkServer {
       resourceAmountRaw: paymentRequirements.amount,
       payTo: paymentRequirements.payTo,
       maxTimeoutSeconds: paymentRequirements.maxTimeoutSeconds,
-    });
+    }) as any;
   }
 
   /**

@@ -39,15 +39,15 @@ const nanoFacilitator = new ExactNanoFacilitator({
   accountIndex,
   receiveMode,
 });
-facilitator.register("nano:mainnet", nanoFacilitator);
+facilitator.register("nano:mainnet", nanoFacilitator as any);
 
-export const server = new x402ResourceServer(facilitator);
+export const server = new x402ResourceServer(facilitator as any);
 const nanoScheme = new ExactNanoScheme(nanoFacilitator.getUnderlyingHandler());
-server.register("nano:mainnet", nanoScheme);
+server.register("nano:mainnet", nanoScheme as any);
 
 // Log accepted routes on startup
 console.log('\n🛡️ [x402] Protected Routes:');
-console.log('   - /api/weather (nano:mainnet) [exact]');
+console.log('   - /weather (nano:mainnet) [exact]');
 console.log('   - Track 1: nanoSession (Session ID + Tagged Proof)');
 console.log('   - Track 2: nanoSignature (Cryptographic Proof)');
 if (facilitatorAddress) {

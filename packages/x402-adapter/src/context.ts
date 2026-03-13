@@ -12,6 +12,12 @@ export interface X402Context {
    * "recover" the exact requirements that were previously issued.
    */
   sessionId?: string;
+
+  /**
+   * The URL of the requested resource.
+   * Required for Track 2 (nanoSignature) verification to prevent cross-server replays.
+   */
+  url?: string;
 }
 
 /**

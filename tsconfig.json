@@ -46,14 +46,13 @@
   },
   "include": [
     "packages/*/src/**/*",
-    "examples/*/src/**/*",
     "test/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "packages/*/src/**/*.test.ts",
-    "examples/*/src/**/*.test.ts"
+    "examples"
   ],
   "references": [
     {

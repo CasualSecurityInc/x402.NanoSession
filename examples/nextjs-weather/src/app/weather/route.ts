@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withX402 } from "@x402/next";
-import { server, facilitatorAddress } from "../../../x402";
+import { server, facilitatorAddress } from "../../x402";
 // Note: We aren't doing the @x402/extensions/bazaar extension because
 // it is out of scope for a bare-minimum Next.js API example.
 
@@ -72,9 +72,11 @@ export const GET = (req: NextRequest) => {
       const payload = decodePaymentSignature(signature);
       sessionId = payload.accepted?.extra?.nanoSession?.id;
     } catch (e) {
-      // Ignore invalid signatures, server will return 400/402
+      // Server will return 400/402 for invalid signatures
     }
   }
 
-  return withX402Context({ sessionId }, () => wrappedGET(req));
+  const fullUrl = req.nextUrl.toString();
+
+  return withX402Context({ sessionId, url: fullUrl }, () => wrappedGET(req));
 };

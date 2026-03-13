@@ -31,7 +31,7 @@ export NANO_ACCOUNT_INDEX=0
 Run the CLI against a protected resource:
 
 ```bash
-npx tsx src/index.ts http://localhost:3000/api/weather
+npx tsx src/index.ts http://localhost:3000/weather
 ```
 
 ### Options
@@ -42,7 +42,7 @@ npx tsx src/index.ts http://localhost:3000/api/weather
 ### Example: Requesting with Signature Track
 
 ```bash
-npx tsx src/index.ts -v -t signature http://localhost:3000/api/weather
+npx tsx src/index.ts -v -t signature http://localhost:3000/weather
 ```
 
 ## Environment Variables

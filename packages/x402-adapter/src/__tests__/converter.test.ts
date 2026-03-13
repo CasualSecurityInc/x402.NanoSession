@@ -168,6 +168,27 @@ describe('toNanoRequirements', () => {
 
     expect(toNanoRequirements(x402Req as any)).toBeNull();
   });
+
+  it('converts valid nanoSignature requirements', () => {
+    const x402Req = {
+      scheme: SCHEME,
+      network: NETWORK,
+      asset: ASSET,
+      amount: '100',
+      payTo: 'nano_test',
+      maxTimeoutSeconds: 300,
+      extra: {
+        nanoSignature: {
+          messageToSign: 'block_hash+url'
+        }
+      }
+    };
+
+    const result = toNanoRequirements(x402Req as any);
+    expect(result).not.toBeNull();
+    expect(result?.extra?.nanoSignature).toBeDefined();
+    expect(result?.extra?.nanoSignature?.messageToSign).toBe('block_hash+url');
+  });
 });
 
 describe('toX402Requirements', () => {
@@ -208,12 +229,14 @@ describe('toNanoPayload', () => {
       x402Version: 2,
       payload: {
         proof: 'ABC123BLOCKHASH',
+        signature: 'SIG123',
       },
     };
 
-    const result = toNanoPayload(x402Payload, nanoReq);
+    const result = toNanoPayload(x402Payload as any, nanoReq);
     expect(result).not.toBeNull();
     expect(result?.payload.proof).toBe('ABC123BLOCKHASH');
+    expect(result?.payload.signature).toBe('SIG123');
     expect(result?.accepted.extra.nanoSession.id).toBe('abc123');
   });
 

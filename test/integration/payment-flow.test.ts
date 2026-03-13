@@ -797,6 +797,7 @@ describe('Integration: Full Payment Flow', () => {
         amount: paymentAmount,
         payTo: serverAddress,
         maxTimeoutSeconds: 300,
+        url: resourceUrl,
         messageToSign: 'block_hash+url'
       });
 
@@ -842,7 +843,7 @@ describe('Integration: Full Payment Flow', () => {
       await sweepAll(serverAddress, clientAddress, serverSecretKey);
     }, 120000);
 
-    test('rejects spoofed signature - wrong URL', async () => {
+    test('URL is bound to server-specified canonical URL, not client context', async () => {
       if (shouldSkip) return;
 
       const serverHandler = new NanoSessionFacilitatorHandler({
@@ -856,6 +857,7 @@ describe('Integration: Full Payment Flow', () => {
       const requirements = serverHandler.getSignatureRequirements({
         amount: paymentAmount,
         payTo: serverAddress,
+        url: resourceUrl,
       });
 
       const clientInfo = await getAccountInfoSafe(clientAddress);
@@ -867,18 +869,19 @@ describe('Integration: Full Payment Flow', () => {
         accountIndex: 0
       });
 
-      // Provide WRONG url to the client handler so it signs the wrong context
-      const execers = await clientHandler.handle({ url: 'https://api.example.com/wrong' }, [requirements]);
+      // With the fix, client uses the URL from requirements (server-specified),
+      // not from context. This prevents the replay attack scenario.
+      // The signature is now bound to the canonical URL in requirements.
+      const execers = await clientHandler.handle({}, [requirements]);
       const { payload } = await execers[0].exec();
 
-      console.log('🔐 Track 2 Attack: Server verifying spoofed signature...');
-      // Server validates against the REAL url
-      const result = await serverHandler.handleSettle!(requirements, payload, { url: resourceUrl });
+      console.log('🔐 Track 2 Security: Verifying that URL binding uses server-specified canonical URL...');
+      // Server validates using the same URL from requirements
+      const result = await serverHandler.handleSettle!(requirements, payload);
 
-      console.log(`   Attack result: success=${result?.success}, error=${result?.error}`);
-      expect(result?.success).toBe(false);
-      expect(result?.error).toContain('Cryptographic signature is invalid');
-      console.log('   ✅ Spoofed signature correctly rejected!');
+      console.log(`   Result: success=${result?.success}, error=${result?.error}`);
+      expect(result?.success).toBe(true);
+      console.log('   ✅ Signature validated - client correctly used server-specified URL!');
 
       await sweepAll(serverAddress, clientAddress, serverSecretKey);
     }, 120000);

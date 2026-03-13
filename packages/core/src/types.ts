@@ -28,15 +28,23 @@ export interface NanoSessionExtra {
 }
 
 export interface NanoSignatureExtra {
+  /** The canonical URL that must be signed (prevents replay attacks across different endpoints) */
+  url: string;
   /** The message template that the client must sign (e.g., "block_hash+url") */
-  messageToSign: string;
+  messageToSign?: string;
 }
+
+/**
+ * Network identifier in CAIP-2 format.
+ * @example "nano:mainnet" - Nano mainnet
+ */
+export type Network = `${string}:${string}`;
 
 export interface PaymentRequirements {
   /** Payment scheme identifier (must be "exact") */
   scheme: string;
   /** Network identifier (e.g. "nano:mainnet") */
-  network: string;
+  network: Network;
   /** Asset identifier (e.g. "XNO") */
   asset: string;
   /** Total amount to send in raw (normative payment amount) */

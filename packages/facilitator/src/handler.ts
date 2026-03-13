@@ -287,7 +287,7 @@ export class NanoSessionFacilitatorHandler {
    * ```ts
    * const accepts = [
    *   facilitator.getRequirements({ resourceAmountRaw, payTo }),
-   *   facilitator.getSignatureRequirements({ amount: resourceAmountRaw, payTo })
+   *   facilitator.getSignatureRequirements({ amount: resourceAmountRaw, payTo, url })
    * ];
    * ```
    */
@@ -298,6 +298,8 @@ export class NanoSessionFacilitatorHandler {
     payTo: string;
     /** How long before this requirement expires (default: 600s) */
     maxTimeoutSeconds?: number;
+    /** The canonical URL for signature binding (required for replay protection) */
+    url: string;
     /** Template for the message the client must sign (default: "block_hash+url") */
     messageToSign?: string;
   }): PaymentRequirements {
@@ -305,6 +307,7 @@ export class NanoSessionFacilitatorHandler {
       payTo: args.payTo,
       maxTimeoutSeconds: args.maxTimeoutSeconds ?? 600,
       amount: args.amount,
+      url: args.url,
       messageToSign: args.messageToSign
     });
   }
@@ -563,7 +566,7 @@ export class NanoSessionFacilitatorHandler {
   private async verifyNanoSignature(
     requirements: PaymentRequirements,
     payload: PaymentPayload,
-    context?: unknown
+    _context?: unknown
   ): Promise<VerifyResult> {
     const blockHash = payload.payload.proof;
     const signature = payload.payload.signature;
@@ -572,13 +575,11 @@ export class NanoSessionFacilitatorHandler {
       return { isValid: false, error: 'Signature required for nanoSignature verification' };
     }
 
-    // URL is mandatory — without it the signature cannot prevent cross-server replay
-    let url = '';
-    if (typeof context === 'object' && context && 'url' in context) {
-      url = (context as any).url as string;
-    }
+    // URL comes from requirements (server-specified), not from context
+    // This prevents replay attacks where client URL differs from server's canonical URL
+    const url = requirements.extra?.nanoSignature?.url;
     if (!url) {
-      return { isValid: false, error: 'URL context required for nanoSignature verification' };
+      return { isValid: false, error: 'URL missing in requirements.extra.nanoSignature.url' };
     }
 
     // 1. Fetch and confirm the send block

@@ -1,4 +1,5 @@
 import type {
+  Network,
   PaymentPayload,
   PaymentRequired,
   PaymentRequirements,
@@ -17,6 +18,7 @@ export interface CreatePaymentRequiredArgs {
 export interface CreatePaymentPayloadArgs {
   accepted: PaymentRequirements;
   proof: string;
+  signature?: string;
   resource?: ResourceInfo;
   extensions?: Record<string, unknown>;
 }
@@ -31,7 +33,7 @@ export interface CreatePaymentRequirementsArgs {
   expiresAt: string;
   amount?: string;
   scheme?: string;
-  network?: string;
+  network?: Network;
   asset?: string;
 }
 
@@ -54,7 +56,7 @@ export function createPaymentRequirements(args: CreatePaymentRequirementsArgs): 
 
   const requirements: PaymentRequirements = {
     scheme: args.scheme ?? SCHEME,
-    network: args.network ?? NETWORK,
+    network: (args.network ?? NETWORK) as Network,
     asset: args.asset ?? ASSET,
     amount: resolvedAmount,
     payTo: args.payTo,
@@ -81,10 +83,12 @@ export interface CreateSignatureRequirementsArgs {
   maxTimeoutSeconds: number;
   /** Amount to pay in raw (clean resource price — no tagging) */
   amount: string;
-  /** Template describing what the client must sign (e.g., "block_hash+url") */
+  /** The canonical URL for signature binding (prevents replay attacks across different endpoints) */
+  url: string;
+  /** Template describing what the client must sign (default: "block_hash+url") */
   messageToSign?: string;
   scheme?: string;
-  network?: string;
+  network?: Network;
   asset?: string;
 }
 
@@ -98,15 +102,20 @@ export function createSignatureRequirements(args: CreateSignatureRequirementsArg
     throw new Error('Invalid signature requirements: amount must be positive');
   }
 
+  if (!args.url || args.url.trim() === '') {
+    throw new Error('Invalid signature requirements: url is required for replay protection');
+  }
+
   const requirements: PaymentRequirements = {
     scheme: args.scheme ?? SCHEME,
-    network: args.network ?? NETWORK,
+    network: (args.network ?? NETWORK) as Network,
     asset: args.asset ?? ASSET,
     amount: args.amount,
     payTo: args.payTo,
     maxTimeoutSeconds: args.maxTimeoutSeconds,
     extra: {
       nanoSignature: {
+        url: args.url,
         messageToSign: args.messageToSign ?? 'block_hash+url'
       }
     }
@@ -146,7 +155,10 @@ export function createPaymentPayload(args: CreatePaymentPayloadArgs): PaymentPay
     x402Version: 2,
     ...(args.resource ? { resource: args.resource } : {}),
     accepted: args.accepted,
-    payload: { proof },
+    payload: { 
+      proof,
+      ...(args.signature ? { signature: args.signature } : {})
+    },
     ...(args.extensions ? { extensions: args.extensions } : {})
   };
 }

@@ -2,6 +2,7 @@ import type { BlockInfo, AccountInfo, AccountHistoryEntry } from './types.js';
 import debug from 'debug';
 
 const log = debug('nanosession:rpc');
+const logCalls = debug('nanosession:rpc:calls');
 
 export interface NanoRpcClientOptions {
   /** RPC endpoint URLs to try in order (query params will be merged into each RPC request body) */
@@ -99,22 +100,63 @@ export class NanoRpcClient {
         });
         return response.exists === '1' || response.exists === 1 || response.exists === true;
       } catch (e2) {
-        // Definitive fallback for restricted proxies like rpc.nano.to
-        // which block _exists commands but allow blocks_info
-        const info = await this.callRpc('blocks_info', {
-          hashes: [hash],
-          receive_hash: true
-        });
-        
-        const blocks = info.blocks as Record<string, any> | undefined;
-        if (!blocks || !blocks[hash]) return false;
-        
-        const block = blocks[hash];
-        const isConfirmed = block.confirmed === 'true' || block.confirmed === true;
-        if (!isConfirmed) return false;
+        try {
+          // Fallback using blocks_info (some nodes support this)
+          const info = await this.callRpc('blocks_info', {
+            hashes: [hash],
+            receive_hash: true
+          });
+          
+          const blocks = info.blocks as Record<string, any> | undefined;
+          if (blocks && blocks[hash]) {
+            const block = blocks[hash];
+            const isConfirmed = block.confirmed === 'true' || block.confirmed === true;
+            if (!isConfirmed) return false;
 
-        const receiveHash = block.receive_hash;
-        return !receiveHash || receiveHash === '0' || receiveHash === '0'.repeat(64);
+            const receiveHash = block.receive_hash;
+            return !receiveHash || receiveHash === '0' || receiveHash === '0'.repeat(64);
+          }
+          throw new Error('Block not found in blocks_info');
+        } catch (e3) {
+          // Final fallback for restricted proxies like rpc.nano.to
+          // Use block_info (singular) then verify via receivable
+          const info = await this.callRpc('block_info', {
+            hash,
+            json_block: true
+          });
+          
+          const isConfirmed = info.confirmed === 'true' || info.confirmed === true;
+          if (!isConfirmed) return false;
+
+          // Get the destination account from the block
+          // For state blocks, it's either 'link_as_account' (send) or 'account' (destination of the block)
+          // In x402, the block we are checking is the SEND block, so the destination is in 'link_as_account'
+          const contents = info.contents as Record<string, any> | undefined;
+          const destinationAccount = (info as any).block_account || (info as any).link_as_account || (contents?.link_as_account);
+          
+          if (!destinationAccount) return false;
+
+          // Check if this hash is in the receivable list for the destination account
+          try {
+            const receivableResponse = await this.callRpc('receivable', {
+              account: destinationAccount,
+              count: 100,
+              include_only_confirmed: true
+            });
+            
+            const receivableBlocks = receivableResponse.blocks as Record<string, any> | string[] | undefined;
+            if (!receivableBlocks) return false;
+            
+            // Handle both object and array formats of receivable
+            if (Array.isArray(receivableBlocks)) {
+              return receivableBlocks.includes(hash);
+            }
+            return hash in receivableBlocks;
+          } catch (e4) {
+            // If receivable also fails, we can't determine status
+            return false;
+          }
+        }
       }
     }
   }
@@ -283,38 +325,58 @@ export class NanoRpcClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
+        const body = { action, ...params, ...endpoint.extraParams };
+        logCalls('>>> [%s] %s %j', action, endpoint.baseUrl, body);
+
         const response = await fetch(endpoint.baseUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           // Merge URL query params into RPC body (convention: ?key=API_KEY -> { ..., key: "API_KEY" })
-          body: JSON.stringify({ action, ...params, ...endpoint.extraParams }),
+          body: JSON.stringify(body),
           signal: controller.signal
         });
 
         if (!response.ok) {
           const bodyText = await response.text().catch(() => '');
-          throw new Error(`HTTP ${response.status}: ${response.statusText}${bodyText ? ` - ${bodyText.slice(0, 200)}` : ''}`);
+          const error = new Error(`HTTP ${response.status}: ${response.statusText}${bodyText ? ` - ${bodyText.slice(0, 200)}` : ''}`);
+          logCalls('<<< [%s] %s Error: %s', action, endpoint.baseUrl, error.message);
+          throw error;
         }
 
         const data = await response.json() as Record<string, unknown>;
 
         if (data.error) {
+          logCalls('<<< [%s] %s RPC Error: %s', action, endpoint.baseUrl, data.error);
           throw new Error(`RPC error: ${data.error}`);
         }
 
+        logCalls('<<< [%s] %s %j', action, endpoint.baseUrl, data);
         return data;
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        const err = error instanceof Error ? error : new Error(String(error));
+        
+        if (err.name === 'AbortError') {
           lastError = new Error(`Request timeout after ${this.timeoutMs}ms`);
-        } else if (error instanceof TypeError && error.message === 'fetch failed') {
-          // Handle network-level errors (connection refused, DNS failure, etc.)
-          const cause = (error as any).cause;
+        } else if (err instanceof TypeError && err.message === 'fetch failed') {
+          const cause = (err as any).cause;
           const code = cause?.code || cause?.errno;
           lastError = this.formatNetworkError(code, endpoint.baseUrl);
         } else {
-          lastError = error instanceof Error ? error : new Error(String(error));
+          lastError = err;
+        }
+
+        const errorMsg = lastError.message;
+        const isUnsupported = /unsupported|not supported|unknown action/i.test(errorMsg);
+
+        if (!(errorMsg.toLowerCase().startsWith('rpc error') || errorMsg.toLowerCase().startsWith('http '))) {
+          logCalls('<<< [%s] %s Exception: %s', action, endpoint.baseUrl, errorMsg);
+        }
+
+        if (isUnsupported) {
+          logCalls('<<< [%s] %s Fast-failing unsupported action', action, endpoint.baseUrl);
+          break;
         }
 
         if (attempt < this.maxRetries - 1) {

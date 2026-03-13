@@ -123,12 +123,13 @@ describe('NanoSessionPaymentHandler', () => {
       maxTimeoutSeconds: 300,
       extra: {
         nanoSignature: {
+          url: 'https://api.example.com/data',
           messageToSign: 'block_hash+url'
         }
       }
     };
 
-    const execers = await handler.handle({ url: 'https://api.example.com/data' }, [requirements]);
+    const execers = await handler.handle({}, [requirements]);
     const { payload } = await execers[0].exec();
 
     expect(payload.payload.proof).toBe('MOCK_BLOCK_HASH');

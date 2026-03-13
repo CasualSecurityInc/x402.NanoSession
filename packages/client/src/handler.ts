@@ -142,12 +142,11 @@ export class NanoSessionPaymentHandler {
     // Track 2 verification signing
     let signature: string | undefined;
     if (requirements.extra?.nanoSignature) {
-      let url = '';
-      if (typeof context === 'object' && context && 'url' in context && typeof (context as any).url === 'string') {
-        url = (context as any).url;
-      }
+      // Use the canonical URL from requirements (server-specified), not from client context
+      // This prevents replay attacks where client URL differs from server's canonical URL
+      const url = requirements.extra.nanoSignature.url;
       if (!url) {
-        throw new Error('nano-exact-broadcast-signature track requires a resource url in context to generate the signature');
+        throw new Error('nanoSignature track requires a url in requirements.extra.nanoSignature.url');
       }
       const messageToSign = blockHash + url;
       signature = signMessage(messageToSign, secretKeyHex);

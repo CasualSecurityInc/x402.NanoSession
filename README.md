@@ -1,46 +1,19 @@
-# x402.NanoSession
+# x402 with Nano
 
 > **Feeless, instant machine-to-machine payments via HTTP 402**
 
-NanoSession is a protocol for high-frequency M2M payments using [Nano](https://nano.org/) cryptocurrency and the [HTTP 402](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402) status code. Zero fees. Sub-second settlement.
+Implement the [HTTP 402](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402) status code using [Nano](https://nano.org/) (XNO) cryptocurrency. Zero fees. Sub-second settlement. High-frequency M2M payments.
 
-## Why NanoSession?
+This repository contains a suite of TypeScript libraries and reference implementations for building x402-compatible services and clients on the Nano network.
+
+## Why Nano for x402?
 
 - **Feeless**: Nano has no transaction fees — pay exactly what you owe
 - **Instant**: Sub-second confirmation, no block wait times
-- **Session-bound**: Payments are cryptographically tied to requests (no receipt theft)
+- **Protocol-Bound**: Payments are cryptographically tied to requests (via `nanoSession` or `nanoSignature`)
 - **Simple**: HTTP headers + one RPC call = payment verified
 
-## Protocol Flow (Simplified)
-
-Four steps. Session-bound proof. Zero fees.
-
-```
-Client                    Resource Server          Facilitator            Nano
-  │                               │                     │                  │
-  │  GET /resource                │                     │                  │
-  │──────────────────────────────>│                     │                  │
-  │                               │  init session       │                  │
-  │                               │────────────────────>│                  │
-  │                               │<────────────────────│                  │
-  │  402 + PAYMENT-REQUIRED       │                     │                  │
-  │  (amount, payTo,              │                     │                  │
-  │   extra.nanoSession.id)       │                     │                  │
-  │<──────────────────────────────│                     │                  │
-  │                               │                     │                  │
-  │  send_block(amount)           │                     │                  │
-  │───────────────────────────────────────────────────────────────────────>│
-  │                               │                     │                  │
-  │  GET /resource +              │                     │                  │
-  │  PAYMENT-SIGNATURE            │  verify(hash, id)   │                  │
-  │  (payload.proof=blockHash,    │────────────────────>│─────────────────>│
-  │   accepted.extra.nanoSession) │                     │                  │
-  │                               │<────────────────────│                  │
-  │  200 OK                       │                     │                  │
-  │<──────────────────────────────│                     │                  │
-```
-
-The **session binding** (tag embedded in payment amount) prevents receipt theft. In Rev 6, the Resource Server issues challenges and the Facilitator verifies chain proofs + spent-set constraints. See the [Rev 6 Protocol Spec](./docs/x402_NanoSession_rev6_Protocol.md) for security details.
+The **x402 with Nano** implementation supports multiple security mechanisms, including `nanoSession` (stateful session binding) and `nanoSignature` (stateless cryptographic signature). See the [Rev 7 Protocol Spec](./docs/x402_NanoSession_rev7_Protocol.md) for security details.
 
 ## Repository Layout
 
@@ -56,7 +29,7 @@ x402.NanoSession/
 │   ├── standalone-facilitator/ # Reference standalone facilitator server
 │   ├── client/                 # Reference paying client
 │   └── faremeter-server/       # Express + Faremeter integration example
-├── docs/                       # Rev 6 protocol docs (source of truth)
+├── docs/                       # Rev 7 protocol docs (source of truth)
 ├── site/                       # VitePress docs + protected-resource demo server
 └── test/integration/           # E2E tests with real Nano mainnet transactions
 ```
@@ -81,14 +54,14 @@ Generate and preview the protocol specification website:
 
 ```bash
 cd site
-SPEC_REV=rev6 pnpm site:build    # Build static site from docs/
+SPEC_REV=rev7 pnpm site:build    # Build static site from docs/
 pnpm site:preview                 # Preview at localhost:4173
 ```
 
 For development with hot reload:
 ```bash
 cd site
-SPEC_REV=rev6 pnpm site:dev      # Dev server at localhost:5173
+SPEC_REV=rev7 pnpm site:dev      # Dev server at localhost:5173
 ```
 
 ### Reference Server & Client
@@ -112,7 +85,7 @@ See [examples/README.md](./examples/README.md) for configuration options.
 For projects using [Faremeter](https://github.com/faremeter/faremeter) x402 middleware:
 
 ```bash
-# Terminal 1: Start the NanoSession facilitator service
+# Terminal 1: Start the facilitator service
 cd examples/faremeter-server
 NANO_SERVER_ADDRESS=nano_your_address pnpm start:facilitator
 
@@ -156,8 +129,8 @@ pnpm test:integration
 
 | Resource | Description |
 |----------|-------------|
-| **[Rev 6 Intro](./docs/x402_NanoSession_rev6_Intro.md)** | High-level overview and Rev 6 architecture |
-| **[Rev 6 Protocol Spec](./docs/x402_NanoSession_rev6_Protocol.md)** | Canonical wire format and security requirements |
+| **[Rev 7 Intro](./docs/x402_NanoSession_rev7_Intro.md)** | High-level overview and Rev 7 architecture |
+| **[Rev 7 Protocol Spec](./docs/x402_NanoSession_rev7_Protocol.md)** | Canonical wire format and security requirements |
 | **[Examples](./examples/)** | Working server and client with step-by-step instructions |
 | **[Integration Tests](./test/integration/)** | Real Nano transactions on mainnet |
 

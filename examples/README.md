@@ -47,19 +47,19 @@ A fetch wrapper that automatically handles HTTP 402 responses by making Nano pay
 
 **Run:**
 ```bash
-# Requires NANO_TEST_SEED environment variable
+# Requires NANO_SEED environment variable
 cd examples/client
-export NANO_TEST_SEED=your_64_char_hex_seed
+export NANO_SEED=your_64_char_hex_seed
 npx tsx src/index.ts
 
-# Or with e2e.env
-source ../e2e.env && npx tsx src/index.ts
+# Or with .env
+source ../.env && npx tsx src/index.ts
 ```
 
 **Configuration (environment variables):**
 - `SERVER_URL` - Server URL (default: http://localhost:3000)
 - `NANO_RPC_URL` - Nano RPC endpoint (default: https://rpc.nano.to)
-- `NANO_TEST_SEED` - Your wallet seed (**required**)
+- `NANO_SEED` - Your wallet seed (**required**)
 - `NANO_MAX_SPEND` - Maximum spend per request (default: 0.01 XNO)
 
 ## Running Both Examples Together
@@ -74,7 +74,7 @@ source ../e2e.env && npx tsx src/index.ts
 2. **Terminal 2 - Run the client:**
    ```bash
    cd examples/client
-   export NANO_TEST_SEED=your_seed_here
+   export NANO_SEED=your_seed_here
    npx tsx src/index.ts
    ```
 

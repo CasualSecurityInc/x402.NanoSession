@@ -75,7 +75,7 @@ NANO_SERVER_ADDRESS=nano_your_address pnpm start
 
 # Terminal 2: Run the paying client
 cd examples/client
-NANO_TEST_SEED=your_64_char_hex_seed pnpm start
+NANO_SEED=your_64_char_hex_seed pnpm start
 ```
 
 See [examples/README.md](./examples/README.md) for configuration options.
@@ -116,8 +116,8 @@ Run real Nano transactions on mainnet:
 
 ```bash
 # Setup (once)
-cp test/integration/e2e.env.example test/integration/e2e.env
-# Edit e2e.env with your test wallet seed
+cp .env.example .env
+# Edit .env with your test wallet seed
 
 # Run integration tests
 pnpm test:integration

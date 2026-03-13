@@ -4,10 +4,10 @@ import { createServer } from 'http';
 import { config } from 'dotenv';
 import path from 'path';
 
-// Load env from DOTENV_CONFIG_PATH (used by npm scripts) or fallback to root .env.mainnet
+// Load env from DOTENV_CONFIG_PATH (used by npm scripts) or fallback to root .env
 const envPath = process.env.DOTENV_CONFIG_PATH
     ? path.resolve(process.cwd(), process.env.DOTENV_CONFIG_PATH)
-    : path.resolve(__dirname, '../../.env.mainnet');
+    : path.resolve(__dirname, '../../.env');
 config({ path: envPath });
 import { protectedRoute } from './routes/protected';
 import { statusRoute } from './routes/status';

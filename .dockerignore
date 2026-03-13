@@ -22,8 +22,8 @@ build/
 
 # Test environment
 .env*
-e2e.env
-test/integration/e2e.env
+.env
+test/integration/.env
 test/integration/*.env
 
 # Coverage reports

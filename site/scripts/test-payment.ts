@@ -3,15 +3,15 @@ import { deriveAddressFromSeed } from '@nanosession/client';
 import { deriveSecretKey, createBlock, signBlock, computeWork, validateWork, type BlockData } from 'nanocurrency';
 import { NanoRpcClient } from '@nanosession/rpc';
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || '../.env.mainnet' });
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || '../.env' });
 
-const seed = process.env.NANO_TEST_SEED;
+const seed = process.env.NANO_SEED;
 const rpcUrlStr = process.env.NANO_RPC_URL || 'https://rpc.nano-gpt.com';
 const toAddress = process.argv[2];
 const amountRaw = process.argv[3];
 
 if (!seed || !toAddress || !amountRaw) {
-    console.error('Usage: NANO_TEST_SEED=<seed> tsx test-payment.ts <toAddress> <amountRaw>');
+    console.error('Usage: NANO_SEED=<seed> tsx test-payment.ts <toAddress> <amountRaw>');
     process.exit(1);
 }
 

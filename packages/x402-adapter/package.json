@@ -23,6 +23,10 @@
       "types": "./dist/client.d.ts"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest --run"

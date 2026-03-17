@@ -4,6 +4,10 @@
   "description": "Production-ready Nano x402 Facilitator service",
   "type": "module",
   "main": "./dist/index.js",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",

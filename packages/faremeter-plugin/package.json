@@ -1,7 +1,7 @@
 {
   "name": "@nanosession/faremeter",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Faremeter adapter plugin for NanoSession",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

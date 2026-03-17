@@ -310,11 +310,19 @@ The mandatory session binding prevents the receipt-stealing attack by ensuring:
 
 ## 6. Extensions
 
+### 6.1. NanoSession-Specific Extensions
+
 For high-volume services, privacy-sensitive implementations, or dust lifecycle management:
 
 - **[Extension A: Generational Sharded Pools](x402_NanoSession_rev7_Extension_A_Pools.md)**: Scale to 20-100 addresses
 - **[Extension B: Stochastic Rotation](x402_NanoSession_rev7_Extension_B_Stochastic.md)**: Privacy via address rotation
 - **[Extension D: Dust Return (Janitor)](x402_NanoSession_rev7_Extension_D_DustReturn.md)**: Formalized sweeping of un-spendable tags
+
+### 6.2. Supported x402 Core Extensions
+
+NanoSession supports the standard x402 `extensions` field on both `PaymentRequired` and `PaymentPayload` objects. The following upstream x402 extensions are compatible and have helper utilities in `@nanosession/core`:
+
+- **`payment-identifier`**: Client-generated idempotency key for HTTP request deduplication. Orthogonal to NanoSession's blockchain-layer anti-replay (spent set, session binding, signature binding). See the [upstream spec](https://docs.x402.org/) for the extension definition.
 
 ## 7. Implementation Notes
 

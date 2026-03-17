@@ -44,3 +44,29 @@ export {
   assertValidRawAmount,
   assertValidPaymentRequirements
 } from './utils.js';
+
+// Re-export payment-identifier extension helpers
+export {
+  PAYMENT_IDENTIFIER,
+  PAYMENT_ID_MIN_LENGTH,
+  PAYMENT_ID_MAX_LENGTH,
+  PAYMENT_ID_PATTERN,
+  paymentIdentifierSchema,
+  generatePaymentId,
+  isValidPaymentId,
+  isPaymentIdentifierExtension,
+  declarePaymentIdentifierExtension,
+  appendPaymentIdentifierToExtensions,
+  extractPaymentIdentifier,
+  hasPaymentIdentifier,
+  isPaymentIdentifierRequired,
+  validatePaymentIdentifierRequirement,
+  validatePaymentIdentifier
+} from './payment-identifier.js';
+
+export type {
+  PaymentIdentifierInfo,
+  PaymentIdentifierExtension,
+  PaymentIdentifierSchema,
+  PaymentIdentifierValidationResult
+} from './payment-identifier.js';

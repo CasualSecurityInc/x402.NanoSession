@@ -79,6 +79,34 @@ This prevents attackers from stealing payment proofs (block hashes) and reusing 
 
 **Critical**: The server MUST maintain a spent set to prevent replay attacks. See [PRODUCTION.md](./PRODUCTION.md) for production deployment requirements.
 
+## x402 Extensions
+
+NanoSession supports x402 protocol extensions via the `extensions` field on `PaymentRequired` and `PaymentPayload`. The `@nanosession/core` package provides helpers for the upstream [`payment-identifier`](https://docs.x402.org/) extension, which enables client-generated idempotency keys for request deduplication.
+
+```typescript
+import {
+  PAYMENT_IDENTIFIER,
+  declarePaymentIdentifierExtension,
+  extractPaymentIdentifier,
+  validatePaymentIdentifierRequirement,
+  isPaymentIdentifierRequired,
+} from '@nanosession/core';
+
+// In your server: advertise support in the 402 response extensions
+const extensions = {
+  [PAYMENT_IDENTIFIER]: declarePaymentIdentifierExtension() // required: false by default
+};
+
+// In your settle/verify handler: extract the client's idempotency key
+const id = extractPaymentIdentifier(paymentPayload);
+if (id) {
+  const cached = await idempotencyStore.get(id);
+  if (cached) return cached; // Return cached response on retry
+}
+```
+
+This extension is orthogonal to NanoSession's session binding and spent set — it provides HTTP-layer retry deduplication, not blockchain-layer anti-replay.
+
 ## API Reference
 
 ### `createFacilitatorHandler(options: FacilitatorOptions)`

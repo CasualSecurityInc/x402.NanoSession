@@ -1,6 +1,6 @@
 {
   "name": "@nanosession/x402",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "x402 adapter for NanoSession - Nano cryptocurrency payment mechanism",
   "type": "module",
   "main": "./dist/index.js",

@@ -72,3 +72,9 @@ This adapter handles key translation duties:
 1. **Price Parsing:** Converts decimal USD/FIAT values into appropriate Nano raw amounts (30 decimals) via `ExactNanoScheme`.
 2. **Type Wrapping:** Translates the generic `PaymentRequirements` and `PaymentPayload` objects from `@x402/core` into the specific `NanoSession` formats required by the core protocol logic.
 3. **Execution Mapping:** Proxies the `verify`, `settle`, and `createPaymentPayload` lifecycle methods down to the native `NanoSessionFacilitatorHandler` and `NanoSessionPaymentHandler`.
+
+## x402 Extensions
+
+The adapter passes `extensions` through to the underlying NanoSession handlers without modification. This means x402 core extensions like [`payment-identifier`](https://docs.x402.org/) (idempotency keys) work transparently when used with this adapter.
+
+`@nanosession/core` provides utility helpers for declaring, appending, and extracting payment identifiers — see the [root README](../../README.md#x402-extensions) for usage.

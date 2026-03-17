@@ -148,6 +148,27 @@ The documentation website is built from `docs/` and deployed automatically.
 
 All packages are published under the `@nanosession` scope.
 
+### x402 Extensions
+
+`@nanosession/core` includes utility helpers for the upstream x402 [`payment-identifier`](https://docs.x402.org/) extension, which provides client-generated idempotency keys for deduplicating payment requests. This is orthogonal to NanoSession's built-in anti-replay mechanisms (spent set, session binding, signature binding) and operates at the HTTP request layer only.
+
+```typescript
+import {
+  PAYMENT_IDENTIFIER,
+  declarePaymentIdentifierExtension,
+  appendPaymentIdentifierToExtensions,
+  extractPaymentIdentifier,
+} from '@nanosession/core';
+
+// Server: advertise support in 402 response
+const extensions = { [PAYMENT_IDENTIFIER]: declarePaymentIdentifierExtension() };
+
+// Client: attach idempotency key before sending payment
+appendPaymentIdentifierToExtensions(extensions);
+
+// Server: extract key for deduplication
+const id = extractPaymentIdentifier(paymentPayload);
+```
 
 ## Contributing
 

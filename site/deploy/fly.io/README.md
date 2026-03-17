@@ -1,6 +1,6 @@
 # Fly.io Deployment Runbook for Demo Servers
 
-This guide details how to set up, deploy, and automate the `mainnet` and `testnet` X402 demo servers on [Fly.io](https://fly.io).
+This guide details how to set up, deploy, and automate the X402 demo server on [Fly.io](https://fly.io).
 
 ## 1. Prerequisites (Operator Setup)
 
@@ -22,7 +22,7 @@ Instead of relying on the interactive `fly launch` wizard, we use declarative co
 > [!IMPORTANT]
 > **Working Directory:** All commands in this section assume you are running them from the **root directory of the monorepo** (e.g., `x402.NanoSession/`).
 
-### Option A: Create Mainnet Server
+### Create the Server
 1. Create the application container:
    ```bash
    fly apps create x402-demo-server-mainnet
@@ -38,24 +38,6 @@ Instead of relying on the interactive `fly launch` wizard, we use declarative co
 3. Deploy the application using the predefined script in `site/package.json`:
    ```bash
    pnpm --dir site run deploy:fly:mainnet
-   ```
-
-### Option B: Create Testnet Server
-1. Create the application container:
-   ```bash
-   fly apps create x402-demo-server-testnet
-   ```
-2. Set the necessary environment secrets for the test environment:
-   ```bash
-   fly secrets set NANO_RPC_URL="https://rpc.beta.yournode.com" \
-                   NANO_SERVER_ADDRESS="nano_3..." \
-                   NANO_SEED="YOUR_TEST_SEED_HERE" \
-                   NANO_SERVER_PRIVATE_KEY="YOUR_TEST_PRIVATE_KEY_HERE" \
-                   --app x402-demo-server-testnet
-   ```
-3. Deploy the application using the predefined script in `site/package.json`:
-   ```bash
-   pnpm --dir site run deploy:fly:testnet
    ```
 
 ---
@@ -88,12 +70,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy Mainnet
+      - name: Deploy
         run: pnpm --dir site run deploy:fly:mainnet
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      - name: Deploy Testnet
-        run: pnpm --dir site run deploy:fly:testnet
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 ```

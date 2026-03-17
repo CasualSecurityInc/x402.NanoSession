@@ -66,7 +66,6 @@ The demo server is a live backend Node.js server that acts as an x402 Facilitato
 
 **Deployment**: Fly.io (separate from docs site)
 - Mainnet: `pnpm deploy:fly:mainnet`
-- Testnet: `pnpm deploy:fly:testnet`
 
 **Core Mechanics:**
 1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/facilitator`, and returns the `HTTP 402 Payment Required` payload.
@@ -97,11 +96,10 @@ pnpm dev:demo
 **Commands:**
 | Command | Purpose |
 |---------|---------|
-| `pnpm dev:demo` | All: site watcher + VitePress (5173) + demo servers (3001/3002) |
+| `pnpm dev:demo` | All: site watcher + VitePress (5173) + demo server (3001) |
 | `pnpm site:dev` | Site only: source watcher + VitePress (5173) |
 | `pnpm site:build` | Build static site (set `SPEC_REV=rev6`) |
 | `pnpm demo:mainnet` | Demo server only: mainnet (3001) |
-| `pnpm demo:testnet` | Demo server only: testnet (3002) |
 
 **Note:** `site:dev` watches `../docs/*.md` and `protected.md` for changes and rebuilds automatically.
 

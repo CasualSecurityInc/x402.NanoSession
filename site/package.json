@@ -10,11 +10,9 @@
     "site:preview": "vitepress preview .",
     "demo:server": "tsx watch protected-resource-demo-server/index.ts",
     "demo:mainnet": "DOTENV_CONFIG_PATH=../.env pnpm demo:server",
-    "demo:testnet": "DOTENV_CONFIG_PATH=../.env.testnet pnpm demo:server",
     "dev:demo": "TAG_MODULUS=10000 TAG_MULTIPLIER=1000000000000000000000000 ./scripts/dev-demo.sh",
     "test:server": "vitest run protected-resource-demo-server/",
     "deploy:fly:mainnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.mainnet.toml .",
-    "deploy:fly:testnet": "cd .. && fly deploy -c site/deploy/fly.io/fly.testnet.toml .",
     "clean": "rm -rf gen .vitepress/cache"
   },
   "devDependencies": {

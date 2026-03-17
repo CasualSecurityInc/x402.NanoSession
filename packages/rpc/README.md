@@ -92,6 +92,10 @@ const client = new NanoRpcClient({
 - `generateWork(hash: string, difficulty?: string): Promise<string>` - Request PoW generation
 - `getActiveDifficulty(): Promise<string \| undefined>` - Get current network difficulty
 
+## Documentation
+
+Full protocol specification and guides: <https://csi.ninzin.net/x402.NanoSession/>
+
 ## License
 
 MIT

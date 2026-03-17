@@ -78,3 +78,11 @@ This adapter handles key translation duties:
 The adapter passes `extensions` through to the underlying NanoSession handlers without modification. This means x402 core extensions like [`payment-identifier`](https://docs.x402.org/) (idempotency keys) work transparently when used with this adapter.
 
 `@nanosession/core` provides utility helpers for declaring, appending, and extracting payment identifiers — see the [root README](../../README.md#x402-extensions) for usage.
+
+## Documentation
+
+Full protocol specification and guides: <https://csi.ninzin.net/x402.NanoSession/>
+
+## License
+
+MIT

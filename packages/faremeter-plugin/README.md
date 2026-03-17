@@ -134,6 +134,10 @@ See [`examples/faremeter-server/`](../../examples/faremeter-server/) for a compl
 - NanoSession facilitator service
 - 402 Payment Required flow
 
+## Documentation
+
+Full protocol specification and guides: <https://csi.ninzin.net/x402.NanoSession/>
+
 ## License
 
 MIT

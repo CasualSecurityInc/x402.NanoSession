@@ -13,18 +13,18 @@ import type { PaymentRequirements } from '@nanosession/core';
 // Configuration
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3000';
 const RPC_URL = process.env.NANO_RPC_URL || 'https://rpc.nano.to';
-const SEED = process.env.NANO_TEST_SEED;
+const SEED = process.env.NANO_SEED;
 const MAX_SPEND = process.env.NANO_MAX_SPEND || '10000000000000000000000000'; // 0.01 XNO default
 
 // Validate configuration
 if (!SEED) {
-  console.error('❌ Error: NANO_TEST_SEED environment variable is required');
+  console.error('❌ Error: NANO_SEED environment variable is required');
   console.error('');
   console.error('Please set it before running the client:');
-  console.error('  export NANO_TEST_SEED=your_64_char_hex_seed');
+  console.error('  export NANO_SEED=your_64_char_hex_seed');
   console.error('');
-  console.error('Or create a .env.mainnet file and source it:');
-  console.error('  source ../../.env.mainnet && npx tsx src/index.ts');
+  console.error('Or create a .env file and source it:');
+  console.error('  source ../../.env && npx tsx src/index.ts');
   process.exit(1);
 }
 

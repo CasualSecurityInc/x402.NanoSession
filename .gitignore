@@ -18,10 +18,10 @@ build/
 # Test environment (contains secrets)
 .env*
 !.env*.example
-e2e.env
-test/integration/e2e.env
+.env
+test/integration/.env
 test/integration/*.env
-!test/integration/e2e.env.example
+!test/integration/.env.example
 
 # Terminal recordings
 *.rec

@@ -249,7 +249,7 @@ pnpm vitest run test/integration/payment-flow.test.ts
 
 Setup:
 ```bash
-cp test/integration/e2e.env.example test/integration/e2e.env
+cp .env.example .env
 # Edit with your test wallet seed
 ```
 

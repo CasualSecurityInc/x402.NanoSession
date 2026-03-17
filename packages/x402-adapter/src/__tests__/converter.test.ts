@@ -179,6 +179,7 @@ describe('toNanoRequirements', () => {
       maxTimeoutSeconds: 300,
       extra: {
         nanoSignature: {
+          url: 'https://example.com/api',
           messageToSign: 'block_hash+url'
         }
       }
@@ -187,6 +188,7 @@ describe('toNanoRequirements', () => {
     const result = toNanoRequirements(x402Req as any);
     expect(result).not.toBeNull();
     expect(result?.extra?.nanoSignature).toBeDefined();
+    expect(result?.extra?.nanoSignature?.url).toBe('https://example.com/api');
     expect(result?.extra?.nanoSignature?.messageToSign).toBe('block_hash+url');
   });
 });

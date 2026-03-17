@@ -45,6 +45,40 @@ importers:
         specifier: workspace:*
         version: link:../../packages/rpc
 
+  examples/faremeter-quickstart:
+    dependencies:
+      '@faremeter/fetch':
+        specifier: ^0.16.0
+        version: 0.16.0
+      '@faremeter/middleware':
+        specifier: ^0.16.0
+        version: 0.16.0
+      '@nanosession/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@nanosession/faremeter':
+        specifier: workspace:*
+        version: link:../../packages/faremeter-plugin
+      '@nanosession/rpc':
+        specifier: workspace:*
+        version: link:../../packages/rpc
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      express:
+        specifier: ^5.0.1
+        version: 5.2.1
+      tsx:
+        specifier: ^4.19.1
+        version: 4.21.0
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   examples/faremeter-server:
     dependencies:
       '@faremeter/middleware':
@@ -1016,6 +1050,9 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@faremeter/fetch@0.16.0':
+    resolution: {integrity: sha512-dcITgX/U1c0hUYhafSgExdLyuv2DM5qyFnhQXLFHrGW1iSgsY8oNBAm4twF6jo/qC7TjZZ2QAt4OtvupwfR07g==}
 
   '@faremeter/logs@0.16.0':
     resolution: {integrity: sha512-1f4XHqGklWtdBd6kdFDEJ9tGLtqIxe3GqclPN4nlO64HLX4nHyzoD+QLEqLqR0008MJj278RyVZ4FwWbCrP6nw==}
@@ -5557,6 +5594,11 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
+
+  '@faremeter/fetch@0.16.0':
+    dependencies:
+      '@faremeter/types': 0.16.0
+      arktype: 2.1.21
 
   '@faremeter/logs@0.16.0': {}
 

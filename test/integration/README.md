@@ -22,12 +22,12 @@ This ensures payments flow between different addresses (avoiding acct0→acct0 w
 
 1. Copy the example environment file (files are in this directory):
    ```bash
-    cp e2e.env.example e2e.env
+    cp .env.example .env
     ```
 
-2. Edit `e2e.env` with your test wallet seed:
+2. Edit `.env` with your test wallet seed:
    ```bash
-   NANO_TEST_SEED=your_64_char_hex_seed_here
+   NANO_SEED=your_64_char_hex_seed_here
    NANO_RPC_URL=https://rpc.nano.to
    NANO_MAX_SPEND=1000000000000000000000000000  # 0.001 XNO in raw
    ```
@@ -69,7 +69,7 @@ If the primary fails, requests automatically retry on backup endpoints.
 ## Running Tests
 
 ```bash
-# Run integration tests (loads e2e.env automatically)
+# Run integration tests (loads .env automatically)
 pnpm test:integration
 
 # Or run all tests including integration
@@ -102,13 +102,13 @@ pnpm test
 - **Automatic sweep**: Funds are returned to Account #0 after test
 - **Balance checks**: Test validates sufficient balance before attempting payments
 - **Maximum spend**: Hard limit per test (default 0.001 XNO)
-- **Auto-skip**: Tests skip gracefully if `NANO_TEST_SEED` is not set
+- **Auto-skip**: Tests skip gracefully if `NANO_SEED` is not set
 
 ## Troubleshooting
 
-**Test skips with "NANO_TEST_SEED not set"**
-- Ensure `e2e.env` file exists in project root
-- Check that NANO_TEST_SEED is set to a valid 64-character hex string
+**Test skips with "NANO_SEED not set"**
+- Ensure `.env` file exists in project root
+- Check that NANO_SEED is set to a valid 64-character hex string
 
 **"Insufficient balance" errors**
 - Account #0 (derived from seed with index 0) needs balance
@@ -174,7 +174,7 @@ Integration tests can also run in CI via manual trigger.
 
    | Secret | Description |
    |--------|-------------|
-   | `NANO_TEST_SEED` | 64-char hex seed (Account #0 must be funded) |
+   | `NANO_SEED` | 64-char hex seed (Account #0 must be funded) |
    | `NANO_RPC_URL` | RPC endpoint, optionally with API key in query params |
 
 ### Running

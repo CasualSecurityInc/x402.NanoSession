@@ -8,7 +8,7 @@ import { NanoRpcClient } from '@nanosession/rpc';
 import { encodePaymentRequired, decodePaymentRequired, decodePaymentSignature, encodePaymentSignature } from '@nanosession/core';
 import type { PaymentRequirements } from '@nanosession/core';
 
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || './.env.mainnet' });
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || './.env' });
 
 describe('Integration: Full Payment Flow', () => {
   let shouldSkip = false;
@@ -308,11 +308,11 @@ describe('Integration: Full Payment Flow', () => {
 
 
   beforeAll(async () => {
-    seed = process.env.NANO_TEST_SEED || '';
+    seed = process.env.NANO_SEED || '';
     if (!seed) {
-      skipReason = 'NANO_TEST_SEED not set';
+      skipReason = 'NANO_SEED not set';
       console.log(`\n⚠️  Skipping integration tests: ${skipReason}`);
-      console.log('   Create e2e.env file from e2e.env.example to run integration tests\n');
+      console.log('   Create .env file from .env.example to run integration tests\n');
       shouldSkip = true;
       return;
     }

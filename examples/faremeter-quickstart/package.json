@@ -1,0 +1,27 @@
+{
+  "name": "@nanosession/examples-faremeter-quickstart",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Example: NanoSession + Faremeter Quickstart Demo",
+  "type": "module",
+  "scripts": {
+    "start:facilitator": "tsx src/facilitator.ts",
+    "start:server": "tsx src/server.ts",
+    "start:client": "tsx src/client.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nanosession/core": "workspace:*",
+    "@nanosession/rpc": "workspace:*",
+    "@nanosession/faremeter": "workspace:*",
+    "@faremeter/middleware": "^0.16.0",
+    "@faremeter/fetch": "^0.16.0",
+    "express": "^5.0.1",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "typescript": "^5.6.3"
+  }
+}

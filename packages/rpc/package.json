@@ -26,5 +26,10 @@
   "devDependencies": {
     "@types/debug": "^4.1.12"
   },
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CasualSecurityInc/x402.NanoSession",
+    "directory": "packages/rpc"
+  }
 }

@@ -22,5 +22,10 @@
   "dependencies": {
     "nanocurrency": "^2.5.0",
     "zod": "^3.22.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CasualSecurityInc/x402.NanoSession",
+    "directory": "packages/core"
   }
 }

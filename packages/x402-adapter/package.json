@@ -38,5 +38,10 @@
     "@nanosession/rpc": "workspace:*"
   },
   "devDependencies": {},
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CasualSecurityInc/x402.NanoSession",
+    "directory": "packages/x402-adapter"
+  }
 }

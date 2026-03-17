@@ -27,5 +27,10 @@
     "@nanosession/client": "workspace:*",
     "@nanosession/core": "workspace:*",
     "@nanosession/facilitator": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CasualSecurityInc/x402.NanoSession",
+    "directory": "packages/faremeter-plugin"
   }
 }

@@ -69,14 +69,15 @@ The demo server is a live backend Node.js server that acts as an x402 Facilitato
 
 **Core Mechanics:**
 1. **Requirements Generation**: `routes/protected.ts` receives client requests, generates a cryptographically secure `sessionId` + `tag` via `@nanosession/facilitator`, and returns the `HTTP 402 Payment Required` payload.
-2. **WebSocket Bridge**: `services/nano-websocket.ts` listens to the public Nano network (`wss://ws.nano.to`) for incoming SEND or RECEIVE blocks hitting the `NANO_SERVER_ADDRESS`, extracting the dust tag.
-3. **Server-Sent Events (SSE)**: `routes/status.ts` pipes verified block hashes back to the Vue `<NanoPaywall>` client in real-time, instantly unlocking the UI.
+2. **Demo Destination Allocation**: `protected-resource-demo-server/destination-pool.ts` can derive a bounded low-index pay-to address pool from `NANO_TEST_SEED` for per-challenge demo destinations. If no test seed is configured, the demo falls back to `NANO_SERVER_ADDRESS`.
+3. **Polling Helper**: `routes/poll.ts` lets the browser demo look up a matching send by `payerAccount + payTo + amount` after an external wallet payment.
 
 **Configuration (`.env`):**
 
 To run the server, `site/.env` MUST be configured (see `site/.env.example`):
 - `NANO_RPC_URL` (for REST verification)
-- `NANO_SERVER_ADDRESS` (The address the Facilitator watches for dust payments)
+- `NANO_SERVER_ADDRESS` (fixed fallback demo destination if no test seed is configured)
+- `NANO_TEST_SEED` (preferred for deriving a bounded per-challenge demo destination pool)
 
 ### 🖥️ Local Development with tmux
 

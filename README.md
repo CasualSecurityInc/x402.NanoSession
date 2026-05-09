@@ -1,19 +1,19 @@
-# x402 with Nano
+# x402.NanoSession
 
 > **Feeless, instant machine-to-machine payments via HTTP 402**
 
 Implement the [HTTP 402](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402) status code using [Nano](https://nano.org/) (XNO) cryptocurrency. Zero fees. Sub-second settlement. High-frequency M2M payments.
 
-This repository contains a suite of TypeScript libraries and reference implementations for building x402-compatible services and clients on the Nano network.
+This repository contains the **x402-style HTTP binding** for the `nanoMacaroon` mechanism plus a protected-resource demo and supporting site/docs.
 
 ## Why Nano for x402?
 
 - **Feeless**: Nano has no transaction fees — pay exactly what you owe
 - **Instant**: Sub-second confirmation, no block wait times
-- **Protocol-Bound**: Payments are cryptographically tied to requests (via `nanoSession` or `nanoSignature`)
-- **Simple**: HTTP headers + one RPC call = payment verified
+- **Protocol-Bound**: Payment settlement is bound to an issued challenge and redeemed into a reusable capability
+- **Simple**: `PAYMENT-REQUIRED` -> pay -> `PAYMENT-SIGNATURE` retry -> `PAYMENT-RESPONSE`
 
-The **x402 with Nano** implementation supports multiple security mechanisms, including `nanoSession` (stateful session binding) and `nanoSignature` (stateless cryptographic signature). See the [Rev 7 Protocol Spec](./docs/x402_NanoSession_rev7_Protocol.md) for security details.
+The active direction in this repository is **Rev 8**: a single-track x402 binding built on top of `nanoMacaroon`. Older `nanoSession` / `nanoSignature` material should be treated as legacy or archival context, not the current protocol direction.
 
 ## Repository Layout
 
@@ -29,7 +29,7 @@ x402.NanoSession/
 │   ├── standalone-facilitator/ # Reference standalone facilitator server
 │   ├── client/                 # Reference paying client
 │   └── faremeter-server/       # Express + Faremeter integration example
-├── docs/                       # Rev 7 protocol docs (source of truth)
+├── docs/                       # Active protocol docs (Rev 8 source of truth)
 ├── site/                       # VitePress docs + protected-resource demo server
 └── test/integration/           # E2E tests with real Nano mainnet transactions
 ```
@@ -54,31 +54,32 @@ Generate and preview the protocol specification website:
 
 ```bash
 cd site
-SPEC_REV=rev7 pnpm site:build    # Build static site from docs/
+SPEC_REV=rev8 pnpm site:build    # Build static site from docs/
 pnpm site:preview                 # Preview at localhost:4173
 ```
 
 For development with hot reload:
 ```bash
 cd site
-SPEC_REV=rev7 pnpm site:dev      # Dev server at localhost:5173
+SPEC_REV=rev8 pnpm site:dev      # Dev server at localhost:5173
 ```
 
-### Reference Server & Client
+### Protected Resource Demo
 
-Run the example implementations:
+Run the docs site and protected-resource demo:
 
 ```bash
-# Terminal 1: Start the payment-protected server
-cd examples/standalone-facilitator
-NANO_SERVER_ADDRESS=nano_your_address pnpm start
-
-# Terminal 2: Run the paying client
-cd examples/client
-NANO_SEED=your_64_char_hex_seed pnpm start
+cd site
+pnpm dev:demo
 ```
 
-See [examples/README.md](./examples/README.md) for configuration options.
+Then open the protected demo page and inspect the browser Network panel to see the rev8 flow:
+
+1. initial protected resource request returns `402` with `PAYMENT-REQUIRED`
+2. the demo server allocates a per-challenge destination from a bounded derived address pool when `NANO_TEST_SEED` is configured, otherwise it falls back to `NANO_SERVER_ADDRESS`
+3. browser polls for a matching send from a user-supplied payer account
+3. browser retries the protected resource request with `PAYMENT-SIGNATURE`
+4. server returns `200` with `PAYMENT-RESPONSE`
 
 ### Faremeter Integration
 
@@ -129,8 +130,7 @@ pnpm test:integration
 
 | Resource | Description |
 |----------|-------------|
-| **[Rev 7 Intro](./docs/x402_NanoSession_rev7_Intro.md)** | High-level overview and Rev 7 architecture |
-| **[Rev 7 Protocol Spec](./docs/x402_NanoSession_rev7_Protocol.md)** | Canonical wire format and security requirements |
+| **[Rev 8 Protocol Spec](./docs/x402_NanoSession_rev8_Protocol.md)** | Active x402 binding spec for `nanoMacaroon` |
 | **[Examples](./examples/)** | Working server and client with step-by-step instructions |
 | **[Integration Tests](./test/integration/)** | Real Nano transactions on mainnet |
 

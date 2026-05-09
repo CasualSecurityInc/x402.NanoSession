@@ -36,6 +36,8 @@
     "vue": "^3.3.0"
   },
   "dependencies": {
+    "@nanomacaroon/core": "file:../../nanoMacaroon/packages/core",
+    "@nanomacaroon/facilitator": "file:../../nanoMacaroon/packages/facilitator",
     "@nanosession/core": "workspace:*",
     "@nanosession/facilitator": "workspace:*",
     "@nanosession/rpc": "workspace:*",

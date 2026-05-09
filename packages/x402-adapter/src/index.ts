@@ -1,82 +1,106 @@
 /**
- * @nanosession/x402
- * x402 adapter for NanoSession - Nano cryptocurrency payment mechanism
+ * x402.NanoSession Rev 8 Adapter
  * 
- * This package provides x402-compatible implementations for the NanoSession protocol,
- * allowing Nano cryptocurrency to be used in x402 payment flows.
- * 
- * @example
- * ```typescript
- * // Server-side usage
- * import { ExactNanoScheme } from '@nanosession/x402/server';
- * 
- * const scheme = new ExactNanoScheme();
- * const assetAmount = await scheme.parsePrice("$0.001", "nano:mainnet");
- * ```
- * 
- * @example
- * ```typescript
- * // Facilitator usage
- * import { ExactNanoFacilitator } from '@nanosession/x402/facilitator';
- * 
- * const facilitator = new ExactNanoFacilitator({
- *   rpcClient: nanoRpcClient,
- * });
- * 
- * const verifyResult = await facilitator.verify(payload, requirements);
- * ```
- * 
- * @example
- * ```typescript
- * // Client usage
- * import { ExactNanoClient } from '@nanosession/x402/client';
- * 
- * const client = new ExactNanoClient({
- *   rpcClient: nanoRpcClient,
- *   seed: 'your-hex-seed',
- * });
- * 
- * const paymentPayload = await client.createPaymentPayload(2, requirements);
- * ```
+ * x402 binding using nanoMacaroon mechanism.
+ * Simplified single-track implementation.
  */
 
-// Re-export types
-export type {
-  // x402 types
-  Price,
-  Network,
-  AssetAmount,
-  PaymentRequirements,
-  PaymentPayload,
-  FacilitatorContext,
-  VerifyResponse,
-  SettleResponse,
-  MoneyParser,
-  PaymentPayloadContext,
-  PaymentPayloadResult,
-  SchemeNetworkServer,
-  SchemeNetworkFacilitator,
-  SchemeNetworkClient,
-} from './types.js';
+import type { NanoMacaroonFacilitator } from '@nanomacaroon/facilitator';
+import type { PaymentRequired, PaymentPayload, PaymentRequirements } from '@nanosession/core';
+import { buildPaymentRequired, encodePaymentRequired, decodePaymentPayload } from '@nanosession/core';
 
-// Re-export converter utilities
-export {
-  toNanoRequirements,
-  toX402Requirements,
-  toNanoPayload,
-  toX402Payload,
-  parseMoneyToRawNano,
-  isAssetAmount,
-  isNanoSessionRequirements,
-  getDefaultNanoAssetAmount,
-} from './converter.js';
+export type { PaymentRequired, PaymentPayload, PaymentRequirements };
 
-// Re-export context utilities
-export {
-  x402ContextStorage,
-  withX402Context,
-} from './context.js';
-export type { X402Context } from './context.js';
+/**
+ * x402 Rev 8 Server Adapter
+ */
+export class X402Adapter {
+  constructor(private facilitator: NanoMacaroonFacilitator) {}
 
-// Version
-export const VERSION = '0.1.0';
+  /**
+   * Create a payment required response
+   */
+  async createPaymentRequired(
+    resourceUrl: string,
+    amount: string,
+    destination: string,
+    options?: {
+      description?: string;
+      mimeType?: string;
+    }
+  ): Promise<{ status: 402; header: string; body: PaymentRequired }> {
+    const challenge = await this.facilitator.createChallenge(
+      destination,
+      amount,
+      {
+        resourceUrl,
+        resourceDescription: options?.description,
+      }
+    );
+
+    const paymentRequired = buildPaymentRequired(resourceUrl, challenge, options);
+
+    return {
+      status: 402,
+      header: encodePaymentRequired(paymentRequired),
+      body: paymentRequired,
+    };
+  }
+
+  /**
+   * Verify a payment payload
+   */
+  async verifyPayment(payload: PaymentPayload): Promise<{
+    valid: boolean;
+    error?: string;
+    credential?: string;
+  }> {
+    // Check for credential first
+    if (payload.payload.credential) {
+      const result = await this.facilitator.verifyCredential(
+        payload.payload.credential,
+        payload.resource?.url
+      );
+      return {
+        valid: result.valid,
+        error: result.error,
+        credential: result.valid ? payload.payload.credential : undefined,
+      };
+    }
+
+    // Otherwise verify settlement proof
+    const challengeId = payload.accepted.extra?.challengeId;
+    if (!challengeId) {
+      return { valid: false, error: 'Missing challenge ID' };
+    }
+
+    const proof = {
+      blockHash: payload.payload.proof,
+      sourceAddress: '', // Will be verified from block
+      challengeId,
+    };
+
+    const result = await this.facilitator.verifySettlement(proof);
+    return {
+      valid: result.valid,
+      error: result.error,
+      credential: result.credential,
+    };
+  }
+}
+
+/**
+ * Parse payment signature header
+ */
+export function parsePaymentSignature(header: string): PaymentPayload | null {
+  return decodePaymentPayload(header);
+}
+
+/**
+ * Encode payment required for header
+ */
+export function encodePaymentRequiredHeader(paymentRequired: PaymentRequired): string {
+  return encodePaymentRequired(paymentRequired);
+}
+
+export { encodePaymentRequired, decodePaymentPayload };

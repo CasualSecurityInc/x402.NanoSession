@@ -1,29 +1,30 @@
 /**
- * NanoSession protocol constants
+ * x402.NanoSession Rev 8 Constants
  */
 
 import type { Network } from './types.js';
 
-/** Tag modulus for raw tagging (10 million) */
-export const TAG_MODULUS = 10_000_000;
+/** Protocol version */
+export const VERSION = '8.0.0';
 
-/**
- * Tag multiplier for raw tagging (string to preserve precision).
- * Defaults to "1" (no scaling).
- */
-export const TAG_MULTIPLIER = '1';
+/** x402 version */
+export const X402_VERSION = 2;
 
-/** Scheme identifier for NanoSession */
-export const SCHEME = 'exact';
+/** Scheme identifier */
+export const SCHEME = 'exact' as const;
 
-/** Network identifier (CAIP-2 format) - unofficial */
+/** Network identifier */
 export const NETWORK: Network = 'nano:mainnet';
 
-/** Asset identifier - Nano (XNO) */
+/** Asset identifier */
 export const ASSET = 'XNO';
 
-/** Protocol version */
-export const VERSION = '0.1.0';
-
-/** Default payment timeout in seconds (5 minutes) */
+/** Default timeout in seconds (5 minutes) */
 export const DEFAULT_TIMEOUT_SECONDS = 300;
+
+/** HTTP headers */
+export const HEADERS = {
+  PAYMENT_REQUIRED: 'PAYMENT-REQUIRED',
+  PAYMENT_SIGNATURE: 'PAYMENT-SIGNATURE',
+  PAYMENT_RESPONSE: 'PAYMENT-RESPONSE',
+} as const;

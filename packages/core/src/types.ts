@@ -1,99 +1,160 @@
 /**
- * NanoSession x402 V2 standard types
+ * x402.NanoSession Rev 8 Types
+ * 
+ * Simplified single-track binding using nanoMacaroon mechanism.
+ * Clean break from Rev 6/7 - no backward compatibility.
  */
 
+import type {
+  Network,
+  Challenge,
+  SettlementProof,
+  SettlementResult,
+  AccessProof,
+  MacaroonCredential,
+} from '@nanomacaroon/core';
+
 /**
- * Metadata about the requested resource
+ * Re-export core types for x402 compatibility
+ */
+export type { Network, Challenge, SettlementProof, SettlementResult, AccessProof, MacaroonCredential };
+
+/**
+ * x402 V2 Payment Required response (Rev 8)
+ */
+export interface PaymentRequired {
+  /** Protocol version */
+  x402Version: 2;
+  
+  /** Resource information */
+  resource: ResourceInfo;
+  
+  /** Accepted payment options */
+  accepts: PaymentRequirements[];
+  
+  /** Optional extensions */
+  extensions?: Record<string, unknown>;
+}
+
+/**
+ * Resource information
  */
 export interface ResourceInfo {
-  /** Public URL of the resource */
+  /** URL of the protected resource */
   url: string;
+  
   /** Human-readable description */
   description?: string;
-  /** Content type of the resource */
+  
+  /** Content type */
   mimeType?: string;
 }
 
-export interface NanoSessionExtra {
-  /** Session identifier */
-  id: string;
-  /** Human/audit-visible tag value */
-  tag: number;
-  /** Underlying resource price before tag amount is added (raw) */
-  resourceAmountRaw: string;
-  /** Tag component encoded into the payment amount (raw) */
-  tagAmountRaw: string;
-  /** ISO timestamp when tag reservation expires */
-  expiresAt?: string;
-}
-
-export interface NanoSignatureExtra {
-  /** The canonical URL that must be signed (prevents replay attacks across different endpoints) */
-  url: string;
-  /** The message template that the client must sign (e.g., "block_hash+url") */
-  messageToSign?: string;
-}
-
 /**
- * Network identifier in CAIP-2 format.
- * @example "nano:mainnet" - Nano mainnet
+ * Payment requirements for x402 V2
  */
-export type Network = `${string}:${string}`;
-
 export interface PaymentRequirements {
-  /** Payment scheme identifier (must be "exact") */
-  scheme: string;
-  /** Network identifier (e.g. "nano:mainnet") */
-  network: Network;
-  /** Asset identifier (e.g. "XNO") */
+  /** Scheme identifier - always "exact" */
+  scheme: 'exact';
+  
+  /** Network identifier (e.g., "nano:mainnet") */
+  network: `${string}:${string}`;
+  
+  /** Asset identifier (e.g., "XNO") */
   asset: string;
-  /** Total amount to send in raw (normative payment amount) */
+  
+  /** Amount in raw */
   amount: string;
-  /** Address to pay the total amount to */
+  
+  /** Destination address */
   payTo: string;
-  /** Maximum time in seconds to complete payment */
+  
+  /** Maximum timeout in seconds */
   maxTimeoutSeconds: number;
-  /** Scheme-specific extra data, now namespaced for Rev 7 Dual-Track */
+  
+  /** nanoMacaroon-specific data */
   extra: {
-    nanoSession?: NanoSessionExtra;
-    nanoSignature?: NanoSignatureExtra;
-    [key: string]: unknown;
+    /** Full nanoMacaroon challenge envelope */
+    challenge: Challenge;
   };
 }
 
 /**
- * Standard x402 V2 Payment Required response payload
+ * x402 V2 payment submission using settlement proof
  */
-export interface PaymentRequired {
-  /** Protocol version (must be 2) */
+export interface PaymentSettlementPayload {
+  /** Protocol version */
   x402Version: 2;
-  /** Human-readable error message */
-  error?: string;
-  /** Information about the protected resource */
-  resource: ResourceInfo;
-  /** List of accepted payment requirements */
-  accepts: PaymentRequirements[];
-  /** Optional protocol extensions */
-  extensions?: Record<string, unknown>;
-}
-
-/**
- * Standard x402 V2 Payment Response payload (Signature)
- */
-export interface PaymentPayload {
-  /** Protocol version (must be 2) */
-  x402Version: 2;
-  /** Information about the resource being paid for */
+  
+  /** Resource being accessed */
   resource?: ResourceInfo;
-  /** The requirements that this payment satisfies */
+  
+  /** Accepted requirements */
   accepted: PaymentRequirements;
-  /** The cryptographic payload */
-  payload: {
-    /** The Nano block hash serving as the proof of payment */
-    proof: string;
-    /** In Track 2 (nano-exact-broadcast-signature), the Ed25519 signature binding the block to the URL */
-    signature?: string;
-  };
-  /** Optional protocol extensions */
+
+  /** Settlement proof */
+  payload: SettlementProof;
+  
+  /** Optional extensions */
   extensions?: Record<string, unknown>;
 }
+
+/**
+ * x402 V2 access request using a previously issued credential
+ */
+export interface PaymentAccessPayload {
+  /** Protocol version */
+  x402Version: 2;
+
+  /** Resource being accessed */
+  resource?: ResourceInfo;
+
+  /** Access proof */
+  payload: AccessProof;
+
+  /** Optional extensions */
+  extensions?: Record<string, unknown>;
+}
+
+/**
+ * x402 V2 payment response
+ */
+export interface PaymentResponse {
+  /** Protocol version */
+  x402Version: 2;
+
+  /** Settlement result */
+  result: SettlementResult;
+
+  /** Optional status indicator for UI clients */
+  success?: boolean;
+
+  /** Optional error */
+  error?: string;
+}
+
+export type PaymentPayload = PaymentSettlementPayload | PaymentAccessPayload;
+
+/**
+ * HTTP header names for x402
+ */
+export const HEADERS = {
+  PAYMENT_REQUIRED: 'PAYMENT-REQUIRED',
+  PAYMENT_SIGNATURE: 'PAYMENT-SIGNATURE',
+  PAYMENT_RESPONSE: 'PAYMENT-RESPONSE',
+} as const;
+
+/**
+ * Scheme identifier for x402.NanoSession
+ */
+export const SCHEME = 'exact' as const;
+
+/**
+ * Network identifier
+ */
+export const NETWORK = 'nano:mainnet' as const;
+
+/**
+ * Asset identifier
+ */
+export const ASSET = 'XNO' as const;

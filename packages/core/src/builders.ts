@@ -1,177 +1,195 @@
+/**
+ * x402.NanoSession Rev 8 Builders
+ * 
+ * Build and parse x402 V2 payloads using nanoMacaroon mechanism.
+ */
+
 import type {
-  Network,
-  PaymentPayload,
+  Challenge,
+  SettlementProof,
+  SettlementResult,
+  AccessProof,
+} from '@nanomacaroon/core';
+import type {
   PaymentRequired,
   PaymentRequirements,
-  ResourceInfo
+  PaymentPayload,
+  PaymentSettlementPayload,
+  PaymentAccessPayload,
+  PaymentResponse,
 } from './types.js';
-import { ASSET, NETWORK, SCHEME } from './constants.js';
-import { assertValidPaymentRequirements } from './utils.js';
-
-export interface CreatePaymentRequiredArgs {
-  resource: ResourceInfo;
-  accepts: PaymentRequirements[];
-  error?: string;
-  extensions?: Record<string, unknown>;
-}
-
-export interface CreatePaymentPayloadArgs {
-  accepted: PaymentRequirements;
-  proof: string;
-  signature?: string;
-  resource?: ResourceInfo;
-  extensions?: Record<string, unknown>;
-}
-
-export interface CreatePaymentRequirementsArgs {
-  payTo: string;
-  maxTimeoutSeconds: number;
-  id: string;
-  tag: number;
-  resourceAmountRaw: string;
-  tagAmountRaw: string;
-  expiresAt: string;
-  amount?: string;
-  scheme?: string;
-  network?: Network;
-  asset?: string;
-}
+import { X402_VERSION, SCHEME, NETWORK, ASSET, DEFAULT_TIMEOUT_SECONDS } from './constants.js';
 
 /**
- * Creates canonical NanoSession payment requirements and enforces
- * `amount = resourceAmountRaw + tagAmountRaw`.
+ * Build PaymentRequired response from a nanoMacaroon challenge
  */
-export function createPaymentRequirements(args: CreatePaymentRequirementsArgs): PaymentRequirements {
-  const computedAmount = (
-    BigInt(args.resourceAmountRaw) +
-    BigInt(args.tagAmountRaw)
-  ).toString();
-  const resolvedAmount = args.amount ?? computedAmount;
-
-  if (resolvedAmount !== computedAmount) {
-    throw new Error(
-      `Invalid requirements amount invariant: expected ${computedAmount}, got ${resolvedAmount}`
-    );
-  }
-
+export function buildPaymentRequired(
+  resourceUrl: string,
+  challenge: Challenge,
+  options: {
+    description?: string;
+    mimeType?: string;
+  } = {}
+): PaymentRequired {
   const requirements: PaymentRequirements = {
-    scheme: args.scheme ?? SCHEME,
-    network: (args.network ?? NETWORK) as Network,
-    asset: args.asset ?? ASSET,
-    amount: resolvedAmount,
-    payTo: args.payTo,
-    maxTimeoutSeconds: args.maxTimeoutSeconds,
-    extra: {
-      nanoSession: {
-        id: args.id,
-        tag: args.tag,
-        resourceAmountRaw: args.resourceAmountRaw,
-        tagAmountRaw: args.tagAmountRaw,
-        expiresAt: args.expiresAt
-      }
-    }
-  };
-
-  assertValidPaymentRequirements(requirements);
-  return requirements;
-}
-
-export interface CreateSignatureRequirementsArgs {
-  /** Destination account address */
-  payTo: string;
-  /** Maximum time in seconds to complete payment */
-  maxTimeoutSeconds: number;
-  /** Amount to pay in raw (clean resource price — no tagging) */
-  amount: string;
-  /** The canonical URL for signature binding (prevents replay attacks across different endpoints) */
-  url: string;
-  /** Template describing what the client must sign (default: "block_hash+url") */
-  messageToSign?: string;
-  scheme?: string;
-  network?: Network;
-  asset?: string;
-}
-
-/**
- * Creates canonical nanoSignature (stateless) payment requirements.
- * No session ID, no tag — the amount is the clean resource price.
- * Each variant MUST be a separate PaymentRequirements in the accepts array.
- */
-export function createSignatureRequirements(args: CreateSignatureRequirementsArgs): PaymentRequirements {
-  if (!args.amount || BigInt(args.amount) <= 0n) {
-    throw new Error('Invalid signature requirements: amount must be positive');
-  }
-
-  if (!args.url || args.url.trim() === '') {
-    throw new Error('Invalid signature requirements: url is required for replay protection');
-  }
-
-  const requirements: PaymentRequirements = {
-    scheme: args.scheme ?? SCHEME,
-    network: (args.network ?? NETWORK) as Network,
-    asset: args.asset ?? ASSET,
-    amount: args.amount,
-    payTo: args.payTo,
-    maxTimeoutSeconds: args.maxTimeoutSeconds,
-    extra: {
-      nanoSignature: {
-        url: args.url,
-        messageToSign: args.messageToSign ?? 'block_hash+url'
-      }
-    }
-  };
-
-  return requirements;
-}
-
-/**
- * Creates a canonical x402 PaymentRequired payload and validates all requirements.
- */
-export function createPaymentRequired(args: CreatePaymentRequiredArgs): PaymentRequired {
-  for (const requirement of args.accepts) {
-    assertValidPaymentRequirements(requirement);
-  }
-
+    scheme: SCHEME,
+    network: NETWORK,
+    asset: ASSET,
+    amount: challenge.amount,
+    payTo: challenge.destination,
+      maxTimeoutSeconds: challenge.expiresInSeconds,
+      extra: {
+        challenge,
+      },
+    };
+  
   return {
-    x402Version: 2,
-    ...(args.error ? { error: args.error } : {}),
-    resource: args.resource,
-    accepts: args.accepts,
-    ...(args.extensions ? { extensions: args.extensions } : {})
-  };
-}
-
-/**
- * Creates a canonical x402 PaymentPayload and validates the accepted requirements.
- */
-export function createPaymentPayload(args: CreatePaymentPayloadArgs): PaymentPayload {
-  assertValidPaymentRequirements(args.accepted);
-  const proof = args.proof.trim();
-  if (!proof) {
-    throw new Error('Invalid payment proof: missing payload.proof');
-  }
-
-  return {
-    x402Version: 2,
-    ...(args.resource ? { resource: args.resource } : {}),
-    accepted: args.accepted,
-    payload: { 
-      proof,
-      ...(args.signature ? { signature: args.signature } : {})
+    x402Version: X402_VERSION,
+    resource: {
+      url: resourceUrl,
+      description: options.description,
+      mimeType: options.mimeType,
     },
-    ...(args.extensions ? { extensions: args.extensions } : {})
+    accepts: [requirements],
   };
 }
 
 /**
- * Lightweight runtime validation for decoded payment payloads.
+ * Build PaymentPayload from settlement
  */
-export function assertValidPaymentPayload(payload: PaymentPayload): void {
-  if (payload.x402Version !== 2) {
-    throw new Error(`Unsupported x402 version: ${payload.x402Version}`);
+export function buildPaymentSettlementPayload(
+  requirements: PaymentRequirements,
+  proof: SettlementProof
+): PaymentSettlementPayload {
+  return {
+    x402Version: X402_VERSION,
+    accepted: requirements,
+    payload: proof,
+  };
+}
+
+/**
+ * Build access payload from a previously issued credential
+ */
+export function buildPaymentAccessPayload(
+  accessProof: AccessProof,
+): PaymentAccessPayload {
+  return {
+    x402Version: X402_VERSION,
+    payload: accessProof,
+  };
+}
+
+/**
+ * Build payment response from a settlement result
+ */
+export function buildPaymentResponse(result: SettlementResult, success = true): PaymentResponse {
+  return {
+    x402Version: X402_VERSION,
+    result,
+    success,
+  };
+}
+
+/**
+ * Parse PaymentRequired from JSON/base64
+ */
+export function parsePaymentRequired(data: string | object): PaymentRequired | null {
+  try {
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    
+    if (parsed.x402Version !== X402_VERSION) {
+      return null;
+    }
+    
+    if (!parsed.resource?.url || !Array.isArray(parsed.accepts)) {
+      return null;
+    }
+    
+    return parsed as PaymentRequired;
+  } catch {
+    return null;
   }
-  assertValidPaymentRequirements(payload.accepted);
-  if (!payload.payload?.proof || !payload.payload.proof.trim()) {
-    throw new Error('Invalid payment proof: missing payload.proof');
+}
+
+/**
+ * Parse PaymentPayload from JSON/base64
+ */
+export function parsePaymentPayload(data: string | object): PaymentPayload | null {
+  try {
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    
+    if (parsed.x402Version !== X402_VERSION) {
+      return null;
+    }
+    
+    if (!parsed.payload?.mode) {
+      return null;
+    }
+    
+    return parsed as PaymentPayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Encode PaymentRequired to Base64 for header
+ */
+export function encodePaymentRequired(paymentRequired: PaymentRequired): string {
+  return Buffer.from(JSON.stringify(paymentRequired)).toString('base64url');
+}
+
+/**
+ * Decode PaymentRequired from Base64 header
+ */
+export function decodePaymentRequired(encoded: string): PaymentRequired | null {
+  try {
+    const json = Buffer.from(encoded, 'base64url').toString('utf-8');
+    return parsePaymentRequired(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Encode PaymentPayload to Base64 for header
+ */
+export function encodePaymentPayload(payload: PaymentPayload): string {
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Decode PaymentPayload from Base64 header
+ */
+export function decodePaymentPayload(encoded: string): PaymentPayload | null {
+  try {
+    const json = Buffer.from(encoded, 'base64url').toString('utf-8');
+    return parsePaymentPayload(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Encode PaymentResponse to Base64 for header
+ */
+export function encodePaymentResponse(payload: PaymentResponse): string {
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Decode PaymentResponse from Base64 header
+ */
+export function decodePaymentResponse(encoded: string): PaymentResponse | null {
+  try {
+    const json = Buffer.from(encoded, 'base64url').toString('utf-8');
+    const parsed = JSON.parse(json) as PaymentResponse;
+    if (parsed.x402Version !== X402_VERSION || !parsed.result?.mode) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
   }
 }

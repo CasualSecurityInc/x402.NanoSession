@@ -29,11 +29,13 @@ Instead of relying on the interactive `fly launch` wizard, we use declarative co
    ```
 2. Set the necessary environment secrets. *Replace the placeholder values with your actual Nano node details and secrets:*
    ```bash
-   fly secrets set NANO_RPC_URL="https://rpc.yournode.com" \
-                   NANO_SERVER_ADDRESS="nano_1..." \
-                   NANO_SEED="YOUR_SEED_HERE" \
-                   NANO_SERVER_PRIVATE_KEY="YOUR_PRIVATE_KEY_HERE" \
-                   --app x402-demo-server-mainnet
+    fly secrets set NANO_RPC_URL="https://rpc.yournode.com" \
+                    NANO_SERVER_ADDRESS="nano_1..." \
+                    NANO_TEST_SEED="YOUR_64_HEX_SEED_HERE" \
+                    NANO_DEMO_ADDRESS_START_INDEX="1" \
+                    NANO_DEMO_ADDRESS_POOL_SIZE="8" \
+                    NANO_SERVER_PRIVATE_KEY="YOUR_PRIVATE_KEY_HERE" \
+                    --app x402-demo-server-mainnet
    ```
 3. Deploy the application using the predefined script in `site/package.json`:
    ```bash

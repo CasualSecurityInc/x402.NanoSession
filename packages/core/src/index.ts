@@ -1,72 +1,48 @@
 /**
- * @nanosession/core
- * Core types, constants, and mapping for NanoSession x402 integration
+ * x402.NanoSession Core - Rev 8
+ * 
+ * Simplified single-track binding using nanoMacaroon mechanism.
  */
 
-// Re-export from constants
+// Types
+export type {
+  PaymentRequired,
+  PaymentRequirements,
+  PaymentSettlementPayload,
+  PaymentAccessPayload,
+  PaymentPayload,
+  PaymentResponse,
+  ResourceInfo,
+  Challenge,
+  SettlementProof,
+  SettlementResult,
+  AccessProof,
+  MacaroonCredential,
+} from './types.js';
+
+// Constants
 export {
-  TAG_MODULUS,
-  TAG_MULTIPLIER,
+  VERSION,
+  X402_VERSION,
   SCHEME,
   NETWORK,
   ASSET,
-  VERSION,
-  DEFAULT_TIMEOUT_SECONDS
+  DEFAULT_TIMEOUT_SECONDS,
+  HEADERS,
 } from './constants.js';
 
-// Re-export from types
-export type {
-  NanoSessionExtra,
-  NanoSignatureExtra,
-  PaymentRequirements,
-  PaymentPayload
-} from './types.js';
-
-// Re-export from mapping
+// Builders
 export {
+  buildPaymentRequired,
+  buildPaymentSettlementPayload,
+  buildPaymentAccessPayload,
+  buildPaymentResponse,
+  parsePaymentRequired,
+  parsePaymentPayload,
   encodePaymentRequired,
   decodePaymentRequired,
-  encodePaymentSignature,
-  decodePaymentSignature
-} from './mapping.js';
-
-export {
-  createPaymentRequirements,
-  createSignatureRequirements,
-  createPaymentRequired,
-  createPaymentPayload,
-  assertValidPaymentPayload
+  encodePaymentPayload,
+  decodePaymentPayload,
+  encodePaymentResponse,
+  decodePaymentResponse,
 } from './builders.js';
-
-export {
-  calculateTaggedAmount,
-  deriveAddressFromSeed,
-  assertValidRawAmount,
-  assertValidPaymentRequirements
-} from './utils.js';
-
-// Re-export payment-identifier extension helpers
-export {
-  PAYMENT_IDENTIFIER,
-  PAYMENT_ID_MIN_LENGTH,
-  PAYMENT_ID_MAX_LENGTH,
-  PAYMENT_ID_PATTERN,
-  paymentIdentifierSchema,
-  generatePaymentId,
-  isValidPaymentId,
-  isPaymentIdentifierExtension,
-  declarePaymentIdentifierExtension,
-  appendPaymentIdentifierToExtensions,
-  extractPaymentIdentifier,
-  hasPaymentIdentifier,
-  isPaymentIdentifierRequired,
-  validatePaymentIdentifierRequirement,
-  validatePaymentIdentifier
-} from './payment-identifier.js';
-
-export type {
-  PaymentIdentifierInfo,
-  PaymentIdentifierExtension,
-  PaymentIdentifierSchema,
-  PaymentIdentifierValidationResult
-} from './payment-identifier.js';

@@ -14,3 +14,18 @@
 	path = docs/references/facilitator
 	url = https://github.com/x402nano/facilitator
 	branch = main
+[submodule "docs/references/x402Nano-API"]
+	path = docs/references/x402Nano-API
+	url = https://github.com/isac-0000/x402Nano-API.git
+[submodule "docs/references/exact"]
+	path = docs/references/exact
+	url = https://github.com/x402nano/exact.git
+[submodule "docs/references/helper"]
+	path = docs/references/helper
+	url = https://github.com/x402nano/helper.git
+[submodule "docs/references/typescript-common"]
+	path = docs/references/typescript-common
+	url = https://github.com/x402nano/typescript-common.git
+[submodule "docs/references/schemes"]
+	path = docs/references/schemes
+	url = https://github.com/x402nano/schemes.git

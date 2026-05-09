@@ -16,6 +16,19 @@ This is a git submodule tracking `https://github.com/coinbase/x402.git` (main br
 
 **This submodule takes precedence over the whitepaper** when looking for original x402-spec reference material.
 
+### Ecosystem References (SECONDARY)
+
+The following repositories provide alternative or complementary implementations of the x402 protocol for the Nano network:
+
+- **`docs/references/facilitator`**: Reference facilitator implementation for Nano (`x402nano/facilitator`).
+- **`docs/references/exact`**: Exact payment scheme implementation for Nano (`x402nano/exact`).
+- **`docs/references/helper`**: Shared logic and utilities for Nano x402 components (`x402nano/helper`).
+- **`docs/references/typescript-common`**: Shared type definitions and schemas (`x402nano/typescript-common`).
+- **`docs/references/schemes`**: Registry for x402 payment schemes on Nano (`x402nano/schemes`).
+- **`docs/references/x402Nano-API`**: Integrated payment gateway API for AI agents (`isac-0000/x402Nano-API`).
+- **`docs/references/xnap`**: MetaMask Snap for Nano supporting x402 payloads (`ObsidiaHQ/xnap`).
+- **`docs/references/faremeter`**: Metered billing and sessions implementation (`faremeter/faremeter`).
+
 To initialize after cloning:
 ```bash
 git submodule update --init --recursive
@@ -26,11 +39,24 @@ To update to latest:
 git submodule update --remote docs/references/coinbase-x402
 ```
 
-### Whitepaper (SECONDARY)
+### x402 v1 vs v2 Transport Note
 
-**Location**: `docs/references/whitepaper_text.txt` and `x402-whitepaper.pdf`
+When using upstream x402 references, default to **v2 transport semantics**, not the older v1 draft.
 
-Historical snapshot of the x402 whitepaper. Use the submodule for current spec.
+- **Use v2 header names for new work:** `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, `PAYMENT-RESPONSE`
+- **Treat v1 headers as legacy/migration-only:** `X-PAYMENT`, `X-PAYMENT-RESPONSE`
+- **Do not assume v1 body-centric 402s:** in **v2**, machine-readable payment requirements belong in the Base64-encoded `PAYMENT-REQUIRED` header, not the response body
+- **Expect `x402Version: 2`** in decoded v2 payloads
+- **Use CAIP-2 network identifiers** in v2, not casual names like `base-sepolia`
+- **New implementations in this repo should use v2 naming and CAIP-2 identifiers exclusively**, even if upstream libraries still support v1 during transition
+
+Quick mapping:
+
+| Concern | x402 v1 draft | x402 v2 standard |
+| --- | --- | --- |
+| Payment submission | `X-PAYMENT` | `PAYMENT-SIGNATURE` |
+| Payment status | `X-PAYMENT-RESPONSE` | `PAYMENT-RESPONSE` |
+| Payment requirements | JSON body on `402` | `PAYMENT-REQUIRED` header |
 
 ### 📝 Naming Convention
 

@@ -1,7 +1,7 @@
 # Nano x402 Landscape
 
 **Status**: Draft  
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-05-09
 
 ## Purpose
 
@@ -20,17 +20,22 @@ x402.NanoSession targets the same broad problem space, with additional protocol 
 
 ## Review Methodology
 
-This document includes a direct code review of the local git submodule at:
+This document includes a direct code review of the local git submodules at:
 
-- `docs/references/facilitator` (submodule commit: `e7ce9e8`, reviewed on 2026-03-09)
+- `docs/references/facilitator` (submodule commit: `e7ce9e8`, reviewed on 2026-05-09)
+- `docs/references/x402Nano-API` (reviewed on 2026-05-09)
+- `docs/references/exact` (reviewed on 2026-05-09)
 
 Reviewed files:
 
-- `docs/references/facilitator/README.md` (76 lines)
+- `docs/references/facilitator/README.md` (75 lines)
 - `docs/references/facilitator/index.js` (210 lines)
 - `docs/references/facilitator/package.json` (34 lines)
 - `docs/references/facilitator/Dockerfile` (25 lines)
-- `docs/references/facilitator/docker-compose.yml` (15 lines)
+- `docs/references/facilitator/docker-compose.yml` (14 lines)
+- `docs/references/x402Nano-API/README.md` (67 lines)
+- `docs/references/exact/README.md` (85 lines)
+- `docs/references/helper/README.md` (168 lines)
 
 Limitations:
 

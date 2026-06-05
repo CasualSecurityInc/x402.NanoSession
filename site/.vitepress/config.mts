@@ -3,7 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid(defineConfig({
     title: "x402.NanoSession",
-    description: "Protocol for High-Frequency M2M Nano Payments",
+    description: "Feeless, instant machine-to-machine payments via HTTP 402 using Nano cryptocurrency",
     base: '/x402.NanoSession/',
     head: [
         ['meta', { name: 'google-site-verification', content: 'VgY_8BRCQtKfSIeArkhfYHFkP8q5YL9vELKICxFOlmQ' }]
@@ -17,13 +17,7 @@ export default withMermaid(defineConfig({
         nav: [
             { text: 'Intro', link: '/' },
             { text: 'Protocol', link: '/protocol' },
-            {
-                text: 'Appendix', items: [
-                    { text: 'Raw-Dust UX', link: '/appendix/wallet-ux' },
-                    { text: 'Glossary', link: '/appendix/glossary' },
-                    { text: 'Interoperability Matrix (CAIP & x402 v2)', link: '/appendix/interoperability-matrix' }
-                ]
-            }
+            { text: 'Demo', link: '/protected' }
         ],
 
         sidebar: [
@@ -38,18 +32,8 @@ export default withMermaid(defineConfig({
                 text: 'Specification',
                 items: [
                     { text: 'Protocol', link: '/protocol' },
-                    { text: 'Extension A: Sharded Pools', link: '/extensions/extension-a-pools' },
-                    { text: 'Extension B: Stochastic Rotation', link: '/extensions/extension-b-stochastic' },
-                    { text: 'Extension C: Rebates', link: '/extensions/extension-c-rebates' },
-                    { text: 'Extension D: Dust Return (Janitor)', link: '/extensions/extension-d-dustreturn' }
-                ]
-            },
-            {
-                text: 'Appendix',
-                items: [
-                    { text: 'Notes on Raw-Dust UX', link: '/appendix/wallet-ux' },
-                    { text: 'Glossary', link: '/appendix/glossary' },
-                    { text: 'Interoperability Matrix (CAIP & x402 v2)', link: '/appendix/interoperability-matrix' }
+                    { text: 'Track A: nanoTxn', link: '/extensions/track-a-nanotxn' },
+                    { text: 'Track B: nanoSignature', link: '/extensions/track-b-nanosignature' }
                 ]
             },
             {

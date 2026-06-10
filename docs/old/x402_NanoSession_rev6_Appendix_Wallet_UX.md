@@ -2,6 +2,9 @@
 title: Notes on Raw-Dust UX
 ---
 
+> [!CAUTION]
+> x402.NanoSession development has ceased in favor of the similarly named **x402.Nano** specification. This documentation is left as-is for historical reference but bears no authority. All further work happens in the new repository under the new name: [x402.Nano](https://github.com/CasualSecurityInc/x402.Nano).
+
 # Appendix: Notes on Raw-Dust UX
 
 NanoSession encodes session identifiers into the least significant digits of payment amounts ("raw dust"). This strictly requires sending the exact amount specified in the `nano:` URI, which human-facing wallets often support inconsistently.

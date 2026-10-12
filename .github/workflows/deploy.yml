@@ -25,16 +25,18 @@ jobs:
         with:
           node-version: '18.x'
 
-      - name: Create redirect page
+      - name: Create redirect pages
         run: |
           mkdir -p site/gen/dist
-          cat > site/gen/dist/index.html << 'HTMLEOF'
+          REDIRECT_URL="https://csi.ninzin.net/x402.Nano/"
+          for fname in index.html 404.html; do
+            cat > "site/gen/dist/${fname}" << HTMLEOF
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="refresh" content="3; url=https://csi.ninzin.net/x402.Nano/">
+            <meta http-equiv="refresh" content="3; url=${REDIRECT_URL}">
             <title>x402.NanoSession has moved to x402.Nano</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,13 +55,14 @@ jobs:
             <div class="container">
               <h1>x402.NanoSession has moved</h1>
               <p>This documentation has been consolidated into <strong>x402.Nano</strong>. You will be redirected automatically in 3 seconds.</p>
-              <p><a href="https://csi.ninzin.net/x402.Nano/"><span class="spinner"></span>Redirect now</a></p>
-              <p class="url">https://csi.ninzin.net/x402.Nano/</p>
+              <p><a href="${REDIRECT_URL}"><span class="spinner"></span>Redirect now</a></p>
+              <p class="url">${REDIRECT_URL}</p>
             </div>
-            <script>window.location.replace("https://csi.ninzin.net/x402.Nano/")</script>
+            <script>window.location.replace("${REDIRECT_URL}")</script>
           </body>
           </html>
           HTMLEOF
+          done
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

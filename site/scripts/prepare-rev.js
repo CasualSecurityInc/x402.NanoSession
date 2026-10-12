@@ -2,9 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const SPEC_REV = process.env.SPEC_REV;
+
 if (!SPEC_REV) {
-  console.error('ERROR: SPEC_REV environment variable is required. ("revX")');
-  process.exit(1);
+  console.warn('WARNING: SPEC_REV not set. Generating minimal placeholder (all pages redirect anyway).');
+  const PLACEHOLDER_DIR = path.resolve(__dirname, '../gen/docs');
+  fs.mkdirSync(PLACEHOLDER_DIR, { recursive: true });
+  fs.writeFileSync(path.join(PLACEHOLDER_DIR, 'index.md'), '# x402.NanoSession has moved\n\nThis site now redirects to [x402.Nano](https://csi.ninzin.net/x402.Nano/).\n');
+  process.exit(0);
 }
 const SOURCE_DIR = path.resolve(__dirname, '../../docs');
 const TARGET_DIR = path.resolve(__dirname, '../gen/docs');
